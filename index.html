@@ -860,7 +860,7 @@
         <div class="meta">
           Fuente:
           <a href="https://docs.google.com/spreadsheets/d/1krQxz6jWQxgCGSJaL4VziAnRQAFBmT29WKC4vThFx_M/edit" target="_blank" rel="noreferrer">Google Sheets</a>
-          · Datos leídos: 15 May 2026
+          · Datos leídos: 2 jun 2026
         </div>
       </div>
       <button class="sync" id="syncBtn" type="button"><span>&#x21bb;</span><span>Sincronizar Sheets</span></button>
@@ -1097,6 +1097,7 @@
 
     const fmt = (value, decimals = 1) => value == null ? "Pendiente" : `${Number(value).toFixed(decimals)}%`;
     const byId = (id) => document.getElementById(id);
+    const DEFAULT_DATA_READ_AT = "2026-06-02T00:00:00-05:00";
     const SYNC_STORAGE_KEY = "foodology_basicos_last_sync_v2";
     const syncStorage = {
       read() {
@@ -1115,7 +1116,7 @@
       },
     };
     const formatSyncMetaDate = (isoDate) => {
-      if (!isoDate) return "15 May 2026";
+      if (!isoDate) isoDate = DEFAULT_DATA_READ_AT;
       return new Date(isoDate).toLocaleString("es-CO", { dateStyle: "medium", timeStyle: "short" });
     };
     const updateSyncMeta = () => {
