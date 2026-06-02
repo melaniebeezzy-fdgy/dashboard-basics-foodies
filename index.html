@@ -1,0 +1,2404 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Básicos para Foodies contentos · Q2 2026</title>
+  <style>
+    :root {
+      --navy: #242f42;
+      --dark-blue: #0e2841;
+      --light-gray: #e8e8e8;
+      --teal: #156082;
+      --cyan-dark: #0b769f;
+      --cyan: #0f9ed5;
+      --slate: #345964;
+      --mauve: #96607d;
+      --bg: #f8f9fa;
+      --panel: #ffffff;
+      --soft: #f2f5f7;
+      --text-muted: #60707c;
+      --border: #d9e0e4;
+      --radius: 8px;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--navy);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      letter-spacing: 0;
+    }
+    button, select {
+      font: inherit;
+      color: inherit;
+    }
+    button {
+      border: 1px solid var(--border);
+      background: transparent;
+      border-radius: var(--radius);
+      cursor: pointer;
+    }
+    button:disabled {
+      cursor: wait;
+    }
+    a { color: var(--cyan-dark); }
+    .wrap {
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 28px 0 40px;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      padding-bottom: 18px;
+      margin-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+    .title {
+      font-size: 20px;
+      font-weight: 650;
+      color: var(--dark-blue);
+      margin-bottom: 4px;
+    }
+    .meta {
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+    .sync {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      background: var(--panel);
+      font-size: 13px;
+    }
+    .api-msg {
+      display: none;
+      margin-bottom: 16px;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--soft);
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+    .tabs, .toolbar {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+    .country-tab {
+      padding: 9px 16px;
+      font-size: 14px;
+      background: transparent;
+      color: var(--text-muted);
+      transition: 0.15s ease;
+    }
+    .country-tab.active {
+      font-weight: 650;
+      border-width: 2px;
+    }
+    .view-tab {
+      padding: 7px 12px;
+      font-size: 13px;
+      background: transparent;
+      color: var(--navy);
+    }
+    .view-tab.active {
+      background: var(--soft);
+      font-weight: 650;
+      border-color: var(--slate);
+    }
+    .city-control {
+      margin-left: auto;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+    select {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 10px;
+      background: var(--panel);
+      font-size: 13px;
+      min-width: 140px;
+    }
+    .kpis {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .kpi {
+      padding: 16px;
+      background: var(--soft);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      min-height: 116px;
+    }
+    .kpi-label {
+      color: var(--text-muted);
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+    .kpi-value {
+      font-size: 30px;
+      font-weight: 650;
+      line-height: 1.1;
+    }
+    .kpi-sub {
+      color: var(--text-muted);
+      font-size: 11px;
+      margin-top: 6px;
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 16px;
+    }
+    .panel, .kitchen-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+    .panel {
+      padding: 18px 20px;
+    }
+    .panel-title {
+      font-weight: 650;
+      margin-bottom: 14px;
+      font-size: 14px;
+      color: var(--dark-blue);
+    }
+    .small-title {
+      color: var(--slate);
+      font-size: 11px;
+      font-weight: 650;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+    }
+    .ranking {
+      max-height: none;
+      overflow: auto;
+      padding-right: 4px;
+    }
+    .dashboard-grid {
+      align-items: stretch;
+    }
+    .dashboard-ranking-panel {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+    .dashboard-ranking-panel .ranking {
+      flex: 1;
+      min-height: 0;
+    }
+    .rank-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      padding: 7px 0;
+      border-bottom: 1px solid var(--light-gray);
+    }
+    .rank-left {
+      display: flex;
+      gap: 8px;
+      min-width: 0;
+      align-items: center;
+    }
+    .rank-number {
+      min-width: 34px;
+      color: var(--slate);
+      font-size: 12px;
+    }
+    .rank-id, .kitchen-id {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .score-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 5px;
+      align-items: baseline;
+    }
+    .score-label {
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+    .score-value {
+      font-size: 13px;
+      font-weight: 650;
+    }
+    .bar {
+      height: 6px;
+      background: var(--light-gray);
+      border-radius: 999px;
+      overflow: hidden;
+      margin-bottom: 11px;
+    }
+    .bar-fill {
+      height: 100%;
+      min-width: 0;
+      border-radius: 999px;
+      transition: width 0.35s ease;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      padding: 3px 10px;
+      font-size: 12px;
+      font-weight: 650;
+      white-space: nowrap;
+    }
+    .hint {
+      color: var(--text-muted);
+      font-size: 13px;
+      margin-bottom: 16px;
+    }
+    .kitchen-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 12px;
+    }
+    .kitchen-card {
+      padding: 16px 18px;
+      cursor: pointer;
+      transition: border-color 0.15s ease, transform 0.15s ease;
+      min-height: 148px;
+    }
+    .kitchen-card:hover {
+      transform: translateY(-1px);
+    }
+    .card-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: flex-start;
+      margin-bottom: 12px;
+    }
+    .kitchen-id {
+      font-size: 14px;
+      font-weight: 650;
+    }
+    .city {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+    .mini-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px 12px;
+      margin-bottom: 12px;
+    }
+    .mini-metric {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 12px;
+      min-width: 0;
+    }
+    .mini-label {
+      color: var(--text-muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 11px;
+    }
+    .mini-value {
+      font-weight: 650;
+    }
+    .back {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 0;
+      padding: 0 0 16px;
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+    .detail-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-bottom: 24px;
+    }
+    .detail-title {
+      font-size: 22px;
+      font-weight: 650;
+      color: var(--dark-blue);
+    }
+    .detail-sub {
+      color: var(--text-muted);
+      font-size: 13px;
+      margin-top: 4px;
+    }
+    .section-label {
+      color: var(--text-muted);
+      font-size: 12px;
+      font-weight: 650;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+    .info {
+      margin-top: 20px;
+      padding: 12px 14px;
+      border-radius: var(--radius);
+      background: var(--soft);
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+    .empty {
+      padding: 34px 0;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+    .basic-group {
+      margin-bottom: 12px;
+    }
+    .basic-row {
+      margin-bottom: 11px;
+    }
+    .basic-question {
+      color: var(--text-muted);
+      font-size: 12px;
+      line-height: 1.35;
+      padding-right: 12px;
+    }
+    .basic-num {
+      color: var(--text-muted);
+      margin-right: 6px;
+    }
+    .detail-picker {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+    .detail-picker label {
+      color: var(--text-muted);
+      font-size: 13px;
+      font-weight: 650;
+    }
+    .detail-picker select {
+      min-width: min(420px, 100%);
+    }
+    .detail-summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .detail-stat {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px;
+      background: var(--soft);
+      min-height: 90px;
+    }
+    .detail-stat-label {
+      color: var(--text-muted);
+      font-size: 12px;
+      margin-bottom: 6px;
+    }
+    .detail-stat-value {
+      font-size: 22px;
+      font-weight: 650;
+      line-height: 1.1;
+    }
+    .detail-stat-sub {
+      color: var(--text-muted);
+      font-size: 11px;
+      margin-top: 5px;
+    }
+    .detail-table-wrap {
+      width: 100%;
+      overflow-x: auto;
+    }
+    .detail-table {
+      width: 100%;
+      min-width: 860px;
+      border-collapse: separate;
+      border-spacing: 0;
+      table-layout: fixed;
+      font-size: 12px;
+    }
+    .detail-table th,
+    .detail-table td {
+      vertical-align: top;
+      text-align: left;
+      border-right: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      padding: 10px;
+    }
+    .detail-table th:first-child,
+    .detail-table td:first-child {
+      border-left: 1px solid var(--border);
+    }
+    .detail-table th {
+      background: var(--soft);
+      color: var(--dark-blue);
+      font-weight: 650;
+      border-top: 1px solid var(--border);
+    }
+    .detail-table th:first-child {
+      border-top-left-radius: var(--radius);
+    }
+    .detail-table th:last-child {
+      border-top-right-radius: var(--radius);
+    }
+    .detail-cell-list {
+      display: grid;
+      gap: 8px;
+    }
+    .detail-item {
+      display: grid;
+      gap: 3px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--light-gray);
+    }
+    .detail-item:last-child {
+      border-bottom: 0;
+      padding-bottom: 0;
+    }
+    .detail-item-name {
+      color: var(--navy);
+      line-height: 1.35;
+      font-weight: 650;
+    }
+    .detail-item-meta {
+      color: var(--text-muted);
+      font-size: 11px;
+    }
+    .detail-col-total {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 10px;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 650;
+    }
+    .basic-detail-table {
+      width: 100%;
+      min-width: 1040px;
+      border-collapse: separate;
+      border-spacing: 0;
+      font-size: 12px;
+      table-layout: fixed;
+    }
+    .basic-detail-table th,
+    .basic-detail-table td {
+      border-right: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      padding: 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+    .basic-detail-table th:first-child,
+    .basic-detail-table td:first-child {
+      border-left: 1px solid var(--border);
+    }
+    .basic-detail-table th {
+      background: var(--soft);
+      border-top: 1px solid var(--border);
+      color: var(--dark-blue);
+      font-weight: 650;
+    }
+    .basic-detail-table th:first-child {
+      border-top-left-radius: var(--radius);
+    }
+    .basic-detail-table th:last-child {
+      border-top-right-radius: var(--radius);
+    }
+    .kitchen-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+    .kitchen-chip {
+      display: inline-flex;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 3px 8px;
+      background: var(--soft);
+      color: var(--navy);
+      font-size: 11px;
+      line-height: 1.2;
+    }
+    .fix-table {
+      width: 100%;
+      min-width: 1320px;
+      border-collapse: separate;
+      border-spacing: 0;
+      table-layout: fixed;
+      font-size: 12px;
+    }
+    .fix-table th,
+    .fix-table td {
+      border-right: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      padding: 9px;
+      text-align: left;
+      vertical-align: top;
+    }
+    .fix-table th:first-child,
+    .fix-table td:first-child {
+      border-left: 1px solid var(--border);
+    }
+    .fix-table th {
+      background: var(--soft);
+      border-top: 1px solid var(--border);
+      color: var(--dark-blue);
+      font-weight: 650;
+    }
+    .fix-table th:first-child {
+      border-top-left-radius: var(--radius);
+    }
+    .fix-table th:last-child {
+      border-top-right-radius: var(--radius);
+    }
+    .fix-action {
+      line-height: 1.35;
+      color: var(--navy);
+    }
+    .fix-muted {
+      color: var(--text-muted);
+      font-size: 11px;
+      margin-top: 4px;
+    }
+    .table-scroll-top {
+      overflow-x: auto;
+      overflow-y: hidden;
+      height: 16px;
+      margin-bottom: 6px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--soft);
+    }
+    .fix-filter {
+      width: 100%;
+      min-width: 0;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 4px 6px;
+      background: var(--panel);
+      color: var(--navy);
+      font-size: 11px;
+    }
+    .drilldown {
+      margin-top: 18px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+    }
+    .drill-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+    .drill-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .drill-card {
+      width: 100%;
+      text-align: left;
+      padding: 10px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+    .drill-card.active {
+      border-color: var(--cyan-dark);
+      background: #e7f6fc;
+    }
+    .drill-title {
+      font-size: 12px;
+      font-weight: 650;
+      line-height: 1.25;
+      margin-bottom: 6px;
+    }
+    .drill-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      color: var(--text-muted);
+      font-size: 11px;
+    }
+    .question-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .question-row {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px;
+      background: var(--soft);
+    }
+    .question-text {
+      font-size: 12px;
+      font-weight: 650;
+      line-height: 1.35;
+      margin-bottom: 8px;
+    }
+    .question-stats {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 6px;
+      font-size: 11px;
+    }
+    .question-stat {
+      display: flex;
+      justify-content: space-between;
+      gap: 4px;
+      border-radius: 6px;
+      background: var(--panel);
+      padding: 5px 6px;
+      color: var(--text-muted);
+    }
+    .current-week-col {
+      background: #e7f6fc !important;
+      box-shadow: inset 0 0 0 1px rgba(11, 118, 159, 0.18);
+    }
+    .screen { display: none; }
+    .screen.active { display: block; }
+    @media (max-width: 820px) {
+      .wrap {
+        width: min(100% - 24px, 1180px);
+        padding-top: 20px;
+      }
+      .grid-2 {
+        grid-template-columns: 1fr;
+      }
+      .city-control {
+        width: 100%;
+        margin-left: 0;
+        justify-content: space-between;
+      }
+      select {
+        flex: 1;
+      }
+      .title {
+        font-size: 18px;
+      }
+      .kpi-value {
+        font-size: 26px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <header class="header">
+      <div>
+        <div class="title">Básicos para Foodies contentos · Q2 2026</div>
+        <div class="meta">
+          Fuente:
+          <a href="https://docs.google.com/spreadsheets/d/1krQxz6jWQxgCGSJaL4VziAnRQAFBmT29WKC4vThFx_M/edit" target="_blank" rel="noreferrer">Google Sheets</a>
+          · Datos leídos: 15 May 2026
+        </div>
+      </div>
+      <button class="sync" id="syncBtn" type="button"><span>↻</span><span>Sincronizar Sheets</span></button>
+    </header>
+
+    <div class="api-msg" id="apiMsg"></div>
+    <nav class="tabs" id="countryTabs" aria-label="País"></nav>
+    <section class="toolbar">
+      <button class="view-tab active" data-view="dashboard" type="button">▦ Dashboard</button>
+      <button class="view-tab" data-view="kitchens" type="button">▤ Por cocina</button>
+      <button class="view-tab" data-view="basics" type="button">☑ Por básico</button>
+      <button class="view-tab" data-view="kitchen-detail-sheet" type="button">▥ Detalle por cocina</button>
+      <button class="view-tab" data-view="basic-detail-sheet" type="button">▧ Detalle por básico</button>
+      <button class="view-tab" data-view="fixes" type="button">▨ Fix</button>
+      <button class="view-tab" data-view="fix-impact" type="button">▩ Impacto Fix</button>
+      <div class="city-control">
+        <label for="typeSelect">Tipo</label>
+        <select id="typeSelect">
+          <option value="all">Todos</option>
+          <option value="kitchen">Cocinas</option>
+          <option value="cp">CP</option>
+        </select>
+        <label for="citySelect">Ciudad</label>
+        <select id="citySelect"></select>
+      </div>
+    </section>
+
+    <section id="dashboard" class="screen active"></section>
+    <section id="kitchens" class="screen"></section>
+    <section id="basics" class="screen"></section>
+    <section id="kitchen-detail-sheet" class="screen"></section>
+    <section id="basic-detail-sheet" class="screen"></section>
+    <section id="fixes" class="screen"></section>
+    <section id="fix-impact" class="screen"></section>
+  </main>
+
+  <script src="sheet-detail-data.js"></script>
+  <script src="cp-detail-data.js"></script>
+  <script src="fixes-data.js"></script>
+  <script>
+    const PALETTE = {
+      lightGray: "#E8E8E8",
+      teal: "#156082",
+      neutral: "#e8d2aeff",
+      neutralText: "#8a6a35",
+      cyanDark: "#0B769F",
+      slate: "#345964",
+      mauve: "#96607D",
+    };
+
+    const getStatus = (v) => {
+      if (v == null) return { color: PALETTE.slate, bg: PALETTE.lightGray, label: "Pendiente" };
+      if (v >= 75) return { color: PALETTE.cyanDark, bg: "#E7F6FC", label: "Cumple" };
+      if (v >= 50) return { color: PALETTE.neutralText, bg: "#F8F0E2", bar: PALETTE.neutral, label: "Parcial" };
+      return { color: PALETTE.mauve, bg: "#F4EAF0", label: "Crítico" };
+    };
+
+    const BASICS_NAMES = [
+      "Cables expuestos / conexiones improvisadas",
+      "Tuberías de gas sin fugas detectables",
+      "Uniforme completo del personal",
+      "Estación de lavado de manos operativa",
+      "Sin accesorios, maquillaje o ropa inadecuada",
+      "Verificación de agua potable",
+      "Filtros de agua con mantenimiento vigente",
+      "Drenajes/coladeras sin obstrucciones",
+      "Sin signos de plagas",
+      "Plan de fumigación vigente",
+      "Personal capacitado en prevención de plagas",
+      "Puntos de ingreso/anidación cerrados",
+      "Refrigeración en rango (0-4°C / -18°C)",
+      "Registros de temperatura al menos 2x/día",
+      "Iluminación adecuada en áreas de trabajo",
+      "Sin focos fundidos / luminarias sin protección",
+      "Extractores y ventiladores funcionando",
+      "Temperatura ambiente <28°C durante operación",
+      "100% equipos operativos",
+      "Registros de mantenimiento preventivo/correctivo",
+      "Trampa de grasa funcionando y limpia",
+      "Cronograma de limpieza visible en cocina",
+      "Limpiezas profundas según programa",
+      "Botes de basura rotulados por categoría",
+      "Personal entrenado en manejo de residuos",
+      "Área de almacenamiento de basura aislada",
+    ];
+
+    const TOTAL_BASICS = 36;
+    const sheetData = () => window.SHEET_DETAIL_DATA || { questions: [], kitchens: [] };
+    const cpData = () => window.CP_DETAIL_DATA || { questions: [], kitchens: [] };
+    const fixesData = () => window.FIXES_DATA || { MX: [], CO: [], PE: [], CP: [] };
+    const isCPKitchen = (kitchen) => !!kitchen && cpData().kitchens.some(item => normalizeText(item.name) === normalizeText(kitchen.id || kitchen.name));
+    const detailDataForKitchen = (kitchen) => isCPKitchen(kitchen) ? cpData() : sheetData();
+    const basicName = (index, kitchen = null) => {
+      const question = detailDataForKitchen(kitchen).questions[index] || sheetData().questions[index];
+      if (question) return state?.country === "MX" ? question.mex : (question.colper || question.mex);
+      return BASICS_NAMES[index] || `Básico pendiente de cargar ${index + 1}`;
+    };
+    const basicTheme = (index) => sheetData().questions[index]?.tema || BASIC_TEMA[index] || "Básicos pendientes de clasificar";
+
+    const BASIC_TEMA = [
+      "Seguridad eléctrica y gas","Seguridad eléctrica y gas",
+      "EPP e higiene personal","EPP e higiene personal","EPP e higiene personal",
+      "Agua y drenaje","Agua y drenaje","Agua y drenaje",
+      "Control de plagas","Control de plagas","Control de plagas","Control de plagas",
+      "Refrigeración","Refrigeración",
+      "Iluminación y ventilación","Iluminación y ventilación","Iluminación y ventilación","Iluminación y ventilación",
+      "Equipos críticos","Equipos críticos","Equipos críticos",
+      "Limpieza y desinfección","Limpieza y desinfección",
+      "Gestión de residuos","Gestión de residuos","Gestión de residuos",
+    ];
+
+    const COUNTRIES = {
+      MX: {
+        name: "México", flag: "🇲🇽", basic: 67.0,
+        cities: { CDMX: 65.8, Monterrey: 71.4, Guadalajara: 67.6, Mérida: 55.6 },
+        basics: [54,86,66,81,96,28,51,86,65,96,69,59,84,53,90,41,84,63,76,16,93,77,92,55,47,93],
+        kitchens: [
+          {id:"01 DOCTORES",city:"CDMX",basic:79.2,seg:76,hig:79,limp:81,infra:85,ppl:60},
+          {id:"02 SAN ANGEL",city:"CDMX",basic:68.6,seg:71,hig:50,limp:69,infra:74,ppl:70},
+          {id:"03 POLANCO",city:"CDMX",basic:51.4,seg:59,hig:29,limp:64,infra:42,ppl:70},
+          {id:"04 SANTA FE",city:"CDMX",basic:69.4,seg:72,hig:71,limp:68,infra:72,ppl:30},
+          {id:"05 COAPA",city:"CDMX",basic:70.8,seg:67,hig:79,limp:88,infra:67,ppl:100},
+          {id:"06 SATELITE",city:"CDMX",basic:80.6,seg:86,hig:92,limp:85,infra:71,ppl:70},
+          {id:"09 CHURUBUSCO",city:"CDMX",basic:84.7,seg:90,hig:79,limp:94,infra:76,ppl:30},
+          {id:"11 AZCAPOTZALCO",city:"CDMX",basic:59.7,seg:51,hig:33,limp:61,infra:81,ppl:30},
+          {id:"12 DEL VALLE",city:"CDMX",basic:54.2,seg:48,hig:33,limp:81,infra:49,ppl:60},
+          {id:"15 LINDAVISTA",city:"CDMX",basic:47.2,seg:79,hig:8,limp:19,infra:49,ppl:30},
+          {id:"16 PEDREGAL",city:"CDMX",basic:61.1,seg:73,hig:79,limp:64,infra:36,ppl:30},
+          {id:"20 ESMERALDA",city:"CDMX",basic:73.6,seg:93,hig:71,limp:54,infra:67,ppl:100},
+          {id:"24 METEPEC",city:"CDMX",basic:69.1,seg:73,hig:100,limp:78,infra:40,ppl:70},
+          {id:"26 CD. JUDICIAL",city:"CDMX",basic:52.8,seg:44,hig:38,limp:58,infra:58,ppl:60},
+          {id:"27 IZTAPALAPA",city:"CDMX",basic:70.8,seg:67,hig:71,limp:88,infra:67,ppl:70},
+          {id:"41 VOLCANES",city:"CDMX",basic:34.3,seg:48,hig:8,limp:31,infra:39,ppl:70},
+          {id:"51 SAMARA",city:"CDMX",basic:83.8,seg:75,hig:67,limp:100,infra:88,ppl:50},
+          {id:"52 MANACAR",city:"CDMX",basic:72.9,seg:77,hig:46,limp:89,infra:68,ppl:50},
+          {id:"13 TEC",city:"Monterrey",basic:68.1,seg:60,hig:67,limp:75,infra:63,ppl:60},
+          {id:"10 SAN JERONIMO",city:"Monterrey",basic:65.7,seg:55,hig:33,limp:78,infra:78,ppl:60},
+          {id:"17 CUMBRES",city:"Monterrey",basic:68.1,seg:70,hig:58,limp:58,infra:72,ppl:60},
+          {id:"22 SAN NICOLAS",city:"Monterrey",basic:70.6,seg:66,hig:67,limp:61,infra:79,ppl:30},
+          {id:"23 SANTA CATARINA",city:"Monterrey",basic:72.2,seg:64,hig:67,limp:81,infra:72,ppl:60},
+          {id:"28 CARRETERA NAL.",city:"Monterrey",basic:73.6,seg:70,hig:67,limp:81,infra:72,ppl:60},
+          {id:"30 LINCOLN",city:"Monterrey",basic:77.1,seg:73,hig:75,limp:89,infra:68,ppl:70},
+          {id:"38 SALTILLO CENTRO",city:"Monterrey",basic:66.7,seg:55,hig:58,limp:79,infra:65,ppl:20},
+          {id:"39 MTY CENTRO",city:"Monterrey",basic:80.9,seg:92,hig:63,limp:58,infra:88,ppl:100},
+          {id:"14 JARDINES",city:"Guadalajara",basic:77.1,seg:67,hig:75,limp:100,infra:61,ppl:70},
+          {id:"19 LA CALMA",city:"Guadalajara",basic:40.3,seg:33,hig:42,limp:54,infra:35,ppl:90},
+          {id:"21 SANTA TERESITA",city:"Guadalajara",basic:62.9,seg:57,hig:75,limp:92,infra:47,ppl:20},
+          {id:"25 TABACHINES",city:"Guadalajara",basic:88.9,seg:96,hig:100,limp:92,infra:72,ppl:20},
+          {id:"34 TLAQUEPAQUE",city:"Guadalajara",basic:72.2,seg:76,hig:54,limp:82,infra:64,ppl:70},
+          {id:"40 JARDINES DEL VALLE",city:"Guadalajara",basic:61.1,seg:50,hig:50,limp:57,infra:72,ppl:70},
+          {id:"45 ESTADIO",city:"Guadalajara",basic:70.8,seg:88,hig:33,limp:78,infra:57,ppl:60},
+          {id:"31 MONTEJO",city:"Mérida",basic:54.3,seg:56,hig:54,limp:44,infra:58,ppl:50},
+          {id:"37 CANEK",city:"Mérida",basic:56.9,seg:67,hig:38,limp:36,infra:74,ppl:90},
+          {id:"42 CP CDMX",city:"CDMX",basic:null,seg:null,hig:null,limp:null,infra:null,ppl:null},
+          {id:"43 CP MONTERREY",city:"Monterrey",basic:null,seg:null,hig:null,limp:null,infra:null,ppl:null},
+          {id:"44 CP GUADALAJARA",city:"Guadalajara",basic:null,seg:null,hig:null,limp:null,infra:null,ppl:null},
+        ]
+      },
+      CO: {
+        name: "Colombia", flag: "🇨🇴", basic: 70.3,
+        cities: { Bogotá:72.2, Medellín:63.1, Cali:74.4, Pereira:64.7, Barranquilla:54.4, Cartagena:76.5, Bucaramanga:78.6 },
+        basics: [80,88,84,56,95,50,12,73,55,95,42,70,96,96,89,82,87,73,85,38,96,94,97,89,65,86],
+        kitchens: [
+          {id:"01 USAQUEN",city:"Bogotá",basic:67.1,seg:73,hig:75,limp:72,infra:56,ppl:50},
+          {id:"02 PARQUE 93",city:"Bogotá",basic:65.7,seg:92,hig:71,limp:72,infra:39,ppl:50},
+          {id:"03 CHAPINERO",city:"Bogotá",basic:88.6,seg:88,hig:71,limp:94,infra:89,ppl:50},
+          {id:"06 COLINA",city:"Bogotá",basic:70.0,seg:81,hig:83,limp:69,infra:56,ppl:25},
+          {id:"08 ANDES",city:"Bogotá",basic:77.1,seg:79,hig:100,limp:82,infra:58,ppl:50},
+          {id:"13 CHIA",city:"Bogotá",basic:65.2,seg:71,hig:75,limp:72,infra:61,ppl:25},
+          {id:"15 ENGATIVA",city:"Bogotá",basic:67.1,seg:81,hig:83,limp:72,infra:51,ppl:50},
+          {id:"36 VILLA DEL PRADO",city:"Bogotá",basic:80.0,seg:92,hig:83,limp:81,infra:67,ppl:25},
+          {id:"38 KENNEDY",city:"Bogotá",basic:72.9,seg:75,hig:83,limp:72,infra:67,ppl:50},
+          {id:"45 VERAGUAS",city:"Bogotá",basic:75.7,seg:92,hig:71,limp:76,infra:61,ppl:50},
+          {id:"50 CHICO",city:"Bogotá",basic:64.3,seg:77,hig:75,limp:72,infra:39,ppl:25},
+          {id:"11 MANILA",city:"Medellín",basic:33.3,seg:35,hig:50,limp:56,infra:10,ppl:50},
+          {id:"12 LAURELES",city:"Medellín",basic:54.4,seg:54,hig:63,limp:50,infra:69,ppl:50},
+          {id:"14 ENVIGADO",city:"Medellín",basic:77.1,seg:71,hig:83,limp:92,infra:67,ppl:50},
+          {id:"18 BELLO",city:"Medellín",basic:64.3,seg:55,hig:83,limp:72,infra:64,ppl:50},
+          {id:"29 ITAGUI",city:"Medellín",basic:82.4,seg:96,hig:79,limp:64,infra:89,ppl:50},
+          {id:"22 SANTA MONICA",city:"Cali",basic:78.8,seg:94,hig:83,limp:67,infra:81,ppl:50},
+          {id:"24 SAN FERNANDO",city:"Cali",basic:75.8,seg:91,hig:54,limp:92,infra:44,ppl:25},
+          {id:"46 INGENIO",city:"Cali",basic:78.8,seg:94,hig:71,limp:67,infra:78,ppl:25},
+          {id:"28 PEREIRA",city:"Pereira",basic:64.7,seg:72,hig:79,limp:58,infra:67,ppl:50},
+          {id:"32 BARRANQUILLA",city:"Barranquilla",basic:54.4,seg:59,hig:83,limp:75,infra:33,ppl:50},
+          {id:"33 CARTAGENA",city:"Cartagena",basic:76.5,seg:66,hig:100,limp:83,infra:81,ppl:50},
+          {id:"42 CABECERA",city:"Bucaramanga",basic:78.6,seg:79,hig:92,limp:79,infra:71,ppl:25},
+        ]
+      },
+      PE: {
+        name: "Perú", flag: "🇵🇪", basic: 60.0,
+        cities: { Lima: 60.0 },
+        basics: [30,80,60,60,100,30,100,60,90,50,50,30,100,20,80,20,50,70,60,40,60,50,90,10,40,60],
+        kitchens: [
+          {id:"01 CP LIMA",city:"Lima",basic:72.2,seg:56,hig:100,limp:75,infra:76,ppl:100},
+          {id:"01 SAN ISIDRO",city:"Lima",basic:70.8,seg:59,hig:58,limp:81,infra:81,ppl:100},
+          {id:"03 LA MOLINA",city:"Lima",basic:50.0,seg:52,hig:58,limp:29,infra:60,ppl:100},
+          {id:"04 LA ALBORADA",city:"Lima",basic:50.0,seg:46,hig:25,limp:57,infra:63,ppl:100},
+          {id:"06 SURQUILLO",city:"Lima",basic:56.9,seg:66,hig:67,limp:28,infra:64,ppl:100},
+        ]
+      }
+    };
+
+    const BLOCK_LABELS = [
+      { key:"seg", label:"Seguridad y condiciones operativas" },
+      { key:"hig", label:"Higiene personal y sanitaria" },
+      { key:"limp", label:"Limpieza, desinfección y control ambiental" },
+      { key:"infra", label:"Infraestructura y mantenimiento" },
+      { key:"ppl", label:"People (Uniformes)" },
+    ];
+
+    const state = {
+      country: "MX",
+      view: "dashboard",
+      typeFilter: "all",
+      cityFilter: "Todas",
+      selectedKitchen: null,
+      detailKitchenId: null,
+      basicDetailValue: 0,
+      basicDetailArea: "Todas",
+      fixFilters: {},
+      dashboardBlock: null,
+      dashboardTheme: null,
+      kitchenBlock: null,
+      kitchenTheme: null,
+      dashboardRankOrder: "desc",
+    };
+
+    const fmt = (value, decimals = 1) => value == null ? "Pendiente" : `${Number(value).toFixed(decimals)}%`;
+    const byId = (id) => document.getElementById(id);
+    const data = () => COUNTRIES[state.country];
+    const cities = () => ["Todas", ...Object.keys(data().cities)];
+    const matchesTypeFilter = (kitchen) => {
+      if (state.typeFilter === "cp") return isCPKitchen(kitchen);
+      if (state.typeFilter === "kitchen") return !isCPKitchen(kitchen);
+      return true;
+    };
+    const typeLabel = () => state.typeFilter === "cp" ? "CP" : state.typeFilter === "kitchen" ? "Cocinas" : "Cocinas y CP";
+    const filtered = () => {
+      const byCity = state.cityFilter === "Todas" ? data().kitchens : data().kitchens.filter(k => k.city === state.cityFilter);
+      return byCity.filter(matchesTypeFilter);
+    };
+    const withData = () => filtered().filter(k => kitchenScore(k) != null);
+
+    const badge = (value) => {
+      const s = getStatus(value);
+      return `<span class="badge" style="background:${s.bg};color:${s.color}">${value != null ? fmt(value) : "Pendiente"}</span>`;
+    };
+
+    const scoreBar = (value, label, height = 6) => {
+      const s = getStatus(value);
+      return `
+        <div>
+          <div class="score-head">
+            <span class="score-label">${label}</span>
+            <span class="score-value" style="color:${s.color}">${value != null ? `${Number(value).toFixed(0)}%` : "—"}</span>
+          </div>
+          <div class="bar" style="height:${height}px"><div class="bar-fill" style="width:${value ?? 0}%;background:${s.bar || s.color}"></div></div>
+        </div>
+      `;
+    };
+
+    const renderCountryTabs = () => {
+      byId("countryTabs").innerHTML = Object.entries(COUNTRIES).map(([key, value]) => {
+        const s = getStatus(value.basic);
+        const active = key === state.country ? "active" : "";
+        const style = key === state.country ? `border-color:${s.color};background:${s.bg};color:${s.color}` : "";
+        return `<button class="country-tab ${active}" style="${style}" data-country="${key}" type="button">${value.flag} ${value.name}<span style="margin-left:8px;color:${s.color};font-size:12px">${fmt(value.basic)}</span></button>`;
+      }).join("");
+    };
+
+    const renderCitySelect = () => {
+      byId("typeSelect").value = state.typeFilter;
+      byId("citySelect").innerHTML = cities().map(city => `<option value="${city}" ${city === state.cityFilter ? "selected" : ""}>${city}</option>`).join("");
+    };
+
+    const summarizeQuestionValues = (questionIndex, matches) => {
+      const values = matches.map(item => item.sheetKitchen.values[questionIndex]);
+      const valid = values.filter(value => value != null);
+      return {
+        avg: valid.length ? valid.reduce((sum, value) => sum + value, 0) / valid.length : null,
+        full: values.filter(value => value === 100).length,
+        partial: values.filter(value => value === 50).length,
+        fail: values.filter(value => value === 0).length,
+        na: values.filter(value => value == null).length,
+        total: values.length,
+      };
+    };
+
+    const summarizeQuestionGroup = (questions, matches) => {
+      const values = [];
+      questions.forEach(question => {
+        matches.forEach(item => {
+          const value = item.sheetKitchen.values[question.index];
+          if (value != null) values.push(value);
+        });
+      });
+      return {
+        avg: values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null,
+        total: questions.length,
+      };
+    };
+
+    const questionSourceForCurrentType = () => state.typeFilter === "cp" ? cpData() : sheetData();
+    const detailMatchesForCurrentType = () => filtered()
+      .filter(kitchen => state.typeFilter === "cp" ? isCPKitchen(kitchen) : !isCPKitchen(kitchen))
+      .map(kitchen => ({ appKitchen: kitchen, sheetKitchen: sheetKitchenFor(kitchen) }))
+      .filter(item => item.sheetKitchen);
+
+    const fixesForCurrentType = () => {
+      const current = fixesData();
+      const countryRows = current[state.country] || [];
+      const cpRows = current.CP || [];
+      if (state.typeFilter === "cp") return cpRows;
+      if (state.typeFilter === "kitchen") return countryRows;
+      return state.country === "MX" ? [...countryRows, ...cpRows] : countryRows;
+    };
+
+    const fixesForKitchen = (kitchen) => {
+      const current = fixesData();
+      return isCPKitchen(kitchen) ? (current.CP || []) : (current[state.country] || []);
+    };
+
+    const fixSourceLabel = () => {
+      if (state.typeFilter === "cp") return "Fixes CPs";
+      if (state.typeFilter === "all" && state.country === "MX") return "Fixes MX + Fixes CPs";
+      return state.country === "MX" ? "Fixes MX" : state.country === "CO" ? "Fixes CO" : "Fixes PE";
+    };
+
+    const renderDashboardDrilldown = () => {
+      const source = state.typeFilter === "cp" ? cpData() : sheetData();
+      const questions = source.questions.map((question, index) => ({ ...question, index }));
+      const matches = sheetKitchensForDashboardDrill();
+      if (!questions.length || !matches.length) {
+        return `<div class="drilldown"><div class="hint">No hay detalle disponible para el filtro actual.</div></div>`;
+      }
+
+      const blockNames = [...new Set(questions.map(question => question.bloque || "Sin bloque"))];
+      if (state.dashboardBlock && !blockNames.includes(state.dashboardBlock)) {
+        state.dashboardBlock = null;
+        state.dashboardTheme = null;
+      }
+
+      const blockCards = blockNames.map(block => {
+        const blockQuestions = questions.filter(question => (question.bloque || "Sin bloque") === block);
+        const summary = summarizeQuestionGroup(blockQuestions, matches);
+        const s = getStatus(summary.avg);
+        return `
+          <button class="drill-card ${state.dashboardBlock === block ? "active" : ""}" data-dashboard-block="${block}" type="button">
+            <div class="drill-title">${block}</div>
+            <div class="drill-meta"><span>${summary.total} básicos</span><strong style="color:${s.color}">${summary.avg != null ? fmt(summary.avg) : "N/A"}</strong></div>
+            <div class="bar" style="height:4px;margin:8px 0 0"><div class="bar-fill" style="width:${summary.avg ?? 0}%;background:${s.bar || s.color}"></div></div>
+          </button>
+        `;
+      }).join("");
+
+      const selectedBlockQuestions = state.dashboardBlock
+        ? questions.filter(question => (question.bloque || "Sin bloque") === state.dashboardBlock)
+        : [];
+      const themeNames = [...new Set(selectedBlockQuestions.map(question => question.tema || "Sin tema"))];
+      if (state.dashboardTheme && !themeNames.includes(state.dashboardTheme)) {
+        state.dashboardTheme = null;
+      }
+
+      const themeCards = state.dashboardBlock ? themeNames.map(theme => {
+        const themeQuestions = selectedBlockQuestions.filter(question => (question.tema || "Sin tema") === theme);
+        const summary = summarizeQuestionGroup(themeQuestions, matches);
+        const s = getStatus(summary.avg);
+        return `
+          <button class="drill-card ${state.dashboardTheme === theme ? "active" : ""}" data-dashboard-theme="${theme}" type="button">
+            <div class="drill-title">${theme}</div>
+            <div class="drill-meta"><span>${summary.total} preguntas</span><strong style="color:${s.color}">${summary.avg != null ? fmt(summary.avg) : "N/A"}</strong></div>
+          </button>
+        `;
+      }).join("") : "";
+
+      const questionRows = state.dashboardTheme ? selectedBlockQuestions
+        .filter(question => (question.tema || "Sin tema") === state.dashboardTheme)
+        .map(question => {
+          const summary = summarizeQuestionValues(question.index, matches);
+          const s = getStatus(summary.avg);
+          return `
+            <div class="question-row">
+              <div class="question-text">B${question.no}. ${basicName(question.index)}</div>
+              <div class="drill-meta" style="margin-bottom:8px"><span>${question.area || "Sin área"}</span><strong style="color:${s.color}">${summary.avg != null ? fmt(summary.avg) : "N/A"}</strong></div>
+              <div class="question-stats">
+                <div class="question-stat"><span>100%</span><strong>${summary.full}</strong></div>
+                <div class="question-stat"><span>50%</span><strong>${summary.partial}</strong></div>
+                <div class="question-stat"><span>0%</span><strong>${summary.fail}</strong></div>
+                <div class="question-stat"><span>N/A</span><strong>${summary.na}</strong></div>
+              </div>
+            </div>
+          `;
+        }).join("") : "";
+
+      return `
+        <div class="drilldown">
+          <div class="drill-head">
+            <div class="hint" style="margin-bottom:0">Detalle calculado con el filtro superior: ${state.cityFilter === "Todas" ? "todas las ciudades" : state.cityFilter}.</div>
+            <button type="button" class="view-tab" data-clear-dashboard-drill>Limpiar filtros</button>
+          </div>
+          <div class="small-title">Detalle por bloque</div>
+          <div class="drill-grid">${blockCards}</div>
+          ${state.dashboardBlock ? `
+            <div class="small-title">Temas de ${state.dashboardBlock}</div>
+            <div class="drill-grid">${themeCards}</div>
+          ` : `<div class="hint">Selecciona un bloque para ver sus temas y recalcular el ranking por ese bloque.</div>`}
+          ${state.dashboardTheme ? `
+            <div class="small-title">Preguntas de ${state.dashboardTheme}</div>
+            <div class="question-list">${questionRows}</div>
+          ` : state.dashboardBlock ? `<div class="hint">Selecciona un tema para ver sus preguntas y recalcular el ranking por ese tema.</div>` : ""}
+        </div>
+      `;
+    };
+
+    const dashboardRankingQuestions = () => {
+      const questions = sheetData().questions.map((question, index) => ({ ...question, index }));
+      if (!state.dashboardBlock) return [];
+      return questions.filter(question => {
+        const sameBlock = (question.bloque || "Sin bloque") === state.dashboardBlock;
+        const sameTheme = !state.dashboardTheme || (question.tema || "Sin tema") === state.dashboardTheme;
+        return sameBlock && sameTheme;
+      });
+    };
+
+    const kitchenAverageForQuestions = (kitchen, questions) => {
+      const sheetKitchen = sheetKitchenFor(kitchen);
+      if (!sheetKitchen || !questions.length) return null;
+      const values = questions
+        .map(question => sheetKitchen.values[question.index])
+        .filter(value => value != null);
+      return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+    };
+
+    const renderDashboard = () => {
+      const rows = withData();
+      const avg = rows.length ? rows.reduce((sum, kitchen) => sum + kitchenScore(kitchen), 0) / rows.length : 0;
+      const green = rows.filter(k => kitchenScore(k) >= 75).length;
+      const yellow = rows.filter(k => kitchenScore(k) >= 50 && kitchenScore(k) < 75).length;
+      const red = rows.filter(k => kitchenScore(k) < 50).length;
+      const kpis = [
+        { label: "% Básicos", value: fmt(avg), status: avg },
+        { label: "Cocinas ≥75%", value: green, sub: "verde", status: 80 },
+        { label: "Cocinas 50-75%", value: yellow, sub: "amarillo", status: 60 },
+        { label: "Cocinas <50%", value: red, sub: "crítico", status: 30 },
+      ];
+
+      const cityBars = Object.entries(data().cities).map(([city, score]) => scoreBar(score, city)).join("");
+      const rankQuestions = dashboardRankingQuestions();
+      const rankingModeLabel = state.dashboardTheme
+        ? `Ranking por tema · ${state.dashboardTheme}`
+        : state.dashboardBlock
+          ? `Ranking por bloque · ${state.dashboardBlock}`
+          : `${state.typeFilter === "cp" ? "CP" : state.typeFilter === "kitchen" ? "Cocinas" : "Cocinas y CP"} · ${state.cityFilter === "Todas" ? "Todas las ciudades" : state.cityFilter}`;
+      const rankingRows = [...rows]
+        .map(kitchen => ({
+          ...kitchen,
+          rankValue: rankQuestions.length ? kitchenAverageForQuestions(kitchen, rankQuestions) : kitchenScore(kitchen),
+        }))
+        .sort((a, b) => {
+          if (a.rankValue == null && b.rankValue == null) return 0;
+          if (a.rankValue == null) return 1;
+          if (b.rankValue == null) return -1;
+          return state.dashboardRankOrder === "asc" ? a.rankValue - b.rankValue : b.rankValue - a.rankValue;
+        });
+      const ranking = rankingRows.map((k, index) => `
+        <div class="rank-row">
+          <div class="rank-left">
+            <span class="rank-number">#${index + 1}</span>
+            <span class="rank-id">${k.id}</span>
+          </div>
+          ${badge(k.rankValue)}
+        </div>
+      `).join("");
+
+      byId("dashboard").innerHTML = `
+        <div class="kpis">
+          ${kpis.map(k => {
+            const s = getStatus(k.status);
+            return `<article class="kpi"><div class="kpi-label">${k.label}</div><div class="kpi-value" style="color:${s.color}">${k.value}</div>${k.sub ? `<div class="kpi-sub">${k.sub}</div>` : ""}</article>`;
+          }).join("")}
+        </div>
+        <div class="grid-2 dashboard-grid">
+          <article class="panel">
+            <div class="panel-title">⌖ Por ciudad</div>
+            ${cityBars}
+            ${renderDashboardDrilldown()}
+          </article>
+          <article class="panel dashboard-ranking-panel">
+            <div class="panel-title" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+              <span>★ Ranking de cocinas</span>
+              <select id="dashboardRankOrder" style="min-width:150px;font-size:12px;padding:4px 8px">
+                <option value="desc" ${state.dashboardRankOrder === "desc" ? "selected" : ""}>Mayor a menor</option>
+                <option value="asc" ${state.dashboardRankOrder === "asc" ? "selected" : ""}>Menor a mayor</option>
+              </select>
+            </div>
+            <div class="small-title">${rankingModeLabel}</div>
+            <div class="ranking">${ranking}</div>
+          </article>
+        </div>
+      `;
+    };
+
+    const sortedKitchens = () => [...filtered()].sort((a, b) => {
+      const av = kitchenScore(a);
+      const bv = kitchenScore(b);
+      if (av == null && bv == null) return 0;
+      if (av == null) return 1;
+      if (bv == null) return -1;
+      return av - bv;
+    });
+
+    const renderKitchenList = () => {
+      const cards = sortedKitchens().map((k, index) => {
+        const kScore = kitchenScore(k);
+        const s = getStatus(kScore);
+        const metrics = kScore == null ? `<div class="empty" style="padding:8px 0">Datos pendientes</div>` : isCPKitchen(k) ? `
+          <div class="mini-grid">
+            <div class="mini-metric"><span class="mini-label">Cuestionario</span><span class="mini-value" style="color:${s.color}">CP</span></div>
+            <div class="mini-metric"><span class="mini-label">Preguntas</span><span class="mini-value" style="color:${s.color}">${cpData().questions.length}</span></div>
+          </div>
+          <div class="bar" style="height:4px;margin-bottom:0"><div class="bar-fill" style="width:${kScore}%;background:${s.bar || s.color}"></div></div>
+        ` : `
+          <div class="mini-grid">
+            ${BLOCK_LABELS.slice(0, 4).map(b => {
+              const bs = getStatus(k[b.key]);
+              return `<div class="mini-metric"><span class="mini-label">${b.label.split(" ")[0]}</span><span class="mini-value" style="color:${bs.color}">${k[b.key] ?? "—"}%</span></div>`;
+            }).join("")}
+          </div>
+          <div class="bar" style="height:4px;margin-bottom:0"><div class="bar-fill" style="width:${kScore}%;background:${s.bar || s.color}"></div></div>
+        `;
+        return `
+          <article class="kitchen-card" data-kitchen-index="${index}" style="--hover:${s.color}">
+            <div class="card-head">
+              <div>
+                <div class="kitchen-id">${k.id}</div>
+                <div class="city">${k.city}</div>
+              </div>
+              ${badge(kScore)}
+            </div>
+            ${metrics}
+          </article>
+        `;
+      }).join("");
+
+      byId("kitchens").innerHTML = `
+        <div class="hint">${filtered().length} ${typeLabel().toLowerCase()} · ordenadas de menor a mayor cumplimiento · selecciona una para ver detalle</div>
+        <div class="kitchen-grid">${cards}</div>
+      `;
+    };
+
+    const renderKitchenDetail = () => {
+      const k = state.selectedKitchen;
+      const kScore = kitchenScore(k);
+      byId("kitchens").innerHTML = `
+        <button class="back" type="button" id="backToKitchens">← Volver al listado</button>
+        <article class="panel">
+          <div class="detail-head">
+            <div>
+              <div class="detail-title">${k.id}</div>
+              <div class="detail-sub">${k.city} · ${data().name}</div>
+            </div>
+            ${badge(kScore)}
+          </div>
+          ${kScore != null ? `
+            <div class="section-label">${isCPKitchen(k) ? "Cuestionario CP" : "Bloques de cumplimiento"}</div>
+            ${isCPKitchen(k) ? scoreBar(kScore, "Cumplimiento CP", 8) : BLOCK_LABELS.map(b => scoreBar(k[b.key], b.label, 8)).join("")}
+            ${renderKitchenQuestionDrilldown(k)}
+          ` : `
+            <div class="empty">◷<br><br>Datos pendientes de carga para este Centro de Producción.</div>
+          `}
+        </article>
+      `;
+    };
+
+    const renderKitchens = () => state.selectedKitchen ? renderKitchenDetail() : renderKitchenList();
+
+    const renderBasics = () => {
+      const matches = detailMatchesForCurrentType();
+      const sourceKitchen = state.typeFilter === "cp" ? { id: "42 CP CDMX" } : null;
+      const questions = questionSourceForCurrentType().questions.map((question, index) => ({ ...question, index }));
+      const temas = [...new Set(questions.map(question => question.tema || "Sin tema"))];
+      byId("basics").innerHTML = `
+        <div class="hint">Cumplimiento promedio por básico en ${data().name}${state.cityFilter === "Todas" ? "" : ` · ${state.cityFilter}`} · ${typeLabel()}. Las barras usan las respuestas reales del cuestionario.</div>
+        ${temas.map(tema => {
+          const topicQuestions = questions.filter(question => (question.tema || "Sin tema") === tema);
+          return `
+            <article class="panel basic-group">
+              <div class="panel-title">${tema}</div>
+              ${topicQuestions.map(question => {
+                const summary = summarizeQuestionValues(question.index, matches);
+                const value = summary.avg;
+                const s = getStatus(value);
+                return `
+                  <div class="basic-row">
+                    <div class="score-head">
+                      <span class="basic-question"><span class="basic-num">B${question.no}.</span>${basicName(question.index, sourceKitchen)}</span>
+                      <span class="score-value" style="color:${s.color};min-width:42px;text-align:right">${value != null ? fmt(value) : "—"}</span>
+                    </div>
+                    <div class="bar"><div class="bar-fill" style="width:${value ?? 0}%;background:${s.bar || s.color}"></div></div>
+                    <div class="drill-meta" style="margin-top:-6px;margin-bottom:8px">
+                      <span>${question.area || "Sin área"}</span>
+                      <span>100%: ${summary.full} · 50%: ${summary.partial} · 0%: ${summary.fail} · N/A: ${summary.na}</span>
+                    </div>
+                  </div>
+                `;
+              }).join("")}
+            </article>
+          `;
+        }).join("")}
+      `;
+    };
+
+    const detailColumns = [
+      { key: "full", title: "Básico | Cumple (100%)", statusValue: 100 },
+      { key: "partial", title: "Básico | Cumple Parcialmente (50%)", statusValue: 60 },
+      { key: "fail", title: "Básico | NO Cumple (0%)", statusValue: 0 },
+      { key: "na", title: "Básico | No Aplica", statusValue: null },
+    ];
+
+    const selectedDetailKitchen = () => {
+      const rows = filtered();
+      return rows.find(k => k.id === state.detailKitchenId) || rows.find(k => k.basic != null) || rows[0];
+    };
+
+    const normalizeText = (text) => String(text || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toUpperCase()
+      .replace(/[^A-Z0-9]+/g, " ")
+      .trim();
+
+    const kitchenNumber = (name) => String(name || "").match(/^\d+/)?.[0] || "";
+
+    const sheetKitchenFor = (kitchen) => {
+      if (!kitchen) return null;
+      if (isCPKitchen(kitchen)) {
+        return cpData().kitchens.find(item => normalizeText(item.name) === normalizeText(kitchen.id || kitchen.name)) || null;
+      }
+      const countryName = normalizeText(data().name);
+      const candidates = sheetData().kitchens.filter(item => normalizeText(item.country) === countryName);
+      const kitchenName = normalizeText(kitchen.id);
+      const exact = candidates.find(item => normalizeText(item.name) === kitchenName);
+      if (exact) return exact;
+
+      const number = kitchenNumber(kitchen.id);
+      const city = normalizeText(kitchen.city);
+      return candidates.find(item => {
+        const itemCity = normalizeText(item.city);
+        return kitchenNumber(item.name) === number && (itemCity === city || itemCity.includes(city) || city.includes(itemCity));
+      }) || candidates.find(item => kitchenNumber(item.name) === number) || null;
+    };
+
+    const sheetKitchensForCurrentFilter = () => filtered()
+      .map(kitchen => ({ appKitchen: kitchen, sheetKitchen: sheetKitchenFor(kitchen) }))
+      .filter(item => item.sheetKitchen);
+
+    const scoreFromValues = (values) => {
+      const valid = (values || []).filter(value => value != null);
+      return valid.length ? valid.reduce((sum, value) => sum + value, 0) / valid.length : null;
+    };
+
+    const kitchenScore = (kitchen) => kitchen?.basic != null ? kitchen.basic : scoreFromValues(sheetKitchenFor(kitchen)?.values || []);
+
+    const sheetKitchensForDashboardDrill = () => {
+      return filtered()
+        .filter(kitchen => state.typeFilter === "cp" ? isCPKitchen(kitchen) : !isCPKitchen(kitchen))
+        .map(kitchen => ({ appKitchen: kitchen, sheetKitchen: sheetKitchenFor(kitchen) }))
+        .filter(item => item.sheetKitchen);
+    };
+
+    const detailCategory = (value) => {
+      if (value == null) return "na";
+      if (value >= 75) return "full";
+      if (value >= 50) return "partial";
+      return "fail";
+    };
+
+    const detailRowsForKitchen = (kitchen) => {
+      const sheetKitchen = sheetKitchenFor(kitchen);
+      const sourceData = detailDataForKitchen(kitchen);
+      if (sheetKitchen && sourceData.questions.length) {
+        return sourceData.questions.map((question, index) => {
+          const value = sheetKitchen.values[index] ?? null;
+          return {
+            name: `B${question.no}. ${basicName(index, kitchen)}`,
+            value,
+            questions: 1,
+            category: detailCategory(value),
+          };
+        });
+      }
+
+      if (!kitchen || kitchen.basic == null) {
+        return Array.from({ length: TOTAL_BASICS }, (_, index) => ({
+          name: `B${index + 1}. ${basicName(index, kitchen)}`,
+          value: null,
+          questions: 1,
+          category: "na",
+        }));
+      }
+
+      const countryBasic = data().basic || kitchen.basic;
+      const kitchenFactor = kitchen.basic / countryBasic;
+      return Array.from({ length: TOTAL_BASICS }, (_, index) => {
+        const countryBasicValue = data().basics[index];
+        const adjustedValue = countryBasicValue == null ? null : Math.max(0, Math.min(100, Math.round(countryBasicValue * kitchenFactor)));
+        return {
+          name: `B${index + 1}. ${basicName(index, kitchen)}`,
+          value: adjustedValue,
+          questions: 1,
+          category: detailCategory(adjustedValue),
+        };
+      });
+    };
+
+    const renderColumnItems = (items) => {
+      if (!items.length) return `<div class="empty" style="padding:12px 0">Sin básicos en esta categoría</div>`;
+      return `
+        <div class="detail-cell-list">
+          ${items.map(item => {
+            const s = getStatus(item.value);
+            return `
+              <div class="detail-item">
+                <div class="detail-item-name">${item.name}</div>
+                <div class="detail-item-meta">
+                  Porcentaje: <strong style="color:${s.color}">${item.value != null ? fmt(item.value) : "No aplica"}</strong>
+                  · Cantidad de preguntas: ${item.questions}
+                </div>
+              </div>
+            `;
+          }).join("")}
+        </div>
+      `;
+    };
+
+    const renderKitchenDetailSheet = () => {
+      const kitchen = selectedDetailKitchen();
+      const detailOptions = filtered();
+      const rows = detailRowsForKitchen(kitchen);
+      const grouped = detailColumns.reduce((acc, col) => ({ ...acc, [col.key]: [] }), {});
+      rows.forEach(row => grouped[row.category].push(row));
+      const totalQuestions = rows.reduce((sum, row) => sum + row.questions, 0);
+
+      byId("kitchen-detail-sheet").innerHTML = `
+        <article class="panel">
+          <div class="detail-picker">
+            <div>
+              <label for="detailKitchenSelect">Selecciona cocina</label>
+              <div class="detail-sub">${data().name} · ${kitchen?.city ?? "Sin ciudad"}</div>
+            </div>
+            <select id="detailKitchenSelect">
+              ${detailOptions.map(k => `<option value="${k.id}" ${k.id === kitchen?.id ? "selected" : ""}>${k.id} · ${k.city}</option>`).join("")}
+            </select>
+          </div>
+
+          <div class="detail-summary">
+            <div class="detail-stat">
+              <div class="detail-stat-label">Porcentaje total de la cocina</div>
+              <div class="detail-stat-value" style="color:${getStatus(kitchen?.basic).color}">${kitchen?.basic != null ? fmt(kitchen.basic) : "Pendiente"}</div>
+              <div class="detail-stat-sub">${kitchen?.id ?? "Sin cocina seleccionada"}</div>
+            </div>
+            ${detailColumns.map(col => {
+              const items = grouped[col.key];
+              const count = items.reduce((sum, item) => sum + item.questions, 0);
+              const avg = items.length ? items.reduce((sum, item) => sum + (item.value ?? 0), 0) / items.length : null;
+              const s = getStatus(col.statusValue);
+              return `
+                <div class="detail-stat">
+                  <div class="detail-stat-label">${col.title}</div>
+                  <div class="detail-stat-value" style="color:${s.color}">${count}</div>
+                  <div class="detail-stat-sub">${totalQuestions ? ((count / totalQuestions) * 100).toFixed(0) : 0}% de preguntas · Promedio ${avg != null ? fmt(avg) : "N/A"}</div>
+                </div>
+              `;
+            }).join("")}
+          </div>
+
+          <div class="detail-table-wrap">
+            <table class="detail-table">
+              <thead>
+                <tr>
+                  ${detailColumns.map(col => `<th>${col.title}</th>`).join("")}
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  ${detailColumns.map(col => {
+                    const items = grouped[col.key];
+                    const count = items.reduce((sum, item) => sum + item.questions, 0);
+                    const avg = items.length ? items.reduce((sum, item) => sum + (item.value ?? 0), 0) / items.length : null;
+                    return `
+                      <td>
+                        <div class="detail-col-total">
+                          <span>${count} pregunta(s)</span>
+                          <span>${avg != null ? fmt(avg) : "N/A"}</span>
+                        </div>
+                        ${renderColumnItems(items)}
+                      </td>
+                    `;
+                  }).join("")}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="info">La vista usa el cuestionario correspondiente a la cocina seleccionada: cocinas regulares desde Detalle x Cocina y Centros de Producción desde CP Preguntas/Form CP.</div>
+        </article>
+      `;
+    };
+
+    const renderKitchenQuestionDrilldown = (kitchen) => {
+      const sheetKitchen = sheetKitchenFor(kitchen);
+      const questions = detailDataForKitchen(kitchen).questions.map((question, index) => ({ ...question, index }));
+      if (!sheetKitchen || !questions.length) {
+        return `<div class="drilldown"><div class="hint">No hay detalle de preguntas para esta cocina.</div></div>`;
+      }
+
+      const blockNames = [...new Set(questions.map(question => question.bloque || "Sin bloque"))];
+      if (!state.kitchenBlock || !blockNames.includes(state.kitchenBlock)) {
+        state.kitchenBlock = blockNames[0];
+        state.kitchenTheme = null;
+      }
+
+      const blockCards = blockNames.map(block => {
+        const blockQuestions = questions.filter(question => (question.bloque || "Sin bloque") === block);
+        const values = blockQuestions.map(question => sheetKitchen.values[question.index]).filter(value => value != null);
+        const avg = values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+        const s = getStatus(avg);
+        return `
+          <button class="drill-card ${state.kitchenBlock === block ? "active" : ""}" data-kitchen-block="${block}" type="button">
+            <div class="drill-title">${block}</div>
+            <div class="drill-meta"><span>${blockQuestions.length} básicos</span><strong style="color:${s.color}">${avg != null ? fmt(avg) : "N/A"}</strong></div>
+            <div class="bar" style="height:4px;margin:8px 0 0"><div class="bar-fill" style="width:${avg ?? 0}%;background:${s.bar || s.color}"></div></div>
+          </button>
+        `;
+      }).join("");
+
+      const selectedBlockQuestions = questions.filter(question => (question.bloque || "Sin bloque") === state.kitchenBlock);
+      const themeNames = [...new Set(selectedBlockQuestions.map(question => question.tema || "Sin tema"))];
+      if (!state.kitchenTheme || !themeNames.includes(state.kitchenTheme)) {
+        state.kitchenTheme = themeNames[0];
+      }
+
+      const themeCards = themeNames.map(theme => {
+        const themeQuestions = selectedBlockQuestions.filter(question => (question.tema || "Sin tema") === theme);
+        const values = themeQuestions.map(question => sheetKitchen.values[question.index]).filter(value => value != null);
+        const avg = values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+        const s = getStatus(avg);
+        return `
+          <button class="drill-card ${state.kitchenTheme === theme ? "active" : ""}" data-kitchen-theme="${theme}" type="button">
+            <div class="drill-title">${theme}</div>
+            <div class="drill-meta"><span>${themeQuestions.length} preguntas</span><strong style="color:${s.color}">${avg != null ? fmt(avg) : "N/A"}</strong></div>
+          </button>
+        `;
+      }).join("");
+
+      const questionRows = selectedBlockQuestions
+        .filter(question => (question.tema || "Sin tema") === state.kitchenTheme)
+        .map(question => {
+          const value = sheetKitchen.values[question.index];
+          const s = getStatus(value);
+          return `
+            <div class="question-row">
+              <div class="question-text">B${question.no}. ${basicName(question.index, kitchen)}</div>
+              <div class="drill-meta" style="margin-bottom:8px"><span>${question.area || "Sin área"}</span><strong style="color:${s.color}">${value != null ? `${value}%` : "N/A"}</strong></div>
+              <div class="bar" style="height:6px;margin-bottom:0"><div class="bar-fill" style="width:${value ?? 0}%;background:${s.bar || s.color}"></div></div>
+            </div>
+          `;
+        }).join("");
+
+      return `
+        <div class="drilldown">
+          <div class="small-title">Detalle por bloque</div>
+          <div class="drill-grid">${blockCards}</div>
+          <div class="small-title">Temas de ${state.kitchenBlock}</div>
+          <div class="drill-grid">${themeCards}</div>
+          <div class="small-title">Preguntas de ${state.kitchenTheme}</div>
+          <div class="question-list">${questionRows}</div>
+        </div>
+      `;
+    };
+
+    const renderBasicDetailSheet = () => {
+      const targetValue = Number(state.basicDetailValue);
+      const matches = detailMatchesForCurrentType();
+      const sourceKitchen = state.typeFilter === "cp" ? { id: "42 CP CDMX" } : null;
+      const questions = questionSourceForCurrentType().questions;
+      const areas = ["Todas", ...new Set(questions.map(question => question.area || "Sin área"))];
+      if (!areas.includes(state.basicDetailArea)) state.basicDetailArea = "Todas";
+      const rows = questions.map((question, index) => {
+        const kitchens = matches
+          .filter(item => item.sheetKitchen.values[index] === targetValue)
+          .map(item => `${item.appKitchen.id} · ${item.appKitchen.city}`);
+        return { question, index, kitchens };
+      })
+        .filter(row => state.basicDetailArea === "Todas" || (row.question.area || "Sin área") === state.basicDetailArea)
+        .sort((a, b) => b.kitchens.length - a.kitchens.length || a.question.no - b.question.no);
+      const totalMatches = rows.reduce((sum, row) => sum + row.kitchens.length, 0);
+      const targetLabel = targetValue === 0 ? "No cumplen (0%)" : "Cumplen parcialmente (50%)";
+
+      byId("basic-detail-sheet").innerHTML = `
+        <article class="panel">
+          <div class="detail-picker">
+            <div>
+              <label for="basicDetailValue">Selecciona estado</label>
+              <div class="detail-sub">${data().name} · ${state.cityFilter === "Todas" ? "Todas las ciudades" : state.cityFilter} · ${typeLabel()}</div>
+            </div>
+            <select id="basicDetailValue">
+              <option value="0" ${targetValue === 0 ? "selected" : ""}>No cumplen (0%)</option>
+              <option value="50" ${targetValue === 50 ? "selected" : ""}>Cumplen parcialmente (50%)</option>
+            </select>
+            <select id="basicDetailArea">
+              ${areas.map(area => `<option value="${area}" ${area === state.basicDetailArea ? "selected" : ""}>${area}</option>`).join("")}
+            </select>
+          </div>
+
+          <div class="detail-summary">
+            <div class="detail-stat">
+              <div class="detail-stat-label">Básicos evaluados</div>
+              <div class="detail-stat-value">${questions.length}</div>
+              <div class="detail-stat-sub">${state.basicDetailArea === "Todas" ? "Todas las áreas" : state.basicDetailArea}</div>
+            </div>
+            <div class="detail-stat">
+              <div class="detail-stat-label">${state.typeFilter === "cp" ? "CP en filtro" : "Cocinas en filtro"}</div>
+              <div class="detail-stat-value">${matches.length}</div>
+              <div class="detail-stat-sub">${state.cityFilter === "Todas" ? "Todas las ciudades" : state.cityFilter}</div>
+            </div>
+            <div class="detail-stat">
+              <div class="detail-stat-label">${targetLabel}</div>
+              <div class="detail-stat-value" style="color:${getStatus(targetValue).color}">${totalMatches}</div>
+              <div class="detail-stat-sub">Coincidencias básico-cocina</div>
+            </div>
+          </div>
+
+          <div class="detail-table-wrap">
+            <table class="basic-detail-table">
+              <thead>
+                <tr>
+                  <th style="width:78px">Área</th>
+                  <th style="width:128px">Área del básico</th>
+                  <th style="width:260px">Básico</th>
+                  <th style="width:72px"># ${state.typeFilter === "cp" ? "CP" : "cocinas"}</th>
+                  <th style="width:auto">${state.typeFilter === "cp" ? "Todos los CP" : "Todas las cocinas"}</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rows.map(row => `
+                  <tr>
+                    <td>${row.question.area || "Sin área"}</td>
+                    <td>${row.question.tema || row.question.bloque || "Sin tema"}</td>
+                    <td><strong>B${row.question.no}.</strong> ${basicName(row.index, sourceKitchen)}</td>
+                    <td><strong style="color:${getStatus(targetValue).color}">${row.kitchens.length}</strong></td>
+                    <td>
+                      ${row.kitchens.length ? `
+                        <div class="kitchen-list">
+                          ${row.kitchens.map(name => `<span class="kitchen-chip">${name}</span>`).join("")}
+                        </div>
+                      ` : `<span style="color:var(--text-muted)">Sin ${state.typeFilter === "cp" ? "CP" : "cocinas"}</span>`}
+                    </td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+        </article>
+      `;
+    };
+
+    const moneyValue = (value) => {
+      const text = String(value || "").trim();
+      if (!text) return 0;
+      const cleaned = text
+        .replace(/[^\d,.-]/g, "")
+        .replace(/\.(?=\d{3}(\D|$))/g, "")
+        .replace(/,(?=\d{3}(\D|$))/g, "")
+        .replace(",", ".");
+      const number = Number(cleaned);
+      return Number.isFinite(number) ? number : 0;
+    };
+
+    const formatMoney = (value) => {
+      if (!value) return "$0";
+      return `$${new Intl.NumberFormat("es-CO", { maximumFractionDigits: 0 }).format(value)}`;
+    };
+
+    const renderFixes = () => {
+      const fixColumns = [
+        { key: "subcategoria", label: "Subcategoría", width: 132 },
+        { key: "area", label: "Área", width: 82, value: row => row.area || row.responsable || "" },
+        { key: "cocina", label: "Cocina", width: 130 },
+        { key: "ciudad", label: "Ciudad", width: 98 },
+        { key: "semana", label: "Semana", width: 106 },
+        { key: "iniciativa", label: "Iniciativa / Plan de Acción", width: 300 },
+        { key: "basic", label: "Básico", width: 220 },
+        { key: "compromiso", label: "Compromiso", width: 96 },
+        { key: "cierre", label: "Cierre", width: 96 },
+        { key: "totalQ", label: "Presupuesto Q", width: 112 },
+        { key: "responsable", label: "Responsable", width: 112 },
+        { key: "prioridad", label: "Prioridad", width: 88 },
+        { key: "status", label: "Status", width: 120 },
+      ];
+      const fixValue = (row, column) => {
+        const col = fixColumns.find(item => item.key === column);
+        if (!col) return "";
+        return col.value ? col.value(row) : (row[column] || "");
+      };
+      const filterRows = (rows) => rows.filter(row => fixColumns.every(col => {
+        const filter = state.fixFilters[col.key];
+        if (!filter) return true;
+        return normalizeText(fixValue(row, col.key)).includes(normalizeText(filter));
+      }));
+      const rawRows = fixesForCurrentType().filter(row => {
+        if (state.cityFilter === "Todas") return true;
+        return normalizeText(row.ciudad) === normalizeText(state.cityFilter);
+      });
+      const rows = filterRows(rawRows);
+      const openRows = rows.filter(row => !["EJECUTADO", "CERRADO", "CERRADA"].includes(normalizeText(row.status)));
+      const highRows = rows.filter(row => normalizeText(row.prioridad) === "ALTA");
+      const totalBudget = rows.reduce((sum, row) => sum + moneyValue(row.totalQ || row.cotizacion || row.total || ""), 0);
+      const tableWidth = fixColumns.reduce((sum, col) => sum + col.width, 0);
+
+      byId("fixes").innerHTML = `
+        <article class="panel">
+          <div class="detail-head">
+            <div>
+              <div class="detail-title">Fix · ${data().name}</div>
+              <div class="detail-sub">${state.cityFilter === "Todas" ? "Todas las ciudades" : state.cityFilter} · ${typeLabel()} · tabla tomada de ${fixSourceLabel()}</div>
+            </div>
+            <span class="badge" style="background:#E7F6FC;color:${PALETTE.cyanDark}">${rows.length} fixes</span>
+          </div>
+
+          <div class="detail-summary">
+            <div class="detail-stat">
+              <div class="detail-stat-label">Total fixes</div>
+              <div class="detail-stat-value">${rows.length}</div>
+              <div class="detail-stat-sub">${typeLabel()}</div>
+            </div>
+            <div class="detail-stat">
+              <div class="detail-stat-label">Prioridad alta</div>
+              <div class="detail-stat-value" style="color:${PALETTE.mauve}">${highRows.length}</div>
+              <div class="detail-stat-sub">Según tabla FIX</div>
+            </div>
+            <div class="detail-stat">
+              <div class="detail-stat-label">Abiertos / en proceso</div>
+              <div class="detail-stat-value" style="color:${PALETTE.neutralText}">${openRows.length}</div>
+              <div class="detail-stat-sub">Excluye ejecutados/cerrados</div>
+            </div>
+            <div class="detail-stat">
+              <div class="detail-stat-label">Presupuesto total Q</div>
+              <div class="detail-stat-value" style="color:${PALETTE.cyanDark}">${formatMoney(totalBudget)}</div>
+              <div class="detail-stat-sub">Suma del filtro actual</div>
+            </div>
+          </div>
+
+          <div class="table-scroll-top" id="fixTopScroll"><div style="width:${tableWidth}px;height:1px"></div></div>
+          <div class="detail-table-wrap" id="fixTableScroll">
+            <table class="fix-table">
+              <thead>
+                <tr>
+                  ${fixColumns.map(col => `<th style="width:${col.width}px">${col.label}</th>`).join("")}
+                </tr>
+                <tr>
+                  ${fixColumns.map(col => `
+                    <th style="width:${col.width}px">
+                      <input class="fix-filter" data-fix-filter="${col.key}" value="${state.fixFilters[col.key] || ""}" placeholder="Filtrar" />
+                    </th>
+                  `).join("")}
+                </tr>
+              </thead>
+              <tbody>
+                ${rows.map(row => `
+                  <tr>
+                    <td>${row.subcategoria || "—"}</td>
+                    <td>${row.area || row.responsable || "—"}</td>
+                    <td>${row.cocina || "—"}</td>
+                    <td>${row.ciudad || "—"}</td>
+                    <td>${row.semana || "—"}</td>
+                    <td>
+                      <div class="fix-action">${row.iniciativa || "—"}</div>
+                      ${row.cotizacion ? `<div class="fix-muted">Cotización: ${row.cotizacion}</div>` : ""}
+                      ${row.presupuesto ? `<div class="fix-muted">Presupuesto: ${row.presupuesto}</div>` : ""}
+                      ${row.evidencia ? `<div class="fix-muted">Evidencia: ${row.evidencia}</div>` : ""}
+                    </td>
+                    <td>${row.basic || "—"}</td>
+                    <td>${row.compromiso || "—"}</td>
+                    <td>${row.cierre || "—"}</td>
+                    <td>${row.totalQ || row.cotizacion || row.total || "—"}</td>
+                    <td>${row.responsable || "—"}</td>
+                    <td>${row.prioridad || "—"}</td>
+                    <td>${row.status || "—"}</td>
+                  </tr>
+                `).join("") || `<tr><td colspan="${fixColumns.length}" class="empty">Sin fixes para el filtro seleccionado</td></tr>`}
+              </tbody>
+            </table>
+          </div>
+        </article>
+      `;
+      syncFixScroll();
+    };
+
+    const dateFromText = (text) => {
+      const match = String(text || "").match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+      if (!match) return null;
+      return new Date(Number(match[3]), Number(match[2]) - 1, Number(match[1]));
+    };
+
+    const monthFromText = (text, year = new Date().getFullYear()) => {
+      const months = {
+        ENERO: 0, FEBRERO: 1, MARZO: 2, ABRIL: 3, MAYO: 4, JUNIO: 5,
+        JULIO: 6, AGOSTO: 7, SEPTIEMBRE: 8, SETIEMBRE: 8, OCTUBRE: 9,
+        NOVIEMBRE: 10, DICIEMBRE: 11,
+      };
+      const key = normalizeText(text);
+      if (!(key in months)) return null;
+      return new Date(year, months[key] + 1, 0);
+    };
+
+    const weekKeyFromDate = (date) => {
+      if (!date) return "";
+      const oneJan = new Date(date.getFullYear(), 0, 1);
+      const week = Math.ceil((((date - oneJan) / 86400000) + oneJan.getDay() + 1) / 7);
+      return `${date.getFullYear()}-W${String(week).padStart(2, "0")}`;
+    };
+
+    const weekLabelFromKey = (key) => {
+      const match = String(key || "").match(/^(\d{4})-W(\d{2})$/);
+      return match ? `Semana ${Number(match[2])} - ${match[1]}` : "Sin fecha";
+    };
+
+    const fixCloseDate = (fix) => dateFromText(fix.cierre) || dateFromText(fix.compromiso) || monthFromText(fix.cierre) || monthFromText(fix.compromiso);
+
+    const fixWeekKey = (fix) => weekKeyFromDate(fixCloseDate(fix));
+
+    const fixAppliesByWeek = (fix, weekKey) => {
+      if (weekKey === "all") return true;
+      const key = fixWeekKey(fix);
+      return key && key <= weekKey;
+    };
+
+    const fixAppliesByCutoff = (fix, cutoffDate) => {
+      const closeDate = fixCloseDate(fix);
+      return closeDate && closeDate <= cutoffDate;
+    };
+
+    const fixMatchesQuestion = (fix, question, countryKey) => {
+      const questionText = question.mex || question.colper || basicName(question.index);
+      if (fix.basic) {
+        return normalizeText(fix.basic) === normalizeText(questionText);
+      }
+      const sameTopic = normalizeText(fix.subcategoria) && normalizeText(fix.subcategoria) === normalizeText(question.tema);
+      if (!sameTopic) return false;
+      const action = normalizeText(fix.iniciativa);
+      return action.includes(normalizeText(questionText).slice(0, 34)) || countryKey !== "MX";
+    };
+
+    const fixMatchesKitchen = (fix, kitchen, countryKey) => {
+      const fixKitchen = normalizeText(fix.cocina);
+      if (!fixKitchen || ["TODAS", normalizeText(data().name)].includes(fixKitchen)) return true;
+      const appKitchen = normalizeText(kitchen.id);
+      if (fixKitchen === appKitchen) return true;
+      if (isCPKitchen(kitchen) && fixKitchen.length > 5 && (appKitchen.includes(fixKitchen) || fixKitchen.includes(appKitchen))) return true;
+      const number = kitchenNumber(kitchen.id);
+      return number && kitchenNumber(fix.cocina) === number;
+    };
+
+    const fixImpactForKitchen = (kitchen, weekKey) => {
+      const sheetKitchen = sheetKitchenFor(kitchen);
+      if (!sheetKitchen) return null;
+      const questions = detailDataForKitchen(kitchen).questions.map((question, index) => ({ ...question, index }));
+      const countryFixes = fixesForKitchen(kitchen);
+      const fixes = countryFixes.filter(fix => fixAppliesByWeek(fix, weekKey) && fixMatchesKitchen(fix, kitchen, state.country));
+      let fixedCount = 0;
+      let approximatedCount = 0;
+      const originalValues = [];
+      const adjustedValues = questions.map(question => {
+        const value = sheetKitchen.values[question.index];
+        if (value != null) originalValues.push(value);
+        const matchingFix = fixes.find(fix => fixMatchesQuestion(fix, question, state.country));
+        if (matchingFix && value != null && value < 100) {
+          fixedCount += 1;
+          if (!matchingFix.basic) approximatedCount += 1;
+          return 100;
+        }
+        return value;
+      }).filter(value => value != null);
+      const original = originalValues.length ? originalValues.reduce((sum, value) => sum + value, 0) / originalValues.length : null;
+      const adjusted = adjustedValues.length ? adjustedValues.reduce((sum, value) => sum + value, 0) / adjustedValues.length : null;
+      return { kitchen, original, adjusted, delta: adjusted != null && original != null ? adjusted - original : 0, fixedCount, approximatedCount };
+    };
+
+    const fixImpactForKitchenUntil = (kitchen, cutoffDate) => {
+      const sheetKitchen = sheetKitchenFor(kitchen);
+      if (!sheetKitchen) return null;
+      const questions = detailDataForKitchen(kitchen).questions.map((question, index) => ({ ...question, index }));
+      const countryFixes = fixesForKitchen(kitchen);
+      const fixes = countryFixes.filter(fix => fixAppliesByCutoff(fix, cutoffDate) && fixMatchesKitchen(fix, kitchen, state.country));
+      let fixedCount = 0;
+      const originalValues = [];
+      const adjustedValues = questions.map(question => {
+        const value = sheetKitchen.values[question.index];
+        if (value != null) originalValues.push(value);
+        const matchingFix = fixes.find(fix => fixMatchesQuestion(fix, question, state.country));
+        if (matchingFix && value != null && value < 100) {
+          fixedCount += 1;
+          return 100;
+        }
+        return value;
+      }).filter(value => value != null);
+      const original = originalValues.length ? originalValues.reduce((sum, value) => sum + value, 0) / originalValues.length : null;
+      const adjusted = adjustedValues.length ? adjustedValues.reduce((sum, value) => sum + value, 0) / adjustedValues.length : null;
+      return { original, adjusted, fixedCount };
+    };
+
+    const currentQuarterPeriods = () => {
+      const now = new Date();
+      const year = now.getFullYear();
+      const currentMonth = now.getMonth();
+      const quarterStart = Math.floor(currentMonth / 3) * 3;
+      const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+      const periods = [];
+      for (let month = quarterStart; month < quarterStart + 3; month += 1) {
+        if (month === currentMonth) {
+          const first = new Date(year, month, 1);
+          const last = new Date(year, month + 1, 0);
+          const visibleLast = now < last ? now : last;
+          let monthWeek = 1;
+          for (let d = new Date(first); d <= visibleLast; d.setDate(d.getDate() + 7)) {
+            const weekEnd = new Date(d);
+            weekEnd.setDate(weekEnd.getDate() + 6);
+            const cutoff = weekEnd > last ? last : weekEnd;
+            const yearWeek = weekLabelFromKey(weekKeyFromDate(cutoff)).replace("Semana ", "S");
+            periods.push({
+              key: `m${month}-w${weekKeyFromDate(cutoff)}`,
+              label: `${monthNames[month]} S${monthWeek} · ${weekLabelFromKey(weekKeyFromDate(cutoff))}`,
+              shortLabel: `${monthNames[month]} S${monthWeek} (${yearWeek})`,
+              cutoff,
+              isCurrentWeek: d <= now && now <= cutoff,
+            });
+            monthWeek += 1;
+          }
+        } else {
+          const cutoff = new Date(year, month + 1, 0);
+          periods.push({
+            key: `m${month}`,
+            label: monthNames[month],
+            shortLabel: monthNames[month],
+            cutoff,
+          });
+        }
+      }
+      return periods;
+    };
+
+    const renderFixImpact = () => {
+      const periods = currentQuarterPeriods();
+      const rows = filtered().map(kitchen => {
+        const periodValues = periods.map(period => ({ period, impact: fixImpactForKitchenUntil(kitchen, period.cutoff) })).filter(item => item.impact);
+        const original = periodValues[0]?.impact.original ?? null;
+        const latest = periodValues[periodValues.length - 1]?.impact.adjusted ?? null;
+        const fixedCount = periodValues[periodValues.length - 1]?.impact.fixedCount ?? 0;
+        return { kitchen, original, latest, fixedCount, periodValues };
+      }).filter(row => row.periodValues.length)
+        .sort((a, b) => ((b.latest ?? 0) - (b.original ?? 0)) - ((a.latest ?? 0) - (a.original ?? 0)));
+      const originalAvg = rows.length ? rows.reduce((sum, row) => sum + (row.original ?? 0), 0) / rows.length : null;
+      const latestAvg = rows.length ? rows.reduce((sum, row) => sum + (row.latest ?? 0), 0) / rows.length : null;
+      const totalFixed = rows.reduce((sum, row) => sum + row.fixedCount, 0);
+      const periodAverages = periods.map((period, index) => {
+        const values = rows.map(row => row.periodValues[index]?.impact.adjusted).filter(value => value != null);
+        return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+      });
+
+      byId("fix-impact").innerHTML = `
+        <article class="panel">
+          <div class="detail-head">
+            <div>
+              <div class="detail-title">Impacto Fix · Evolución Q${Math.floor(new Date().getMonth() / 3) + 1}</div>
+              <div class="detail-sub">${data().name} · ${state.cityFilter === "Todas" ? "Todas las ciudades" : state.cityFilter} · ${typeLabel()} · mes actual abierto por semanas del año</div>
+            </div>
+          </div>
+
+          <div class="detail-summary">
+            <div class="detail-stat">
+              <div class="detail-stat-label">% original</div>
+              <div class="detail-stat-value" style="color:${getStatus(originalAvg).color}">${originalAvg != null ? fmt(originalAvg) : "N/A"}</div>
+              <div class="detail-stat-sub">Antes de aplicar fixes</div>
+            </div>
+            <div class="detail-stat">
+              <div class="detail-stat-label">% proyectado fin Q</div>
+              <div class="detail-stat-value" style="color:${getStatus(latestAvg).color}">${latestAvg != null ? fmt(latestAvg) : "N/A"}</div>
+              <div class="detail-stat-sub">Con fixes acumulados hasta ${periods[periods.length - 1]?.label}</div>
+            </div>
+            <div class="detail-stat">
+              <div class="detail-stat-label">Impacto estimado</div>
+              <div class="detail-stat-value" style="color:${getStatus((latestAvg ?? 0) - (originalAvg ?? 0) + 50).color}">+${latestAvg != null && originalAvg != null ? (latestAvg - originalAvg).toFixed(1) : "0.0"} pts</div>
+              <div class="detail-stat-sub">${totalFixed} básico-cocina recalculados a 100%</div>
+            </div>
+          </div>
+
+          <div class="detail-table-wrap">
+            <table class="basic-detail-table">
+              <thead>
+                <tr>
+                  <th style="width:180px">Cocina</th>
+                  <th style="width:110px">Ciudad</th>
+                  <th style="width:120px">% original</th>
+                  ${periods.map(period => `<th class="${period.isCurrentWeek ? "current-week-col" : ""}" style="width:125px">${period.shortLabel}</th>`).join("")}
+                  <th style="width:120px">Sube Q</th>
+                  <th style="width:120px">Fixes</th>
+                </tr>
+                <tr>
+                  <th></th>
+                  <th></th>
+                  <th>${originalAvg != null ? fmt(originalAvg) : "N/A"}</th>
+                  ${periodAverages.map((value, index) => `<th class="${periods[index]?.isCurrentWeek ? "current-week-col" : ""}">${value != null ? fmt(value) : "N/A"}</th>`).join("")}
+                  <th>+${latestAvg != null && originalAvg != null ? (latestAvg - originalAvg).toFixed(1) : "0.0"} pts</th>
+                  <th>${totalFixed}</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rows.map(row => {
+                  const s = getStatus(row.latest);
+                  return `
+                    <tr>
+                      <td><strong>${row.kitchen.id}</strong></td>
+                      <td>${row.kitchen.city}</td>
+                      <td>${row.original != null ? fmt(row.original) : "N/A"}</td>
+                      ${row.periodValues.map(item => {
+                        const ps = getStatus(item.impact.adjusted);
+                        return `<td class="${item.period.isCurrentWeek ? "current-week-col" : ""}"><strong style="color:${ps.color}">${item.impact.adjusted != null ? fmt(item.impact.adjusted) : "N/A"}</strong><div class="fix-muted">${item.impact.fixedCount} fixes</div></td>`;
+                      }).join("")}
+                      <td>+${row.latest != null && row.original != null ? (row.latest - row.original).toFixed(1) : "0.0"} pts</td>
+                      <td>${row.fixedCount}</td>
+                    </tr>
+                  `;
+                }).join("")}
+              </tbody>
+            </table>
+          </div>
+          <div class="info">Regla aplicada: si un básico estaba en 0% o 50% y tiene Fix con fecha de cierre/compromiso hasta el corte de cada columna, se recalcula como 100%. Para CP se usan únicamente los planes de la hoja Fixes CPs; para cocinas se usan las hojas Fixes por país.</div>
+        </article>
+      `;
+    };
+
+    const syncFixScroll = () => {
+      const top = byId("fixTopScroll");
+      const bottom = byId("fixTableScroll");
+      if (!top || !bottom) return;
+      top.onscroll = () => { bottom.scrollLeft = top.scrollLeft; };
+      bottom.onscroll = () => { top.scrollLeft = bottom.scrollLeft; };
+    };
+
+    const render = () => {
+      renderCountryTabs();
+      renderCitySelect();
+      document.querySelectorAll(".screen").forEach(el => el.classList.toggle("active", el.id === state.view));
+      document.querySelectorAll(".view-tab").forEach(btn => btn.classList.toggle("active", btn.dataset.view === state.view));
+      renderDashboard();
+      renderKitchens();
+      renderBasics();
+      renderKitchenDetailSheet();
+      renderBasicDetailSheet();
+      renderFixes();
+      renderFixImpact();
+    };
+
+    document.addEventListener("click", (event) => {
+      const countryButton = event.target.closest("[data-country]");
+      if (countryButton) {
+        state.country = countryButton.dataset.country;
+        state.cityFilter = "Todas";
+        state.typeFilter = "all";
+        state.selectedKitchen = null;
+        state.detailKitchenId = null;
+        state.dashboardBlock = null;
+        state.dashboardTheme = null;
+        state.kitchenBlock = null;
+        state.kitchenTheme = null;
+        state.view = "dashboard";
+        render();
+        return;
+      }
+
+      const viewButton = event.target.closest("[data-view]");
+      if (viewButton) {
+        state.view = viewButton.dataset.view;
+        state.selectedKitchen = null;
+        render();
+        return;
+      }
+
+      if (event.target.closest("[data-clear-dashboard-drill]")) {
+        state.dashboardBlock = null;
+        state.dashboardTheme = null;
+        render();
+        return;
+      }
+
+      const dashboardBlock = event.target.closest("[data-dashboard-block]");
+      if (dashboardBlock) {
+        if (state.dashboardBlock === dashboardBlock.dataset.dashboardBlock) {
+          state.dashboardBlock = null;
+          state.dashboardTheme = null;
+        } else {
+          state.dashboardBlock = dashboardBlock.dataset.dashboardBlock;
+          state.dashboardTheme = null;
+        }
+        render();
+        return;
+      }
+
+      const dashboardTheme = event.target.closest("[data-dashboard-theme]");
+      if (dashboardTheme) {
+        state.dashboardTheme = state.dashboardTheme === dashboardTheme.dataset.dashboardTheme ? null : dashboardTheme.dataset.dashboardTheme;
+        render();
+        return;
+      }
+
+      const kitchenBlock = event.target.closest("[data-kitchen-block]");
+      if (kitchenBlock) {
+        state.kitchenBlock = kitchenBlock.dataset.kitchenBlock;
+        state.kitchenTheme = null;
+        render();
+        return;
+      }
+
+      const kitchenTheme = event.target.closest("[data-kitchen-theme]");
+      if (kitchenTheme) {
+        state.kitchenTheme = kitchenTheme.dataset.kitchenTheme;
+        render();
+        return;
+      }
+
+      const card = event.target.closest("[data-kitchen-index]");
+      if (card) {
+        state.selectedKitchen = sortedKitchens()[Number(card.dataset.kitchenIndex)];
+        state.kitchenBlock = null;
+        state.kitchenTheme = null;
+        render();
+        return;
+      }
+
+      if (event.target.closest("#backToKitchens")) {
+        state.selectedKitchen = null;
+        state.kitchenBlock = null;
+        state.kitchenTheme = null;
+        render();
+      }
+    });
+
+    document.addEventListener("dblclick", (event) => {
+      const dashboardBlock = event.target.closest("[data-dashboard-block]");
+      if (dashboardBlock) {
+        state.dashboardBlock = null;
+        state.dashboardTheme = null;
+        render();
+        return;
+      }
+
+      const dashboardTheme = event.target.closest("[data-dashboard-theme]");
+      if (dashboardTheme) {
+        state.dashboardTheme = null;
+        render();
+      }
+    });
+
+    document.addEventListener("change", (event) => {
+      if (event.target.id === "detailKitchenSelect") {
+        state.detailKitchenId = event.target.value;
+        render();
+      }
+      if (event.target.id === "basicDetailValue") {
+        state.basicDetailValue = Number(event.target.value);
+        render();
+      }
+      if (event.target.id === "basicDetailArea") {
+        state.basicDetailArea = event.target.value;
+        render();
+      }
+      if (event.target.id === "dashboardRankOrder") {
+        state.dashboardRankOrder = event.target.value;
+        render();
+      }
+      const fixFilter = event.target.closest("[data-fix-filter]");
+      if (fixFilter) {
+        const key = fixFilter.dataset.fixFilter;
+        state.fixFilters[key] = fixFilter.value.trim();
+        render();
+      }
+    });
+
+    byId("citySelect").addEventListener("change", (event) => {
+      state.cityFilter = event.target.value;
+      state.selectedKitchen = null;
+      state.dashboardBlock = null;
+      state.dashboardTheme = null;
+      if (!filtered().some(k => k.id === state.detailKitchenId)) {
+        state.detailKitchenId = null;
+      }
+      render();
+    });
+
+    byId("typeSelect").addEventListener("change", (event) => {
+      state.typeFilter = event.target.value;
+      state.selectedKitchen = null;
+      state.detailKitchenId = null;
+      state.dashboardBlock = null;
+      state.dashboardTheme = null;
+      state.kitchenBlock = null;
+      state.kitchenTheme = null;
+      render();
+    });
+
+    const fetchPublicSheetTable = ({ gid, sheet, timeoutMs = 30000 }) => new Promise((resolve, reject) => {
+      const callbackName = `sheetSync_${Date.now()}_${Math.floor(Math.random() * 100000)}`;
+      const script = document.createElement("script");
+      const timeout = window.setTimeout(() => {
+        delete window[callbackName];
+        script.remove();
+        reject(new Error("Google Sheets no respondió a tiempo."));
+      }, timeoutMs);
+
+      window[callbackName] = (response) => {
+        window.clearTimeout(timeout);
+        delete window[callbackName];
+        script.remove();
+        if (response?.status === "error") {
+          reject(new Error(response.errors?.[0]?.detailed_message || "No se pudo leer la hoja."));
+          return;
+        }
+        resolve(response?.table || { rows: [], cols: [] });
+      };
+
+      const sheetId = "1krQxz6jWQxgCGSJaL4VziAnRQAFBmT29WKC4vThFx_M";
+      const sheetParam = gid ? `gid=${gid}` : `sheet=${encodeURIComponent(sheet)}`;
+      script.src = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?${sheetParam}&tqx=out:json;responseHandler:${callbackName}`;
+      script.onerror = () => {
+        window.clearTimeout(timeout);
+        delete window[callbackName];
+        script.remove();
+        reject(new Error("No se pudo conectar con Google Sheets."));
+      };
+      document.body.appendChild(script);
+    });
+
+    const cleanSheetCell = (value) => {
+      if (value == null) return "";
+      const text = String(value).trim();
+      return text.startsWith("#") ? "" : text;
+    };
+
+    const displaySheetCell = (cell) => cleanSheetCell(cell?.f ?? cell?.v ?? "");
+
+    const rawSheetCell = (cell) => cell?.v ?? cell?.f ?? "";
+
+    const weekFromSheetCells = (...cells) => {
+      for (const cell of cells) {
+        const raw = rawSheetCell(cell);
+        const text = displaySheetCell(cell);
+        const match = String(raw).match(/^Date\((\d+),(\d+),(\d+)\)$/);
+        if (match) {
+          const date = new Date(Number(match[1]), Number(match[2]), Number(match[3]));
+          const oneJan = new Date(date.getFullYear(), 0, 1);
+          const week = Math.ceil((((date - oneJan) / 86400000) + oneJan.getDay() + 1) / 7);
+          return `Semana ${week} - ${date.getFullYear()}`;
+        }
+        if (text && !text.startsWith("#")) return text;
+      }
+      return "";
+    };
+
+    const kitchenCityFromSheetDetail = (country, kitchen) => {
+      if (normalizeText(country) === normalizeText("Centros de producción México")) {
+        const cp = cpData().kitchens.find(item => normalizeText(item.name) === normalizeText(kitchen));
+        if (cp) return cp.city;
+      }
+      const candidates = sheetData().kitchens.filter(item => normalizeText(item.country) === normalizeText(country));
+      const exact = candidates.find(item => normalizeText(item.name) === normalizeText(kitchen));
+      if (exact) return exact.city;
+      const number = kitchenNumber(kitchen);
+      return candidates.find(item => kitchenNumber(item.name) === number)?.city || "";
+    };
+
+    const isFixSummaryRow = (item) => {
+      if (["CIUDAD", "TOTAL"].includes(normalizeText(item.cocina))) return true;
+      const numeric = (value) => /^\d+(\.\d+)?$/.test(String(value || "").trim());
+      return !item.subcategoria && numeric(item.iniciativa) && numeric(item.compromiso) && numeric(item.cierre);
+    };
+
+    const cityFromCPKitchen = (kitchen, fallback = "") => {
+      const name = normalizeText(kitchen);
+      if (name.includes("GUADALAJARA")) return "Guadalajara";
+      if (name.includes("MONTERREY")) return "Monterrey";
+      if (name.includes("CDMX")) return "CDMX";
+      return fallback;
+    };
+
+    const parseFixTable = (table, countryKey) => {
+      const configs = {
+        MX: { country: "México", cols: { subcategoria:2, area:3, cocina:4, ciudad:5, iniciativa:6, basic:7, compromiso:8, cierre:9, abril:10, mayo:11, junio:12, totalQ:13, responsable:14, prioridad:15, status:16, revisado:17, evidencia:18, firma:19, presupuesto:20 } },
+        CO: { country: "Colombia", cols: { subcategoria:2, cocina:3, ciudad:4, iniciativa:5, compromiso:6, cierre:7, cotizacion:8, totalQ:8, responsable:9, prioridad:10, status:11 } },
+        PE: { country: "Perú", cols: { subcategoria:2, cocina:3, iniciativa:4, compromiso:5, cierre:6, mensual:7, cotizacion:8, totalQ:8, ejecutado:9, responsable:10, prioridad:11, status:12 } },
+        CP: { country: "Centros de producción México", cols: { subcategoria:2, cocina:3, ciudad:4, iniciativa:5, basic:6, compromiso:7, cierre:8, cotizacion:9, totalQ:9, responsable:10, prioridad:11, status:12 } },
+      };
+      const cfg = configs[countryKey];
+      return (table.rows || []).slice(2).map(row => {
+        const cells = row.c || [];
+        const item = { country: cfg.country };
+        Object.entries(cfg.cols).forEach(([field, index]) => {
+          item[field] = displaySheetCell(cells[index]);
+        });
+        const inferredCity = kitchenCityFromSheetDetail(cfg.country, item.cocina);
+        item.ciudad = countryKey === "CP"
+          ? cityFromCPKitchen(item.cocina, inferredCity || item.ciudad)
+          : countryKey === "PE"
+          ? (item.ciudad || "Lima")
+          : inferredCity && (!item.ciudad || ["COSTA", "COLOMBIA"].includes(normalizeText(item.ciudad)))
+            ? inferredCity
+            : item.ciudad;
+        item.semana = weekFromSheetCells(
+          cells[cfg.cols.compromiso],
+          cells[cfg.cols.cierre],
+          cells[cfg.cols.junio],
+          cells[cfg.cols.mayo],
+          cells[cfg.cols.abril],
+        );
+        return item;
+      }).filter(item => {
+        const hasMain = ["subcategoria", "cocina", "ciudad", "iniciativa", "basic", "responsable", "prioridad", "status"]
+          .some(key => item[key]);
+        return hasMain && !isFixSummaryRow(item);
+      });
+    };
+
+    const syncFixesFromSheets = async () => {
+      const next = { ...(window.FIXES_DATA || { MX: [], CO: [], PE: [], CP: [] }) };
+      const results = [];
+      for (const config of [
+        { key: "MX", sheet: "Fixes MX" },
+        { key: "CO", sheet: "Fixes CO" },
+        { key: "PE", sheet: "Fixes PE" },
+        { key: "CP", sheet: "Fixes CPs" },
+      ]) {
+        try {
+          const table = await fetchPublicSheetTable({ sheet: config.sheet, timeoutMs: 45000 });
+          next[config.key] = parseFixTable(table, config.key);
+          results.push(`${config.key} ${next[config.key].length}`);
+        } catch (error) {
+          results.push(`${config.key} sin cambios`);
+        }
+      }
+      window.FIXES_DATA = next;
+      window.LAST_FIX_SYNC_STATUS = results.join(", ");
+      return window.FIXES_DATA;
+    };
+
+    byId("syncBtn").addEventListener("click", async () => {
+      const button = byId("syncBtn");
+      const msg = byId("apiMsg");
+      button.disabled = true;
+      button.innerHTML = "<span>↻</span><span>Cargando...</span>";
+      msg.style.display = "block";
+      msg.textContent = "Conectando con Google Sheets...";
+      try {
+        const detailTable = await fetchPublicSheetTable({ gid: "679204101", timeoutMs: 30000 });
+        const fixes = await syncFixesFromSheets();
+        const now = new Date().toLocaleString("es-CO", { dateStyle: "medium", timeStyle: "short" });
+        render();
+        msg.textContent = `Conexión OK · ${detailTable.rows?.length || 0} filas de Detalle x Cocina · Fixes: ${window.LAST_FIX_SYNC_STATUS || `MX ${fixes.MX.length}, CO ${fixes.CO.length}, PE ${fixes.PE.length}, CP ${(fixes.CP || []).length}`} · ${now}.`;
+      } catch (error) {
+        msg.textContent = `Error al conectar con Google Sheets: ${error.message}`;
+      } finally {
+        button.disabled = false;
+        button.innerHTML = "<span>↻</span><span>Sincronizar Sheets</span>";
+      }
+    });
+
+    render();
+  </script>
+</body>
+</html>
