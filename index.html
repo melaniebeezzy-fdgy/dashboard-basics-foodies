@@ -4320,7 +4320,7 @@
     // Adds kitchens from the sheet that are missing from static COUNTRIES data.
     // extraKitchens = { MX: [{id, city}], CO: [...], PE: [...] }
     const mergeExtraKitchens = (extraKitchens) => {
-      const PF_NORMS = new Set(["57 SANTAFE MED", "58 VIVA MED", "39 SALVIO"].map(normalizeText));
+      const PF_NORMS = new Set(['57 SANTAFE MED', '58 VIVA MED', '39 SALVIO', '04 ACOPIO BOG', '55 TITAN', '56 SANTAFE BOG', '61 CHICO CINNABON'].map(normalizeText));
       let added = 0;
       for (const ck of ["MX", "CO", "PE"]) {
         const meta = (extraKitchens || {})[ck] || [];
@@ -4613,7 +4613,7 @@
         results.push(`Preguntas ✓ ${counts} cocinas`);
         window.FORM_SCORES = formScores;
         // Puntos Físicos (PF): excluir del conteo
-        const PF_NORMS = new Set(["57 SANTAFE MED", "58 VIVA MED", "39 SALVIO"].map(normalizeText));
+        const PF_NORMS = new Set(['57 SANTAFE MED', '58 VIVA MED', '39 SALVIO', '04 ACOPIO BOG', '55 TITAN', '56 SANTAFE BOG', '61 CHICO CINNABON'].map(normalizeText));
         for (const ck of ["MX", "CO", "PE"]) {
           PF_NORMS.forEach(norm => {
             delete formScores[ck].byName[norm];
