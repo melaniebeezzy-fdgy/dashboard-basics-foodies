@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="es">
 <head>
   <meta charset="utf-8" />
@@ -106,6 +106,11 @@
       font-weight: 650;
       border-width: 2px;
     }
+.recurrence { background: #fff0f0 !important; border-left: 3px solid #e53e3e; border-radius: 6px; padding: 4px 8px 4px 10px; margin: 2px 0; }
+    .trend-badge { font-size: 11px; font-weight: 700; padding: 2px 6px; border-radius: 4px; display: inline-block; cursor: default; }
+    .trend-up   { color: #276749; background: #c6f6d5; }
+    .trend-down { color: #9b2c2c; background: #fed7d7; }
+    .trend-eq   { color: #7b6000; background: #fefcbf; }
     .view-tab {
       padding: 7px 12px;
       font-size: 13px;
@@ -581,6 +586,7 @@
       padding-bottom: 8px;
       border-bottom: 1px solid var(--light-gray);
     }
+    .detail-item-worsened { background: #fff5f5; border-left: 3px solid #fc8181 !important; border-radius: 4px; }
     .detail-item:last-child {
       border-bottom: 0;
       padding-bottom: 0;
@@ -1050,6 +1056,23 @@
     const sheetData = () => window.SHEET_DETAIL_DATA || { questions: [], kitchens: [] };
     const cpData = () => window.CP_DETAIL_DATA || { questions: [], kitchens: [] };
     const fixesData = () => window.FIXES_DATA || { MX: [], CO: [], PE: [], CP: [] };
+    // DOT% per MX kitchen — used for "People" area compliance instead of question values
+    const dotMxData = () => window.DOT_MX_DATA || {};
+    const PEOPLE_AREA = "People";
+    const dotMxValueForKitchen = (kitchen) => {
+      if (!kitchen) return null;
+      const d = dotMxData();
+      if (!Object.keys(d).length) return null;
+      const name = normalizeText(kitchen.id || kitchen.name || "");
+      const exactKey = Object.keys(d).find(k => normalizeText(k) === name);
+      if (exactKey !== undefined) return d[exactKey];
+      const num = kitchenNumber(name);
+      if (num) {
+        const numKey = Object.keys(d).find(k => kitchenNumber(normalizeText(k)) === num);
+        if (numKey !== undefined) return d[numKey];
+      }
+      return null;
+    };
     const isCPKitchen = (kitchen) => !!kitchen && cpData().kitchens.some(item => normalizeText(item.name) === normalizeText(kitchen.id || kitchen.name));
     const detailDataForKitchen = (kitchen) => isCPKitchen(kitchen) ? cpData() : sheetData();
     const basicName = (index, kitchen = null) => {
@@ -1073,7 +1096,7 @@
 
     const COUNTRIES = {
       MX: {
-        name: "México", flag: "MX", basic: 67.0,
+        name: "México", flag: "MX", basic: null,
         cities: { CDMX: 65.8, Monterrey: 71.4, Guadalajara: 67.6, "Mérida": 55.6 },
         basics: [54,86,66,81,96,28,51,86,65,96,69,59,84,53,90,41,84,63,76,16,93,77,92,55,47,93],
         kitchens: [
@@ -1119,7 +1142,7 @@
         ]
       },
       CO: {
-        name: "Colombia", flag: "CO", basic: 70.3,
+        name: "Colombia", flag: "CO", basic: null,
         cities: { "Bogotá":72.2, "Medellín":63.1, Cali:74.4, Pereira:64.7, Barranquilla:54.4, Cartagena:76.5, Bucaramanga:78.6 },
         basics: [80,88,84,56,95,50,12,73,55,95,42,70,96,96,89,82,87,73,85,38,96,94,97,89,65,86],
         kitchens: [
@@ -1149,7 +1172,7 @@
         ]
       },
       PE: {
-        name: "Perú", flag: "PE", basic: 60.0,
+        name: "Perú", flag: "PE", basic: null,
         cities: { Lima: 60.0 },
         basics: [30,80,60,60,100,30,100,60,90,50,50,30,100,20,80,20,50,70,60,40,60,50,90,10,40,60],
         kitchens: [
@@ -1235,12 +1258,40 @@
       const saved = syncStorage.read();
       if (!saved) return;
       if (saved.fixes) window.FIXES_DATA = saved.fixes;
+      if (saved.dotMx) window.DOT_MX_DATA = saved.dotMx;
+      if (saved.formScores) {
+        window.FORM_SCORES = saved.formScores;
+        if (saved.extraKitchens) {
+          window.EXTRA_KITCHENS = saved.extraKitchens;
+          mergeExtraKitchens(saved.extraKitchens);
+        } else {
+          // Backward compat: derive kitchen list from byName keys when extraKitchens not yet saved
+          const derived = {};
+          for (const ck of ["MX", "CO", "PE"]) {
+            derived[ck] = Object.keys((saved.formScores[ck] || {}).byName || {}).map(id => ({ id, city: "" }));
+          }
+          mergeExtraKitchens(derived);
+        }
+      }
+      if (saved.formData && saved.formData.kitchens?.length) {
+        // Merge saved form kitchens with existing questions
+        window.SHEET_DETAIL_DATA = {
+          questions: (window.SHEET_DETAIL_DATA || {}).questions || [],
+          kitchens: saved.formData.kitchens,
+        };
+      }
+      if (saved.prevCoScores) window.PREV_CO_SCORES = saved.prevCoScores;
       if (saved.lastSyncAt) window.LAST_SYNC_AT = saved.lastSyncAt;
       if (saved.fixStatus) window.LAST_FIX_SYNC_STATUS = saved.fixStatus;
     };
     const saveSyncData = (payload) => {
       const next = {
         fixes: window.FIXES_DATA,
+        dotMx: window.DOT_MX_DATA,
+        formScores: window.FORM_SCORES || null,
+        formData: window.SHEET_DETAIL_DATA ? { kitchens: window.SHEET_DETAIL_DATA.kitchens } : null,
+        extraKitchens: window.EXTRA_KITCHENS || null,
+        prevCoScores: window.PREV_CO_SCORES || null,
         lastSyncAt: payload.lastSyncAt,
         fixStatus: window.LAST_FIX_SYNC_STATUS || "",
       };
@@ -1258,13 +1309,15 @@
     const typeLabel = () => state.typeFilter === "cp" ? "CP" : state.typeFilter === "kitchen" ? "Cocinas" : "Cocinas y CP";
     const filtered = (() => {
       let _k = null, _v = null;
-      return () => {
+      const fn = () => {
         const k = `${state.country}|${state.cityFilter}|${state.typeFilter}`;
         if (k === _k) return _v;
         _k = k;
         const byCity = state.cityFilter === "Todas" ? data().kitchens : data().kitchens.filter(ki => ki.city === state.cityFilter);
         return (_v = byCity.filter(matchesTypeFilter));
       };
+      fn.reset = () => { _k = null; _v = null; };
+      return fn;
     })();
     const typeFiltered = () => data().kitchens.filter(matchesTypeFilter);
     const withData = () => filtered().filter(k => kitchenScore(k) != null);
@@ -1289,10 +1342,11 @@
 
     const renderCountryTabs = () => {
       byId("countryTabs").innerHTML = Object.entries(COUNTRIES).map(([key, value]) => {
-        const s = getStatus(value.basic);
+        const score = countryTabScore(key) ?? value.basic;
+        const s = getStatus(score);
         const active = key === state.country ? "active" : "";
         const style = key === state.country ? `border-color:${s.color};background:${s.bg};color:${s.color}` : "";
-        return `<button class="country-tab ${active}" style="${style}" data-country="${key}" type="button">${value.flag} ${value.name}<span style="margin-left:8px;color:${s.color};font-size:12px">${fmt(value.basic)}</span></button>`;
+        return `<button class="country-tab ${active}" style="${style}" data-country="${key}" type="button">${value.flag} ${value.name}<span style="margin-left:8px;color:${s.color};font-size:12px">${fmt(score)}</span></button>`;
       }).join("");
     };
 
@@ -1365,9 +1419,42 @@
       const source = state.typeFilter === "cp" ? cpData() : sheetData();
       const questions = source.questions.map((question, index) => ({ ...question, index }));
       const matches = sheetKitchensForDashboardDrill();
-      if (!questions.length || !matches.length) {
+      const fsCountry = (window.FORM_SCORES || {})[state.country];
+      const hasFormBloque = !!(fsCountry?.byKitchenBloque && Object.keys(fsCountry.byKitchenBloque).length);
+      if (!questions.length || (!matches.length && !hasFormBloque)) {
         return `<div class="drilldown"><div class="hint">No hay detalle disponible para el filtro actual.</div></div>`;
       }
+      // Helper: compute block avg from FORM_SCORES filtered to current selection
+      const formBloqueAvg = (block) => {
+        if (!hasFormBloque) return null;
+        const kitchens = filtered().filter(k => state.typeFilter === "cp" ? isCPKitchen(k) : !isCPKitchen(k));
+        const vals = kitchens.map(k => fsCountry.byKitchenBloque[normalizeText(k.id)]?.[block] ?? null).filter(v => v !== null);
+        return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+      };
+      const hasTema = !!(fsCountry?.byKitchenTema && Object.keys(fsCountry.byKitchenTema).length);
+      const hasFormQuestion = !!(fsCountry?.byKitchenQuestion && Object.keys(fsCountry.byKitchenQuestion).length);
+      // Returns summarizeQuestionValues-compatible object using Preguntas sheet data
+      const summarizeQuestionFromForm = (qNo) => {
+        if (!hasFormQuestion || !qNo) return null;
+        const kitchens = filtered().filter(k => state.typeFilter === "cp" ? isCPKitchen(k) : !isCPKitchen(k));
+        const vals = kitchens.map(k => fsCountry.byKitchenQuestion[normalizeText(k.id)]?.[qNo] ?? null);
+        const valid = vals.filter(v => v !== null);
+        if (!valid.length) return null;
+        return {
+          avg: valid.reduce((a, b) => a + b, 0) / valid.length,
+          full: vals.filter(v => v === 100).length,
+          partial: vals.filter(v => v === 50).length,
+          fail: vals.filter(v => v === 0).length,
+          na: vals.filter(v => v === null).length,
+          total: vals.length,
+        };
+      };
+      const formTemaAvg = (tema) => {
+        if (!hasTema) return null;
+        const kitchens = filtered().filter(k => state.typeFilter === "cp" ? isCPKitchen(k) : !isCPKitchen(k));
+        const vals = kitchens.map(k => fsCountry.byKitchenTema[normalizeText(k.id)]?.[tema] ?? null).filter(v => v !== null);
+        return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+      };
 
       const blockNames = [...new Set(questions.map(question => question.bloque || "Sin bloque"))];
       if (state.dashboardBlock && !blockNames.includes(state.dashboardBlock)) {
@@ -1375,14 +1462,39 @@
         state.dashboardTheme = null;
       }
 
+      const prevDashData = state.country === "CO" ? (window.PREV_CO_SCORES || null) : null;
       const blockCards = blockNames.map(block => {
         const blockQuestions = questions.filter(question => (question.bloque || "Sin bloque") === block);
-        const summary = summarizeQuestionGroup(blockQuestions, matches);
+        const sheetBlockAvg = matches.length ? summarizeQuestionGroup(blockQuestions, matches).avg : null;
+        // Prefer FORM_SCORES; if direct bloque-name doesn't match, fall back to averaging tema scores
+        const blockAvg = (() => {
+          const direct = formBloqueAvg(block);
+          if (direct != null) return direct;
+          if (hasTema) {
+            const blockTemas = [...new Set(blockQuestions.map(q => q.tema || ""))].filter(Boolean);
+            const tv = blockTemas.map(t => formTemaAvg(t)).filter(v => v !== null);
+            if (tv.length) return tv.reduce((a, b) => a + b, 0) / tv.length;
+          }
+          return sheetBlockAvg;
+        })();
+        const summary = { avg: blockAvg, total: blockQuestions.length };
         const s = getStatus(summary.avg);
+        let prevBlockAvg = null;
+        if (prevDashData) {
+          const blockTemas = [...new Set(blockQuestions.map(q => q.tema || "Sin tema"))];
+          const tv = blockTemas.map(t => prevDashData.byTema?.[t]).filter(v => v != null);
+          if (tv.length) prevBlockAvg = tv.reduce((a, b) => a + b, 0) / tv.length;
+        }
         return `
           <button class="drill-card ${state.dashboardBlock === block ? "active" : ""}" data-dashboard-block="${block}" type="button">
             <div class="drill-title">${block}</div>
-            <div class="drill-meta"><span>${summary.total} básicos</span><strong style="color:${s.color}">${summary.avg != null ? fmt(summary.avg) : "N/A"}</strong></div>
+            <div class="drill-meta">
+              <span>${summary.total} básicos</span>
+              <span style="display:flex;align-items:center;gap:4px">
+                ${trendBadgeHtml(summary.avg, prevBlockAvg)}
+                <strong style="color:${s.color}">${summary.avg != null ? fmt(summary.avg) : "N/A"}</strong>
+              </span>
+            </div>
             <div class="bar" style="height:4px;margin:8px 0 0"><div class="bar-fill" style="width:${summary.avg ?? 0}%;background:${s.bar || s.color}"></div></div>
           </button>
         `;
@@ -1398,12 +1510,13 @@
 
       const themeCards = state.dashboardBlock ? themeNames.map(theme => {
         const themeQuestions = selectedBlockQuestions.filter(question => (question.tema || "Sin tema") === theme);
-        const summary = summarizeQuestionGroup(themeQuestions, matches);
-        const s = getStatus(summary.avg);
+        const sheetThemeAvg = matches.length ? summarizeQuestionGroup(themeQuestions, matches).avg : null;
+        const themeAvg = formTemaAvg(theme) ?? sheetThemeAvg;
+        const s = getStatus(themeAvg);
         return `
           <button class="drill-card ${state.dashboardTheme === theme ? "active" : ""}" data-dashboard-theme="${theme}" type="button">
             <div class="drill-title">${theme}</div>
-            <div class="drill-meta"><span>${summary.total} preguntas</span><strong style="color:${s.color}">${summary.avg != null ? fmt(summary.avg) : "N/A"}</strong></div>
+            <div class="drill-meta"><span>${themeQuestions.length} preguntas</span><strong style="color:${s.color}">${themeAvg != null ? fmt(themeAvg) : "N/A"}</strong></div>
           </button>
         `;
       }).join("") : "";
@@ -1411,7 +1524,7 @@
       const questionRows = state.dashboardTheme ? selectedBlockQuestions
         .filter(question => (question.tema || "Sin tema") === state.dashboardTheme)
         .map(question => {
-          const summary = summarizeQuestionValues(question.index, matches);
+          const summary = summarizeQuestionFromForm(question.no) || summarizeQuestionValues(question.index, matches);
           const s = getStatus(summary.avg);
           return `
             <div class="question-row">
@@ -1448,7 +1561,7 @@
     };
 
     const dashboardRankingQuestions = () => {
-      const questions = sheetData().questions.map((question, index) => ({ ...question, index }));
+      const questions = questionSourceForCurrentType().questions.map((question, index) => ({ ...question, index }));
       if (!state.dashboardBlock) return [];
       return questions.filter(question => {
         const sameBlock = (question.bloque || "Sin bloque") === state.dashboardBlock;
@@ -1460,10 +1573,50 @@
     const kitchenAverageForQuestions = (kitchen, questions) => {
       const sheetKitchen = sheetKitchenFor(kitchen);
       if (!sheetKitchen || !questions.length) return null;
+      const kafqFsK = (window.FORM_SCORES || {})[state.country];
+      const kafqNormId = normalizeText(kitchen?.id || "");
+      const kafqFormQ = kafqFsK?.byKitchenQuestion?.[kafqNormId] || null;
       const values = questions
-        .map(question => sheetKitchen.values[question.index])
+        .map(question => {
+          const sv = sheetKitchen.values[question.index];
+          return sv != null ? sv : (kafqFormQ ? (kafqFormQ[question.no] ?? null) : null);
+        })
         .filter(value => value != null);
       return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+    };
+
+    // Compute block score (seg/hig/limp/infra/ppl) dynamically from sheet values
+    const kitchenBlockScore = (kitchen, blockLabel) => {
+      const questions = detailDataForKitchen(kitchen).questions
+        .map((q, i) => ({ ...q, index: i }))
+        .filter(q => (q.bloque || "") === blockLabel);
+      if (!questions.length) return null;
+      return kitchenAverageForQuestions(kitchen, questions);
+    };
+
+    // Compute city averages dynamically from live kitchenScore values
+    const computedCityScores = () => {
+      const acc = {};
+      filtered().forEach(kitchen => {
+        const score = kitchenScore(kitchen);
+        if (score == null || !kitchen.city) return;
+        if (!acc[kitchen.city]) acc[kitchen.city] = { sum: 0, n: 0 };
+        acc[kitchen.city].sum += score;
+        acc[kitchen.city].n  += 1;
+      });
+      return Object.fromEntries(Object.entries(acc).map(([city, { sum, n }]) => [city, sum / n]));
+    };
+
+    const trendBadgeHtml = (curr, prev) => {
+      if (curr == null || prev == null) return "";
+      const diff = curr - prev;
+      if (diff > 1.5)  return `<span class="trend-badge trend-up"  title="Q1 2026: ${prev.toFixed(1)}%">↑</span>`;
+      if (diff < -1.5) return `<span class="trend-badge trend-down" title="Q1 2026: ${prev.toFixed(1)}%">↓</span>`;
+      return              `<span class="trend-badge trend-eq"  title="Q1 2026: ${prev.toFixed(1)}%">=</span>`;
+    };
+    const prevKitchenScore = (kitchen) => {
+      if (state.country !== "CO" || !window.PREV_CO_SCORES) return null;
+      return window.PREV_CO_SCORES.byKitchen?.[normalizeText(kitchen.id)]?.score ?? null;
     };
 
     const renderDashboard = () => {
@@ -1479,7 +1632,23 @@
         { label: "Cocinas <50%", value: red, sub: "crítico", status: 30 },
       ];
 
-      const cityBars = Object.entries(data().cities).map(([city, score]) => scoreBar(score, city)).join("");
+      const prevCityScores = (() => {
+        if (state.country !== "CO" || !window.PREV_CO_SCORES) return {};
+        const acc = {};
+        filtered().forEach(kitchen => {
+          const ps = prevKitchenScore(kitchen);
+          if (ps == null || !kitchen.city) return;
+          if (!acc[kitchen.city]) acc[kitchen.city] = { sum: 0, n: 0 };
+          acc[kitchen.city].sum += ps;
+          acc[kitchen.city].n  += 1;
+        });
+        return Object.fromEntries(Object.entries(acc).map(([c, { sum, n }]) => [c, sum / n]));
+      })();
+      const cityBars = Object.entries(computedCityScores()).map(([city, score]) => {
+        const prevCity = prevCityScores[city] ?? null;
+        const trendStr = trendBadgeHtml(score, prevCity);
+        return scoreBar(score, city) + (trendStr ? `<div style="text-align:right;margin-top:-8px;margin-bottom:4px;font-size:11px;color:#718096">${trendStr} Q1: ${prevCity.toFixed(1)}%</div>` : "");
+      }).join("");
       const rankQuestions = dashboardRankingQuestions();
       const rankingModeLabel = state.dashboardTheme
         ? `Ranking por tema · ${state.dashboardTheme}`
@@ -1489,7 +1658,21 @@
       const rankingRows = [...rows]
         .map(kitchen => ({
           ...kitchen,
-          rankValue: rankQuestions.length ? kitchenAverageForQuestions(kitchen, rankQuestions) : kitchenScore(kitchen),
+          rankValue: (() => {
+            if (!rankQuestions.length) return kitchenScore(kitchen);
+            const fsRank = (window.FORM_SCORES || {})[state.country];
+            const normId = normalizeText(kitchen.id);
+            // Prefer FORM_SCORES: tema → bloque → per-question average → SHEET_DETAIL fallback
+            if (state.dashboardTheme && fsRank?.byKitchenTema?.[normId]?.[state.dashboardTheme] != null)
+              return fsRank.byKitchenTema[normId][state.dashboardTheme];
+            if (state.dashboardBlock && fsRank?.byKitchenBloque?.[normId]?.[state.dashboardBlock] != null)
+              return fsRank.byKitchenBloque[normId][state.dashboardBlock];
+            if (fsRank?.byKitchenQuestion?.[normId]) {
+              const vals = rankQuestions.map(q => fsRank.byKitchenQuestion[normId][q.no] ?? null).filter(v => v !== null);
+              if (vals.length) return vals.reduce((a, b) => a + b, 0) / vals.length;
+            }
+            return kitchenAverageForQuestions(kitchen, rankQuestions);
+          })(),
         }))
         .sort((a, b) => {
           if (a.rankValue == null && b.rankValue == null) return 0;
@@ -1497,15 +1680,21 @@
           if (b.rankValue == null) return -1;
           return state.dashboardRankOrder === "asc" ? a.rankValue - b.rankValue : b.rankValue - a.rankValue;
         });
-      const ranking = rankingRows.map((k, index) => `
-        <div class="rank-row">
-          <div class="rank-left">
-            <span class="rank-number">#${index + 1}</span>
-            <span class="rank-id">${k.id}</span>
+      const ranking = rankingRows.map((k, index) => {
+        const ps = prevKitchenScore(k);
+        return `
+          <div class="rank-row">
+            <div class="rank-left">
+              <span class="rank-number">#${index + 1}</span>
+              <span class="rank-id">${k.id}</span>
+            </div>
+            <span style="display:flex;align-items:center;gap:4px">
+              ${trendBadgeHtml(k.rankValue, ps)}
+              ${badge(k.rankValue)}
+            </span>
           </div>
-          ${badge(k.rankValue)}
-        </div>
-      `).join("");
+        `;
+      }).join("");
 
       byId("dashboard").innerHTML = `
         <div class="kpis">
@@ -1557,8 +1746,9 @@
         ` : `
           <div class="mini-grid">
             ${BLOCK_LABELS.slice(0, 4).map(b => {
-              const bs = getStatus(k[b.key]);
-              return `<div class="mini-metric"><span class="mini-label">${b.label.split(" ")[0]}</span><span class="mini-value" style="color:${bs.color}">${k[b.key] != null ? `${k[b.key]}%` : ""}</span></div>`;
+              const bv = kitchenBlockScore(k, b.label) ?? k[b.key];
+              const bs = getStatus(bv);
+              return `<div class="mini-metric"><span class="mini-label">${b.label.split(" ")[0]}</span><span class="mini-value" style="color:${bs.color}">${bv != null ? `${Math.round(bv)}%` : ""}</span></div>`;
             }).join("")}
           </div>
           <div class="bar" style="height:4px;margin-bottom:0"><div class="bar-fill" style="width:${kScore}%;background:${s.bar || s.color}"></div></div>
@@ -1598,7 +1788,7 @@
           </div>
           ${kScore != null ? `
             <div class="section-label">${isCPKitchen(k) ? "Cuestionario CP" : "Bloques de cumplimiento"}</div>
-            ${isCPKitchen(k) ? scoreBar(kScore, "Cumplimiento CP", 8) : BLOCK_LABELS.map(b => scoreBar(k[b.key], b.label, 8)).join("")}
+            ${isCPKitchen(k) ? scoreBar(kScore, "Cumplimiento CP", 8) : BLOCK_LABELS.map(b => scoreBar(kitchenBlockScore(k, b.label) ?? k[b.key], b.label, 8)).join("")}
             ${renderKitchenQuestionDrilldown(k)}
           ` : `
             <div class="empty">&#x25f7;<br><br>Datos pendientes de carga para este Centro de Producción.</div>
@@ -1614,27 +1804,56 @@
       const sourceKitchen = state.typeFilter === "cp" ? { id: "42 CP CDMX" } : null;
       const questions = questionSourceForCurrentType().questions.map((question, index) => ({ ...question, index }));
       const temas = [...new Set(questions.map(question => question.tema || "Sin tema"))];
+      // FORM_SCORES-first summary for a question number (covers all kitchens, not just SHEET_DETAIL_DATA)
+      const basicsFsCountry = (window.FORM_SCORES || {})[state.country];
+      const basicsFormSummarize = (qNo) => {
+        if (!basicsFsCountry?.byKitchenQuestion || !qNo) return null;
+        const kitchens = filtered().filter(k => state.typeFilter === "cp" ? isCPKitchen(k) : !isCPKitchen(k));
+        const vals = kitchens.map(k => basicsFsCountry.byKitchenQuestion[normalizeText(k.id)]?.[qNo] ?? null);
+        const valid = vals.filter(v => v !== null);
+        if (!valid.length) return null;
+        return {
+          avg: valid.reduce((a, b) => a + b, 0) / valid.length,
+          full: vals.filter(v => v === 100).length,
+          partial: vals.filter(v => v === 50).length,
+          fail: vals.filter(v => v === 0).length,
+          na: vals.filter(v => v === null).length,
+          total: vals.length,
+        };
+      };
+      const prevData = state.country === "CO" ? (window.PREV_CO_SCORES || null) : null;
       byId("basics").innerHTML = `
-        <div class="hint">Cumplimiento promedio por básico en ${data().name}${state.cityFilter === "Todas" ? "" : ` · ${state.cityFilter}`} · ${typeLabel()}. Las barras usan las respuestas reales del cuestionario.</div>
+        <div class="hint">Cumplimiento promedio por básico en ${data().name}${state.cityFilter === "Todas" ? "" : ` · ${state.cityFilter}`} · ${typeLabel()}. Las barras usan las respuestas reales del cuestionario.${prevData ? " · ↑↓= vs Q1 2026. <span style=\'color:#e53e3e;font-weight:600\'>Rojo</span> = reincidencia." : ""}</div>
         ${temas.map(tema => {
           const topicQuestions = questions.filter(question => (question.tema || "Sin tema") === tema);
           return `
             <article class="panel basic-group">
               <div class="panel-title">${tema}</div>
               ${topicQuestions.map(question => {
-                const summary = summarizeQuestionValues(question.index, matches);
+                const summary = basicsFormSummarize(question.no) || summarizeQuestionValues(question.index, matches);
                 const value = summary.avg;
                 const s = getStatus(value);
+                const prevScore = prevData
+                  ? (prevData.byQuestion?.[question.no] ?? null)
+                  : null;
+                const isRecurrence = prevScore !== null && value !== null && value < 70 && prevScore < 70;
+                const trend = prevScore !== null && value !== null
+                  ? (value > prevScore + 1.5 ? "↑" : value < prevScore - 1.5 ? "↓" : "=")
+                  : null;
+                const trendClass = trend === "↑" ? "up" : trend === "↓" ? "down" : "eq";
                 return `
-                  <div class="basic-row">
+                  <div class="basic-row${isRecurrence ? " recurrence" : ""}">
                     <div class="score-head">
                       <span class="basic-question"><span class="basic-num">B${question.no}.</span>${basicName(question.index, sourceKitchen)}</span>
-                      <span class="score-value" style="color:${s.color};min-width:42px;text-align:right">${value != null ? fmt(value) : ""}</span>
+                      <span style="display:flex;align-items:center;gap:6px">
+                        ${trend ? `<span class="trend-badge trend-${trendClass}" title="Q1 2026: ${prevScore != null ? prevScore.toFixed(1) : ""}%">${trend}</span>` : ""}
+                        <span class="score-value" style="color:${s.color};min-width:42px;text-align:right">${value != null ? fmt(value) : ""}</span>
+                      </span>
                     </div>
                     <div class="bar"><div class="bar-fill" style="width:${value ?? 0}%;background:${s.bar || s.color}"></div></div>
                     <div class="drill-meta" style="margin-top:-6px;margin-bottom:8px">
                       <span>${question.area || "Sin área"}</span>
-                      <span>100%: ${summary.full} · 50%: ${summary.partial} · 0%: ${summary.fail} · N/A: ${summary.na}</span>
+                      <span>100%: ${summary.full} · 50%: ${summary.partial} · 0%: ${summary.fail} · N/A: ${summary.na}${prevScore !== null ? ` · Q1: ${prevScore.toFixed(1)}%` : ""}</span>
                     </div>
                   </div>
                 `;
@@ -1694,7 +1913,46 @@
       return valid.length ? valid.reduce((sum, value) => sum + value, 0) / valid.length : null;
     };
 
-    const kitchenScore = (kitchen) => kitchen?.basic != null ? kitchen.basic : scoreFromValues(sheetKitchenFor(kitchen)?.values || []);
+    // Dynamic country-level average: uses FORM_SCORES exclusively when available
+    const countryTabScore = (countryKey) => {
+      const fs = (window.FORM_SCORES || {})[countryKey];
+      if (fs && Object.keys(fs.byName).length > 0) {
+        // Apply the same type filter as the dashboard so tab % = % Básicos
+        const kitchens = (COUNTRIES[countryKey]?.kitchens || []).filter(matchesTypeFilter);
+        if (kitchens.length > 0) {
+          const scores = kitchens.map(k => {
+            const norm = normalizeText(k.id);
+            const num  = kitchenNumber(k.id);
+            return (norm && fs.byName[norm] != null) ? fs.byName[norm]
+                 : (num  && fs.byNum[num]  != null) ? fs.byNum[num]
+                 : null;
+          }).filter(s => s != null);
+          if (scores.length > 0) return scores.reduce((a, b) => a + b, 0) / scores.length;
+        }
+        // Fallback: average all byName scores (no type filter)
+        const all = Object.values(fs.byName).filter(s => s != null);
+        if (all.length > 0) return all.reduce((a, b) => a + b, 0) / all.length;
+      }
+      return COUNTRIES[countryKey]?.basic ?? null;
+    };
+
+    const kitchenScore = (kitchen) => {
+      // 1. Try FORM_SCORES (populated on sync, keyed by country key + kitchen num/name)
+      const fs = (window.FORM_SCORES || {})[state.country];
+      if (fs) {
+        const num  = kitchenNumber(kitchen.id);
+        const norm = normalizeText(kitchen.id);
+        const score = (norm && fs.byName?.[norm] != null) ? fs.byName[norm]
+                    : (num  && fs.byNum?.[num]   != null) ? fs.byNum[num]
+                    : undefined;
+        if (score != null) return score;
+      }
+      // 2. Fall back to SHEET_DETAIL_DATA values lookup
+      const sheetKitchen = sheetKitchenFor(kitchen);
+      if (sheetKitchen?.values?.some(v => v != null)) return scoreFromValues(sheetKitchen.values);
+      // 3. Fall back to hardcoded basic
+      return kitchen?.basic ?? null;
+    };
 
     const sheetKitchensForDashboardDrill = () => {
       return filtered()
@@ -1714,11 +1972,16 @@
       const sheetKitchen = sheetKitchenFor(kitchen);
       const sourceData = detailDataForKitchen(kitchen);
       if (sheetKitchen && sourceData.questions.length) {
+        const drFsK = (window.FORM_SCORES || {})[state.country];
+        const drNormId = normalizeText(kitchen?.id || "");
+        const drFormQ = drFsK?.byKitchenQuestion?.[drNormId] || null;
         return sourceData.questions.map((question, index) => {
-          const value = sheetKitchen.values[index] ?? null;
+          const sv = sheetKitchen.values[index];
+          const value = sv != null ? sv : (drFormQ ? (drFormQ[question.no] ?? null) : null);
           return {
             name: `B${question.no}. ${basicName(index, kitchen)}`,
             value,
+            qNo: question.no,
             questions: 1,
             category: detailCategory(value),
           };
@@ -1729,6 +1992,7 @@
         return Array.from({ length: TOTAL_BASICS }, (_, index) => ({
           name: `B${index + 1}. ${basicName(index, kitchen)}`,
           value: null,
+          qNo: index + 1,
           questions: 1,
           category: "na",
         }));
@@ -1748,18 +2012,21 @@
       });
     };
 
-    const renderColumnItems = (items) => {
+    const renderColumnItems = (items, prevScores) => {
       if (!items.length) return `<div class="empty" style="padding:12px 0">Sin básicos en esta categoría</div>`;
       return `
         <div class="detail-cell-list">
           ${items.map(item => {
             const s = getStatus(item.value);
+            const prevQ = prevScores && item.qNo != null ? (prevScores[item.qNo] ?? null) : null;
+            const worsened = prevQ !== null && item.value !== null && item.value < prevQ - 1.5;
             return `
-              <div class="detail-item">
+              <div class="detail-item${worsened ? ' detail-item-worsened' : ''}">
                 <div class="detail-item-name">${item.name}</div>
                 <div class="detail-item-meta">
                   Porcentaje: <strong style="color:${s.color}">${item.value != null ? fmt(item.value) : "No aplica"}</strong>
                   · Cantidad de preguntas: ${item.questions}
+                  ${prevQ !== null ? `· ${trendBadgeHtml(item.value, prevQ)} Q1: ${prevQ.toFixed(1)}%` : ""}
                 </div>
               </div>
             `;
@@ -1776,6 +2043,10 @@
       rows.forEach(row => grouped[row.category].push(row));
       const totalQuestions = rows.reduce((sum, row) => sum + row.questions, 0);
 
+      const detailPrevScores = (() => {
+        if (state.country !== "CO" || !window.PREV_CO_SCORES) return null;
+        return window.PREV_CO_SCORES.byKitchen?.[normalizeText(kitchen?.id || "")]?.byQuestion || null;
+      })();
       byId("kitchen-detail-sheet").innerHTML = `
         <article class="panel">
           <div class="detail-picker">
@@ -1791,7 +2062,7 @@
           <div class="detail-summary">
             <div class="detail-stat">
               <div class="detail-stat-label">Porcentaje total de la cocina</div>
-              <div class="detail-stat-value" style="color:${getStatus(kitchen?.basic).color}">${kitchen?.basic != null ? fmt(kitchen.basic) : "Pendiente"}</div>
+              <div class="detail-stat-value" style="color:${getStatus(kitchenScore(kitchen)).color}">${kitchenScore(kitchen) != null ? fmt(kitchenScore(kitchen)) : "Pendiente"}</div>
               <div class="detail-stat-sub">${kitchen?.id ?? "Sin cocina seleccionada"}</div>
             </div>
             ${detailColumns.map(col => {
@@ -1828,7 +2099,7 @@
                           <span>${count} pregunta(s)</span>
                           <span>${avg != null ? fmt(avg) : "N/A"}</span>
                         </div>
-                        ${renderColumnItems(items)}
+                        ${renderColumnItems(items, detailPrevScores)}
                       </td>
                     `;
                   }).join("")}
@@ -1845,9 +2116,18 @@
     const renderKitchenQuestionDrilldown = (kitchen) => {
       const sheetKitchen = sheetKitchenFor(kitchen);
       const questions = detailDataForKitchen(kitchen).questions.map((question, index) => ({ ...question, index }));
-      if (!sheetKitchen || !questions.length) {
+      // FORM_SCORES fallback: use byKitchenQuestion[normId][question.no] when sheetKitchen is absent or value is null
+      const fsK = (window.FORM_SCORES || {})[state.country];
+      const normKitchenId = normalizeText(kitchen?.id || "");
+      const formQScores = fsK?.byKitchenQuestion?.[normKitchenId] || null;
+      if (!sheetKitchen && !formQScores || !questions.length) {
         return `<div class="drilldown"><div class="hint">No hay detalle de preguntas para esta cocina.</div></div>`;
       }
+      const getQValue = (question) => {
+        const sv = sheetKitchen ? sheetKitchen.values[question.index] : undefined;
+        if (sv != null) return sv;
+        return formQScores ? (formQScores[question.no] ?? null) : null;
+      };
 
       const blockNames = [...new Set(questions.map(question => question.bloque || "Sin bloque"))];
       if (!state.kitchenBlock || !blockNames.includes(state.kitchenBlock)) {
@@ -1857,7 +2137,7 @@
 
       const blockCards = blockNames.map(block => {
         const blockQuestions = questions.filter(question => (question.bloque || "Sin bloque") === block);
-        const values = blockQuestions.map(question => sheetKitchen.values[question.index]).filter(value => value != null);
+        const values = blockQuestions.map(getQValue).filter(value => value != null);
         const avg = values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
         const s = getStatus(avg);
         return `
@@ -1877,7 +2157,7 @@
 
       const themeCards = themeNames.map(theme => {
         const themeQuestions = selectedBlockQuestions.filter(question => (question.tema || "Sin tema") === theme);
-        const values = themeQuestions.map(question => sheetKitchen.values[question.index]).filter(value => value != null);
+        const values = themeQuestions.map(getQValue).filter(value => value != null);
         const avg = values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
         const s = getStatus(avg);
         return `
@@ -1888,15 +2168,30 @@
         `;
       }).join("");
 
+      const drillPrevQ = (() => {
+        if (state.country !== "CO" || !window.PREV_CO_SCORES) return null;
+        return window.PREV_CO_SCORES.byKitchen?.[normalizeText(kitchen?.id || "")]?.byQuestion || null;
+      })();
       const questionRows = selectedBlockQuestions
         .filter(question => (question.tema || "Sin tema") === state.kitchenTheme)
         .map(question => {
-          const value = sheetKitchen.values[question.index];
+          const value = getQValue(question);
           const s = getStatus(value);
+          const prevQ = drillPrevQ ? (drillPrevQ[question.no] ?? null) : null;
+          const worsened = prevQ !== null && value !== null && value < prevQ - 1.5;
+          const scoreStr = value != null ? value + "%" : "N/A";
+          const prevStr = prevQ !== null ? '<span style="font-size:11px;color:#888">· Q1: ' + prevQ.toFixed(1) + '%</span>' : "";
           return `
-            <div class="question-row">
-              <div class="question-text">B${question.no}. ${basicName(question.index, kitchen)}</div>
-              <div class="drill-meta" style="margin-bottom:8px"><span>${question.area || "Sin área"}</span><strong style="color:${s.color}">${value != null ? `${value}%` : "N/A"}</strong></div>
+            <div class="question-row${worsened ? ' detail-item-worsened' : ''}">
+              <div class="question-text" style="display:flex;align-items:center;gap:6px">
+                B${question.no}. ${basicName(question.index, kitchen)}
+                ${trendBadgeHtml(value, prevQ)}
+              </div>
+              <div class="drill-meta" style="margin-bottom:8px">
+                <span>${question.area || "Sin área"}</span>
+                <strong style="color:${s.color}">${scoreStr}</strong>
+                ${prevStr}
+              </div>
               <div class="bar" style="height:6px;margin-bottom:0"><div class="bar-fill" style="width:${value ?? 0}%;background:${s.bar || s.color}"></div></div>
             </div>
           `;
@@ -2285,9 +2580,13 @@
     const kitchenHasFixImpact = (kitchen, fix) => {
       const sheetKitchen = sheetKitchenFor(kitchen);
       if (!sheetKitchen || !fixMatchesKitchen(fix, kitchen, state.country)) return false;
+      const hfiFsK = (window.FORM_SCORES || {})[state.country];
+      const hfiNormId = normalizeText(kitchen?.id || "");
+      const hfiFormQ = hfiFsK?.byKitchenQuestion?.[hfiNormId] || null;
       const questions = detailDataForKitchen(kitchen).questions.map((question, index) => ({ ...question, index }));
       return questions.some(question => {
-        const value = sheetKitchen.values[question.index];
+        const sv = sheetKitchen.values[question.index];
+        const value = sv != null ? sv : (hfiFormQ ? (hfiFormQ[question.no] ?? null) : null);
         return value != null && value < 100 && fixMatchesQuestion(fix, question, state.country);
       });
     };
@@ -2306,6 +2605,9 @@
     const fixImpactForKitchen = (kitchen, weekKey) => {
       const sheetKitchen = sheetKitchenFor(kitchen);
       if (!sheetKitchen) return null;
+      const fikFsK = (window.FORM_SCORES || {})[state.country];
+      const fikNormId = normalizeText(kitchen?.id || "");
+      const fikFormQ = fikFsK?.byKitchenQuestion?.[fikNormId] || null;
       const questions = detailDataForKitchen(kitchen).questions.map((question, index) => ({ ...question, index }));
       const countryFixes = fixesForKitchen(kitchen);
       const fixes = countryFixes.filter(fix => fixMatchesImpactResponsible(fix) && fixMatchesImpactStatus(fix) && fixAppliesByWeek(fix, weekKey) && fixMatchesKitchen(fix, kitchen, state.country));
@@ -2313,7 +2615,8 @@
       let approximatedCount = 0;
       const originalValues = [];
       const adjustedValues = questions.map(question => {
-        const value = sheetKitchen.values[question.index];
+        const sv = sheetKitchen.values[question.index];
+        const value = sv != null ? sv : (fikFormQ ? (fikFormQ[question.no] ?? null) : null);
         if (value != null) originalValues.push(value);
         const matchingFix = fixes.find(fix => fixMatchesQuestion(fix, question, state.country));
         if (matchingFix && value != null && value < 100) {
@@ -2331,6 +2634,8 @@
     // Proyecta el score de una cocina aplicando fixes.
     // questionAreaFilter: si no es null/"Todas", evalúa SOLO los básicos de esa área (question.area).
     //                     Siempre aplica TODOS los fixes que coincidan, sin restricción de fix.area.
+    // PEOPLE AREA SPECIAL CASE (solo MX): usa DOT% de "% Dot por cocina MX" col C como fuente de
+    //   cumplimiento en lugar de los valores de básicos individuales.
     const fixImpactForKitchenUntil = (kitchen, cutoffDate, periodStartDate = null, questionAreaFilter = null, includeUndated = false, afterQuarterStartDate = null) => {
       const sheetKitchen = sheetKitchenFor(kitchen);
       if (!sheetKitchen) return null;
@@ -2350,14 +2655,19 @@
           : includeUndated
             ? (!closeDate || !cutoffDate || closeDate <= cutoffDate)
             : fixAppliesByCutoff(fix, cutoffDate);
-        // Siempre aplica TODOS los fixes (sin restricción de fix.area)
         return fixMatchesImpactResponsible(fix) && fixMatchesImpactStatus(fix) && dateApplies && fixMatchesKitchen(fix, kitchen, state.country);
       });
+
+      // ── Lógica estándar por básicos ──
+      const fikuFsK = (window.FORM_SCORES || {})[state.country];
+      const fikuNormId = normalizeText(kitchen?.id || "");
+      const fikuFormQ = fikuFsK?.byKitchenQuestion?.[fikuNormId] || null;
       let fixedCount = 0;
       const appliedFixes = new Set();
       const originalValues = [];
       const adjustedValues = questions.map(question => {
-        const value = sheetKitchen.values[question.index];
+        const sv = sheetKitchen.values[question.index];
+        const value = sv != null ? sv : (fikuFormQ ? (fikuFormQ[question.no] ?? null) : null);
         if (value != null) originalValues.push(value);
         const matchingFixes = fixes.filter(fix => fixMatchesQuestion(fix, question, state.country));
         if (matchingFixes.length && value != null && value < 100) {
@@ -2398,9 +2708,13 @@
           if (period.afterQuarterStart) return closeDate && closeDate >= period.afterQuarterStart;
           return closeDate && closeDate >= period.start && closeDate <= period.cutoff;
         });
+      const fkpFsK = (window.FORM_SCORES || {})[state.country];
+      const fkpNormId = normalizeText(kitchen?.id || "");
+      const fkpFormQ = fkpFsK?.byKitchenQuestion?.[fkpNormId] || null;
       const appliedFixes = new Set();
       questions.forEach(question => {
-        const value = sheetKitchen.values[question.index];
+        const sv = sheetKitchen.values[question.index];
+        const value = sv != null ? sv : (fkpFormQ ? (fkpFormQ[question.no] ?? null) : null);
         const matchingFixes = candidateFixes.filter(fix => fixMatchesQuestion(fix, question, state.country));
         if (matchingFixes.length && value != null && value < 100) {
           matchingFixes.forEach(fix => appliedFixes.add(fix));
@@ -2632,7 +2946,7 @@
               const applies = period.afterQuarterStart
                 ? cd && cd >= period.afterQuarterStart
                 : period.undated
-                  ? !cd || !period.cutoff || cd <= period.cutoff
+                  ? !cd
                   : cd && period.start && cd >= period.start && cd <= period.cutoff;
               if (applies) {
                 if (!periodSeenFixes[pi].has(k)) {
@@ -2786,6 +3100,7 @@
     const renderFixImpact = () => {
       let periods = currentQuarterPeriods();
       // Áreas desde question.area — misma fuente que "Detalle por básico"
+      // People se agrega siempre que haya datos DOT MX (aunque no haya básicos con esa área)
       const _qAreaSource = questionSourceForCurrentType().questions;
       const impactAreaOptions = ["Todas", ...new Set(_qAreaSource.map(q => q.area || "Sin área").filter(Boolean))]
         .sort((a, b) => a === "Todas" ? -1 : b === "Todas" ? 1 : String(a).localeCompare(String(b), "es"));
@@ -3814,7 +4129,7 @@
       render();
     });
 
-    const fetchPublicSheetTableOnce = ({ gid, sheet, timeoutMs = 90000 }) => new Promise((resolve, reject) => {
+    const fetchPublicSheetTableOnce = ({ gid, sheet, timeoutMs = 90000, customSheetId }) => new Promise((resolve, reject) => {
       const callbackName = `sheetSync_${Date.now()}_${Math.floor(Math.random() * 100000)}`;
       const script = document.createElement("script");
       const timeout = window.setTimeout(() => {
@@ -3834,9 +4149,9 @@
         resolve(response?.table || { rows: [], cols: [] });
       };
 
-      const sheetId = "1krQxz6jWQxgCGSJaL4VziAnRQAFBmT29WKC4vThFx_M";
+      const sheetId = customSheetId || "1krQxz6jWQxgCGSJaL4VziAnRQAFBmT29WKC4vThFx_M";
       const sheetParam = gid ? `gid=${gid}` : `sheet=${encodeURIComponent(sheet)}`;
-      script.src = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?${sheetParam}&tqx=out:json;responseHandler:${callbackName}`;
+      script.src = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?${sheetParam}&tqx=out:json;responseHandler:${callbackName}&_=${Date.now()}`;
       script.onerror = () => {
         window.clearTimeout(timeout);
         delete window[callbackName];
@@ -3846,11 +4161,11 @@
       document.body.appendChild(script);
     });
 
-    const fetchPublicSheetTable = async ({ gid, sheet, timeoutMs = 90000, retries = 1 }) => {
+    const fetchPublicSheetTable = async ({ gid, sheet, timeoutMs = 90000, retries = 1, customSheetId }) => {
       let lastError;
       for (let attempt = 0; attempt <= retries; attempt += 1) {
         try {
-          return await fetchPublicSheetTableOnce({ gid, sheet, timeoutMs });
+          return await fetchPublicSheetTableOnce({ gid, sheet, timeoutMs, customSheetId });
         } catch (error) {
           lastError = error;
         }
@@ -3982,6 +4297,393 @@
       return window.FIXES_DATA;
     };
 
+    // ── Form data parser ─────────────────────────────────────────────────
+    // Structure: Row 0 = kitchen names (col A = blank/label, col B+ = kitchen names)
+    //            Row 1+ = one row per question (col A = question text/number, col B+ = values)
+    // Values can be: 100/50/0, 1/0.5/0, "Sí"/"Parcial"/"No", etc.
+    const parseFormAnswerValue = (cell) => {
+      if (!cell) return null;
+      const raw = cell.v ?? cell.f ?? null;
+      if (raw === null || raw === "") return null;
+      const n = parseFloat(String(raw).replace(",", ".").replace("%", ""));
+      if (!isNaN(n)) {
+        if (n > 1 && n <= 100) return Math.round(n);        // already 0-100
+        if (n >= 0 && n <= 1)  return Math.round(n * 100);  // 0-1 scale
+      }
+      const t = normalizeText(displaySheetCell(cell));
+      if (["SI", "YES", "CUMPLE", "COMPLETADO", "SI CUMPLE"].includes(t)) return 100;
+      if (["PARCIAL", "PARCIALMENTE", "MEDIO", "EN PROCESO"].includes(t)) return 50;
+      if (["NO", "NO CUMPLE", "INCUMPLE", "NONCOMPLIANT"].includes(t)) return 0;
+      return null;
+    };
+
+    // Adds kitchens from the sheet that are missing from static COUNTRIES data.
+    // extraKitchens = { MX: [{id, city}], CO: [...], PE: [...] }
+    const mergeExtraKitchens = (extraKitchens) => {
+      const PF_NORMS = new Set(["57 SANTAFE MED", "58 VIVA MED", "39 SALVIO"].map(normalizeText));
+      let added = 0;
+      for (const ck of ["MX", "CO", "PE"]) {
+        const meta = (extraKitchens || {})[ck] || [];
+        const existing = COUNTRIES[ck]?.kitchens || [];
+        const existingNorms = new Set(existing.map(k => normalizeText(k.id)));
+        meta.forEach(({ id, city }) => {
+          if (!id) return;
+          const norm = normalizeText(id);
+          if (PF_NORMS.has(norm)) return;
+          if (!existingNorms.has(norm)) {
+            existing.push({ id, city: city || "", basic: null, seg: null, hig: null, limp: null, infra: null, ppl: null });
+            existingNorms.add(norm);
+            added++;
+          }
+        });
+      }
+      if (added > 0) filtered.reset();
+      return added;
+    };
+
+        // Lee scores directamente de la hoja "Preguntas".
+    // Cada cocina tiene su propia columna ("Colombia Bogotá 38 KENNEDY", etc.)
+    // con valores por pregunta: "100%", "50%", "0%", "pending" o vacío.
+    // IMPORTANTE: gviz devuelve los encabezados en table.cols[i].label (no en rows[0]).
+    // Solo cuenta preguntas donde la columna del país (MEX o COL/PER) tiene texto.
+    // Retorna { MX: { byNum, byName }, CO: { byNum, byName }, PE: { byNum, byName } }
+    const parsePreguntasScores = (table) => {
+      const rows = table.rows || [];
+      const cols = table.cols || [];
+      const empty = () => ({ byNum: {}, byName: {} });
+      const result = { MX: empty(), CO: empty(), PE: empty() };
+      if (!rows.length && !cols.length) return result;
+
+      // gviz pone encabezados en cols[i].label cuando detecta la fila de headers.
+      // Si cols[i].label está vacío, fallback a rows[0].c como encabezado.
+      const hasColLabels = cols.some(c => (c.label || "").trim().length > 2);
+      const headerLabels = hasColLabels
+        ? cols.map(c => (c.label || "").trim())
+        : (rows[0]?.c || []).map(c => displaySheetCell(c).trim());
+      const dataRows = hasColLabels ? rows : rows.slice(1);
+
+      let mxQCol = -1, coQCol = -1, bloqueCol = -1, temaCol = -1, noCol = -1;
+      const kitchensByCountry = { MX: [], CO: [], PE: [] };
+
+      headerLabels.forEach((raw, col) => {
+        const h = normalizeText(raw);
+        if (h === "NO" || h === "N" || h === "NUM" || h === "NUMERO" || h === "NUMBER") { noCol = col; return; }
+        if (h === "BLOQUE") { bloqueCol = col; return; }
+        if (h === "TEMA")   { temaCol   = col; return; }
+        if (h.includes("PREGUNTA") && h.includes("MEX"))                         { mxQCol = col; return; }
+        if (h.includes("PREGUNTA") && (h.includes("COL") || h.includes("PER"))) { coQCol = col; return; }
+        if (raw.startsWith("México") || raw.startsWith("Mexico"))
+          kitchensByCountry.MX.push({ col, id: raw.split(/\s+/).slice(2).join(" ") });
+        else if (raw.startsWith("Colombia"))
+          kitchensByCountry.CO.push({ col, id: raw.split(/\s+/).slice(2).join(" "), city: raw.split(/\s+/)[1] || "" });
+        else if (raw.startsWith("Perú") || raw.startsWith("Peru"))
+          kitchensByCountry.PE.push({ col, id: raw.split(/\s+/).slice(2).join(" ") });
+      });
+
+      const parseScore = (cell) => {
+        const raw = displaySheetCell(cell);
+        if (!raw) return null;
+        const up = normalizeText(raw);
+        if (up === "PENDING" || up === "PENDIENTE") return null;
+        const n = parseFloat(raw.replace("%", "").replace(",", ".").trim());
+        if (isNaN(n)) return null;
+        if (n >= 0 && n <= 1)  return Math.round(n * 100);
+        if (n > 1 && n <= 100) return n;
+        return null;
+      };
+
+      const scores = {
+        MX: Object.fromEntries(kitchensByCountry.MX.map(k => [k.id, []])),
+        CO: Object.fromEntries(kitchensByCountry.CO.map(k => [k.id, []])),
+        PE: Object.fromEntries(kitchensByCountry.PE.map(k => [k.id, []])),
+      };
+      // Per-kitchen per-bloque and per-tema score accumulators
+      const bloqueAcc = {
+        MX: Object.fromEntries(kitchensByCountry.MX.map(k => [k.id, {}])),
+        CO: Object.fromEntries(kitchensByCountry.CO.map(k => [k.id, {}])),
+        PE: Object.fromEntries(kitchensByCountry.PE.map(k => [k.id, {}])),
+      };
+      const temaAcc = {
+        MX: Object.fromEntries(kitchensByCountry.MX.map(k => [k.id, {}])),
+        CO: Object.fromEntries(kitchensByCountry.CO.map(k => [k.id, {}])),
+        PE: Object.fromEntries(kitchensByCountry.PE.map(k => [k.id, {}])),
+      };
+      // Per-kitchen per-question raw score (0/50/100) — used for drilldown stats
+      const questionAcc = {
+        MX: Object.fromEntries(kitchensByCountry.MX.map(k => [k.id, {}])),
+        CO: Object.fromEntries(kitchensByCountry.CO.map(k => [k.id, {}])),
+        PE: Object.fromEntries(kitchensByCountry.PE.map(k => [k.id, {}])),
+      };
+      const qColFor = { MX: mxQCol, CO: coQCol, PE: coQCol };
+      console.log("[Preguntas] cols — noCol:", noCol, "bloqueCol:", bloqueCol, "temaCol:", temaCol, "mxQCol:", mxQCol, "coQCol:", coQCol, "CO kitchens:", kitchensByCountry.CO.length);
+      const questionsMeta = []; // { no, bloque, tema, mex, colper }
+      let autoQNo = 0; // sequential counter when sheet has no "No." column
+
+      dataRows.forEach(row => {
+        const cells = row.c || [];
+        const bloque  = bloqueCol >= 0 ? (displaySheetCell(cells[bloqueCol])?.trim() || "") : "";
+        const tema    = temaCol   >= 0 ? (displaySheetCell(cells[temaCol  ])?.trim() || "") : "";
+        const sheetNo = noCol     >= 0 ? parseInt(displaySheetCell(cells[noCol]))            : NaN;
+        const mexText = mxQCol >= 0 ? (displaySheetCell(cells[mxQCol])?.trim() || "") : "";
+        const coText  = coQCol >= 0 ? (displaySheetCell(cells[coQCol])?.trim() || "") : "";
+        // Determine effective question number: prefer sheet value, fall back to auto-counter
+        const isRealQuestion = (bloque || tema || mexText || coText);
+        if (isRealQuestion) autoQNo++;
+        const qNo = !isNaN(sheetNo) ? sheetNo : (isRealQuestion ? autoQNo : NaN);
+        // Collect question metadata
+        if (isRealQuestion) {
+          questionsMeta.push({ no: qNo, bloque, tema, mex: mexText, colper: coText });
+        }
+        for (const ck of ["MX", "CO", "PE"]) {
+          const qc = qColFor[ck];
+          if (qc >= 0 && !displaySheetCell(cells[qc])) continue;
+          kitchensByCountry[ck].forEach(({ col, id }) => {
+            const v = parseScore(cells[col]);
+            if (v !== null) {
+              scores[ck][id].push(v);
+              if (bloque) {
+                if (!bloqueAcc[ck][id][bloque]) bloqueAcc[ck][id][bloque] = [];
+                bloqueAcc[ck][id][bloque].push(v);
+              }
+              if (tema) {
+                if (!temaAcc[ck][id][tema]) temaAcc[ck][id][tema] = [];
+                temaAcc[ck][id][tema].push(v);
+              }
+              if (!isNaN(qNo)) questionAcc[ck][id][qNo] = v;
+            }
+          });
+        }
+      });
+
+      for (const ck of ["MX", "CO", "PE"]) {
+        for (const [id, vals] of Object.entries(scores[ck])) {
+          if (!vals.length) continue;
+          const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+          const norm = normalizeText(id);
+          const num  = kitchenNumber(id);
+          if (norm) result[ck].byName[norm] = avg;
+          if (num)  result[ck].byNum[num]   = avg;
+        }
+        // Per-kitchen per-bloque averages + global per-bloque
+        result[ck].byKitchenBloque = {};
+        const globalBloqueAcc = {};
+        for (const [id, bloques] of Object.entries(bloqueAcc[ck])) {
+          const norm = normalizeText(id);
+          if (!norm) continue;
+          result[ck].byKitchenBloque[norm] = {};
+          for (const [bloque, vals] of Object.entries(bloques)) {
+            const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+            result[ck].byKitchenBloque[norm][bloque] = avg;
+            if (!globalBloqueAcc[bloque]) globalBloqueAcc[bloque] = [];
+            globalBloqueAcc[bloque].push(avg);
+          }
+        }
+        result[ck].byBloque = {};
+        for (const [bloque, avgs] of Object.entries(globalBloqueAcc)) {
+          result[ck].byBloque[bloque] = avgs.reduce((a, b) => a + b, 0) / avgs.length;
+        }
+        // Per-kitchen per-tema + global per-tema
+        result[ck].byKitchenTema = {};
+        const globalTemaAcc = {};
+        for (const [id, temas] of Object.entries(temaAcc[ck])) {
+          const norm = normalizeText(id);
+          if (!norm) continue;
+          result[ck].byKitchenTema[norm] = {};
+          for (const [tema, vals] of Object.entries(temas)) {
+            const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+            result[ck].byKitchenTema[norm][tema] = avg;
+            if (!globalTemaAcc[tema]) globalTemaAcc[tema] = [];
+            globalTemaAcc[tema].push(avg);
+          }
+        }
+        result[ck].byTema = {};
+        for (const [tema, avgs] of Object.entries(globalTemaAcc)) {
+          result[ck].byTema[tema] = avgs.reduce((a, b) => a + b, 0) / avgs.length;
+        }
+        // Per-kitchen per-question raw scores for dashboard drilldown
+        result[ck].byKitchenQuestion = {};
+        for (const [id, qScores] of Object.entries(questionAcc[ck])) {
+          const norm = normalizeText(id);
+          if (norm && Object.keys(qScores).length) result[ck].byKitchenQuestion[norm] = qScores;
+        }
+      }
+      // Also attach kitchen metadata so caller can add missing kitchens to COUNTRIES
+      result._meta = {
+        MX: kitchensByCountry.MX.map(k => ({ id: k.id, city: k.city || "" })),
+        CO: kitchensByCountry.CO.map(k => ({ id: k.id, city: k.city || "" })),
+        PE: kitchensByCountry.PE.map(k => ({ id: k.id, city: k.city || "" })),
+      };
+      // Attach question metadata list (shared across countries — bloque/tema/text from Preguntas sheet)
+      result._questions = questionsMeta;
+      return result;
+    };
+
+
+    // Parses Q1 2026 Preguntas sheet → per-topic and per-question global averages + per-kitchen scores.
+    // Returns { byTema, byQuestion, byKitchen: { normId: { score, byQuestion } } } or null.
+    const parsePrevQuarterCOTopicScores = (table) => {
+      const rows = table.rows || [];
+      const cols = table.cols || [];
+      const hasColLabels = cols.some(c => (c.label || "").trim().length > 2);
+      const headerLabels = hasColLabels
+        ? cols.map(c => (c.label || "").trim())
+        : (rows[0]?.c || []).map(c => displaySheetCell(c).trim());
+      const dataRows = hasColLabels ? rows : rows.slice(1);
+
+      let coQCol = -1, noCol = -1, temaCol = -1;
+      const coKitchenMeta = []; // { col, normId }
+
+      headerLabels.forEach((raw, col) => {
+        const h = normalizeText(raw);
+        if (h === "NO" || h === "N" || h === "NUM" || h === "NUMERO" || h === "NUMBER") { noCol = col; return; }
+        if (h === "TEMA") { temaCol = col; return; }
+        if (h.includes("PREGUNTA") && (h.includes("COL") || h.includes("PER"))) { coQCol = col; return; }
+        if (raw.startsWith("Colombia")) {
+          const id = raw.split(/\s+/).slice(2).join(" ");
+          coKitchenMeta.push({ col, normId: normalizeText(id) });
+        }
+      });
+
+      if (coKitchenMeta.length === 0) return null;
+
+      const byTemaAcc = {};
+      const byQuestion = {};
+      const kitchenAcc = {};
+      coKitchenMeta.forEach(({ normId }) => { kitchenAcc[normId] = { allScores: [], questionScores: {} }; });
+
+      const parseScore = (cell) => {
+        const raw = displaySheetCell(cell);
+        if (!raw) return null;
+        const up = normalizeText(raw);
+        if (up === "PENDING" || up === "PENDIENTE") return null;
+        const n = parseFloat(raw.replace("%", "").replace(",", ".").trim());
+        if (isNaN(n)) return null;
+        if (n >= 0 && n <= 1)  return Math.round(n * 100);
+        if (n > 1 && n <= 100) return n;
+        return null;
+      };
+
+      dataRows.forEach(row => {
+        const cells = row.c || [];
+        if (coQCol >= 0 && !displaySheetCell(cells[coQCol])) return;
+        const tema = temaCol >= 0 ? (displaySheetCell(cells[temaCol])?.trim() || "") : "";
+        const qNo  = noCol   >= 0 ? parseInt(displaySheetCell(cells[noCol])) : NaN;
+
+        const globalScores = [];
+        coKitchenMeta.forEach(({ col, normId }) => {
+          const v = parseScore(cells[col]);
+          if (v !== null) {
+            globalScores.push(v);
+            kitchenAcc[normId].allScores.push(v);
+            if (!isNaN(qNo)) kitchenAcc[normId].questionScores[qNo] = v;
+          }
+        });
+        if (globalScores.length === 0) return;
+
+        const globalAvg = globalScores.reduce((a, b) => a + b, 0) / globalScores.length;
+        if (tema) {
+          if (!byTemaAcc[tema]) byTemaAcc[tema] = { total: 0, count: 0 };
+          byTemaAcc[tema].total += globalAvg;
+          byTemaAcc[tema].count += 1;
+        }
+        if (!isNaN(qNo)) byQuestion[qNo] = globalAvg;
+      });
+
+      const byTema = {};
+      for (const [t, { total, count }] of Object.entries(byTemaAcc)) byTema[t] = total / count;
+
+      const byKitchen = {};
+      for (const [normId, { allScores, questionScores }] of Object.entries(kitchenAcc)) {
+        if (!allScores.length) continue;
+        byKitchen[normId] = {
+          score: allScores.reduce((a, b) => a + b, 0) / allScores.length,
+          byQuestion: questionScores,
+        };
+      }
+
+      return { byTema, byQuestion, byKitchen };
+    };
+
+    const syncFormDataFromSheets = async () => {
+      const results = [];
+      try {
+        const table = await fetchPublicSheetTable({ sheet: "Preguntas", timeoutMs: 60000, retries: 2 });
+        const formScores = parsePreguntasScores(table);
+        const counts = ["MX","CO","PE"].map(k => `${k}:${Object.keys(formScores[k].byName).length}`).join(" ");
+        results.push(`Preguntas ✓ ${counts} cocinas`);
+        window.FORM_SCORES = formScores;
+        // Puntos Físicos (PF): excluir del conteo
+        const PF_NORMS = new Set(["57 SANTAFE MED", "58 VIVA MED", "39 SALVIO"].map(normalizeText));
+        for (const ck of ["MX", "CO", "PE"]) {
+          PF_NORMS.forEach(norm => {
+            delete formScores[ck].byName[norm];
+            delete formScores[ck].byKitchenBloque?.[norm];
+            delete formScores[ck].byKitchenTema?.[norm];
+            delete formScores[ck].byKitchenQuestion?.[norm];
+            Object.keys(formScores[ck].byNum).forEach(num => {
+              if (norm.startsWith(num + " ") || norm === num) delete formScores[ck].byNum[num];
+            });
+          });
+        }
+        // Merge new kitchens into COUNTRIES and save metadata for page-reload restore
+        const extraKitchens = formScores._meta || {};
+        const added = mergeExtraKitchens(extraKitchens);
+        window.EXTRA_KITCHENS = extraKitchens; // persisted via saveSyncData
+        if (added > 0) results.push(`+${added} cocinas nuevas del sheet`);
+        // Populate question metadata into SHEET_DETAIL_DATA so drilldowns can render question rows
+        // Note: SHEET_DETAIL_DATA.questions intentionally NOT overwritten here —
+        // sheet-detail-data.js is the authoritative question list; its indices match
+        // the values arrays in sheetKitchen. FORM_SCORES.byKitchenQuestion is enough
+        // for drilldown stats (looked up by question.no, not array index).
+      } catch (e) {
+        results.push(`Preguntas ✗ ${(e.message || String(e)).slice(0, 60)}`);
+      }
+      // Fetch Q1 2026 Preguntas (Colombia comparison)
+      try {
+        const Q1_SHEET_ID = "1hzruF9k078PlqZ7WKm4pg2kuNNjW9lcFijTKFJaoHhU";
+        const prevTable = await fetchPublicSheetTable({
+          sheet: "Preguntas", timeoutMs: 60000, retries: 1, customSheetId: Q1_SHEET_ID
+        });
+        const prevScores = parsePrevQuarterCOTopicScores(prevTable);
+        if (prevScores && Object.keys(prevScores.byTema).length > 0) {
+          window.PREV_CO_SCORES = prevScores;
+          results.push(`Q1 2026 ✓ ${Object.keys(prevScores.byTema).length} temas CO`);
+        } else {
+          results.push("Q1 2026 ✗ Sin columnas CO");
+        }
+      } catch (e) {
+        results.push(`Q1 2026 ✗ ${(e.message || String(e)).slice(0, 50)}`);
+      }
+      return { kitchens: [], results };
+    };
+
+
+    // Parses "% Dot por cocina MX": col A = kitchen name, col C = DOT% (decimal 0–1 or integer 0–100)
+    const parseDotMxTable = (table) => {
+      const result = {};
+      (table.rows || []).slice(1).forEach(row => {
+        const cells = row.c || [];
+        const kitchenRaw = displaySheetCell(cells[0]);
+        const valueRaw   = cells[2]?.v ?? cells[2]?.f ?? null;
+        if (!kitchenRaw) return;
+        let pct = parseFloat(String(valueRaw ?? "").replace(",", ".").replace("%", ""));
+        if (isNaN(pct)) return;
+        // Google Sheets stores percentages as decimals (0.95 = 95%)
+        if (pct > 0 && pct <= 1) pct = pct * 100;
+        result[kitchenRaw] = pct;
+      });
+      return result;
+    };
+
+    const syncDotMxFromSheets = async () => {
+      const table = await fetchPublicSheetTable({ sheet: "% Dot por cocina MX", timeoutMs: 90000, retries: 1 });
+      const parsed = parseDotMxTable(table);
+      if (Object.keys(parsed).length > 0) {
+        window.DOT_MX_DATA = parsed;
+      }
+      return parsed;
+    };
+
     byId("syncBtn").addEventListener("click", async () => {
       const button = byId("syncBtn");
       const msg = byId("apiMsg");
@@ -3998,17 +4700,27 @@
         } catch (error) {
           detailStatus = `Detalle x Cocina sin cambios (${error.message})`;
         }
-        const fixes = await syncFixesFromSheets();
+        const fixes      = await syncFixesFromSheets();
+        const formResult = await syncFormDataFromSheets();
+        const dotResult  = await syncDotMxFromSheets();
         const syncAt = new Date().toISOString();
         saveSyncData({ lastSyncAt: syncAt });
         const now = formatSyncMetaDate(syncAt);
         render();
         const totalPlanes = (fixes.MX || []).length + (fixes.CO || []).length + (fixes.PE || []).length + (fixes.CP || []).length;
+        const formParts  = (formResult.results || []).join(" · ");
+        const dotCocinas = Object.keys(dotResult || {}).length;
         const statusIcon = window.LAST_FIX_SYNC_ANY_SUCCESS ? "✅" : "⚠️";
         const hint = !window.LAST_FIX_SYNC_ANY_SUCCESS
-          ? " · Verifica que el archivo de Sheets esté publicado en la web (Archivo → Compartir → Publicar en la web)."
+          ? " · Verifica que el archivo de Sheets este publicado en la web (Archivo -> Compartir -> Publicar en la web)."
           : "";
-        msg.textContent = `${statusIcon} ${detailStatus} · Fixes (${totalPlanes} total): ${window.LAST_FIX_SYNC_STATUS || `MX ${fixes.MX.length}, CO ${fixes.CO.length}, PE ${fixes.PE.length}, CP ${(fixes.CP || []).length}`} · ${now}.${hint}`;
+        const formStr = formResult.kitchens?.length
+          ? `Forms: ${formParts} (${formResult.kitchens.length} cocinas)`
+          : (formParts ? `Forms: ${formParts}` : "");
+        const dotStr  = dotCocinas > 0 ? `% Dot MX: ${dotCocinas} cocinas` : "";
+        const fixStr  = `Fixes (${totalPlanes} total): ${window.LAST_FIX_SYNC_STATUS || `MX ${fixes.MX.length}, CO ${fixes.CO.length}, PE ${fixes.PE.length}, CP ${(fixes.CP || []).length}`}`;
+        msg.textContent = `${statusIcon} ${[detailStatus, formStr, fixStr, dotStr].filter(Boolean).join(" · ")} · ${now}.${hint}`;
+
       } catch (error) {
         msg.textContent = `Error al conectar con Google Sheets: ${error.message}`;
       } finally {
@@ -4022,4 +4734,3 @@
   </script>
 </body>
 </html>
-
