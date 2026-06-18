@@ -4,6 +4,9 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Básicos para Foodies contentos · Q2 2026</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <style>
     :root {
       --navy: #242f42;
@@ -28,7 +31,7 @@
       min-height: 100vh;
       background: var(--bg);
       color: var(--navy);
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-family: 'Poppins', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       letter-spacing: 0;
     }
     button, select {
@@ -1215,7 +1218,8 @@
       impactArea: "Todas",
       impactResponsible: "Todos",
       impactStatus: ["Todos"],
-      ganttFilter: "all",
+      ganttStatuses: new Set(),
+      ganttCity: "all",
       ganttPriority: "all",
       ganttGroupBy: "kitchen",
     };
@@ -1811,9 +1815,10 @@
         const kitchens = filtered().filter(k => state.typeFilter === "cp" ? isCPKitchen(k) : !isCPKitchen(k));
         const vals = kitchens.map(k => basicsFsCountry.byKitchenQuestion[normalizeText(k.id)]?.[qNo] ?? null);
         const valid = vals.filter(v => v !== null);
-        if (!valid.length) return null;
+        // Si FORM_SCORES existe para este país, siempre usarlo (aunque todas sean null = N/A)
+        // Esto evita que datos estáticos viejos sobreescriban respuestas actuales del form
         return {
-          avg: valid.reduce((a, b) => a + b, 0) / valid.length,
+          avg: valid.length ? valid.reduce((a, b) => a + b, 0) / valid.length : null,
           full: vals.filter(v => v === 100).length,
           partial: vals.filter(v => v === 50).length,
           fail: vals.filter(v => v === 0).length,
@@ -1822,10 +1827,14 @@
         };
       };
       const prevData = state.country === "CO" ? (window.PREV_CO_SCORES || null) : null;
+
       byId("basics").innerHTML = `
         <div class="hint">Cumplimiento promedio por básico en ${data().name}${state.cityFilter === "Todas" ? "" : ` · ${state.cityFilter}`} · ${typeLabel()}. Las barras usan las respuestas reales del cuestionario.${prevData ? " · ↑↓= vs Q1 2026. <span style=\'color:#e53e3e;font-weight:600\'>Rojo</span> = reincidencia." : ""}</div>
         ${temas.map(tema => {
-          const topicQuestions = questions.filter(question => (question.tema || "Sin tema") === tema);
+          const topicQuestions = questions.filter(question =>
+            (question.tema || "Sin tema") === tema
+          );
+          if (!topicQuestions.length) return "";
           return `
             <article class="panel basic-group">
               <div class="panel-title">${tema}</div>
@@ -1975,17 +1984,23 @@
         const drFsK = (window.FORM_SCORES || {})[state.country];
         const drNormId = normalizeText(kitchen?.id || "");
         const drFormQ = drFsK?.byKitchenQuestion?.[drNormId] || null;
-        return sourceData.questions.map((question, index) => {
-          const sv = sheetKitchen.values[index];
-          const value = sv != null ? sv : (drFormQ ? (drFormQ[question.no] ?? null) : null);
-          return {
-            name: `B${question.no}. ${basicName(index, kitchen)}`,
-            value,
-            qNo: question.no,
-            questions: 1,
-            category: detailCategory(value),
-          };
-        });
+        // Para CO, FORM_SCORES tiene prioridad sobre datos estáticos (son más recientes)
+        const hasFsData = !!drFsK?.byKitchenQuestion;
+        return sourceData.questions
+          .map((question, _i, arr) => {
+            const index = sourceData.questions.indexOf(question);
+            const sv = sheetKitchen.values[index];
+            const formVal = drFormQ ? (drFormQ[question.no] ?? null) : null;
+            // Si hay FORM_SCORES para este país, úsalos primero; sino usa estático
+            const value = hasFsData ? formVal : (sv != null ? sv : formVal);
+            return {
+              name: `B${question.no}. ${basicName(index, kitchen)}`,
+              value,
+              qNo: question.no,
+              questions: 1,
+              category: detailCategory(value),
+            };
+          });
       }
 
       if (!kitchen || kitchen.basic == null) {
@@ -2216,9 +2231,16 @@
       const questions = questionSourceForCurrentType().questions;
       const areas = ["Todas", ...new Set(questions.map(question => question.area || "Sin área"))];
       if (!areas.includes(state.basicDetailArea)) state.basicDetailArea = "Todas";
+      const bdsFs = (window.FORM_SCORES || {})[state.country];
       const rows = questions.map((question, index) => {
         const kitchens = matches
-          .filter(item => item.sheetKitchen.values[index] === targetValue)
+          .filter(item => {
+            const fsk = bdsFs?.byKitchenQuestion?.[normalizeText(item.appKitchen.id)];
+            const formValue = fsk ? (fsk[question.no] ?? null) : null;
+            const sv = item.sheetKitchen.values[index];
+            const value = formValue != null ? formValue : sv;
+            return value === targetValue;
+          })
           .map(item => `${item.appKitchen.id} · ${item.appKitchen.city}`);
         return { question, index, kitchens };
       })
@@ -2573,6 +2595,8 @@
     };
 
     const fixMatchesImpactStatus = (fix) => {
+      // Despriorizado nunca cuenta en el cálculo de mejora
+      if (normalizeText(fixStatusValue(fix)) === "DESPRIORIZADO") return false;
       const selected = selectedImpactStatuses();
       return selected.includes("Todos") || selected.some(status => normalizeText(fixStatusValue(fix)) === normalizeText(status));
     };
@@ -2961,6 +2985,7 @@
 
         return {
           area,
+          kitchenRows,
           original:     _avg(kitchenRows.map(r => r.original).filter(v => v != null)),
           latest:       _avg(kitchenRows.map(r => r.latest).filter(v => v != null)),
           fixedCount:   seenFixes.size,
@@ -3039,7 +3064,8 @@
                       ${row.periodAverages.map((value, index) => {
                         const s = getStatus(value);
                         const active = state.impactAreaDetail === row.area && state.impactAreaPeriodKey === periods[index]?.key;
-                        return `<td class="${periods[index]?.isCurrentWeek ? "current-week-col" : ""}" data-impact-area-cell data-impact-area="${encodeURIComponent(row.area)}" data-impact-period="${periods[index]?.key}" style="cursor:pointer;${active ? `outline:2px solid ${PALETTE.cyanDark};outline-offset:-2px` : ""}"><strong style="color:${s.color}">${value != null ? fmt(value) : "N/A"}</strong><div class="fix-muted">${row.periodFixedCounts[index]} fixes</div><div class="fix-muted">${formatMoney(row.periodBudgets[index] || 0)}</div></td>`;
+                        const cellContent = `<strong style="color:${s.color}">${value != null ? fmt(value) : "N/A"}</strong>`;
+                        return `<td class="${periods[index]?.isCurrentWeek ? "current-week-col" : ""}" data-impact-area-cell data-impact-area="${encodeURIComponent(row.area)}" data-impact-period="${periods[index]?.key}" style="cursor:pointer;${active ? `outline:2px solid ${PALETTE.cyanDark};outline-offset:-2px` : ""}">${cellContent}<div class="fix-muted">${row.periodFixedCounts[index]} fixes</div><div class="fix-muted">${formatMoney(row.periodBudgets[index] || 0)}</div></td>`;
                       }).join("")}
                       <td>+${delta.toFixed(1)} pts</td>
                       <td>${row.fixedCount}<div class="fix-muted">${formatMoney(row.budget || 0)}</div></td>
@@ -3303,6 +3329,7 @@
     const ganttFixStatus = (fix) => {
       const n = normalizeText(fix.status);
       if (["EJECUTADO", "CERRADO", "CERRADA"].includes(n)) return "done";
+      if (n === "DESPRIORIZADO") return "depriorizado";
       const d = ganttEndDate(fix);
       if (d) {
         const t = new Date(); t.setHours(0,0,0,0);
@@ -3352,6 +3379,97 @@
     const ganttPlanKey = (fix) =>
       encodeURIComponent(normalizeText((fix.subcategoria || "") + "|" + (fix.iniciativa || fix.basic || "")));
 
+    const showGanttBasicDetail = (basicKey) => {
+      const existing = document.getElementById("ganttDetailModal");
+      if (existing) existing.remove();
+
+      const allFixes = fixesForCurrentType().filter(fix =>
+        !!(fix.iniciativa || fix.subcategoria || fix.basic) &&
+        encodeURIComponent(normalizeText(fix.basic || fix.subcategoria || "")) === basicKey
+      );
+      if (!allFixes.length) return;
+
+      const rep0 = allFixes[0];
+      const basicText = rep0.basic || rep0.subcategoria || "—";
+      const area  = rep0.area || "Sin área";
+      const sub   = rep0.subcategoria || "";
+
+      // Group by plan
+      const planMap = new Map();
+      allFixes.forEach(fix => {
+        const pk = ganttPlanKey(fix);
+        if (!planMap.has(pk)) planMap.set(pk, []);
+        planMap.get(pk).push(fix);
+      });
+
+      const SC = {
+        open:         { color:"#0b769f", bg:"#e7f6fc", label:"A tiempo"       },
+        overdue:      { color:"#96607d", bg:"#f4eaf0", label:"Atrasado"       },
+        done:         { color:"#4a9070", bg:"#eef3f0", label:"Completado"     },
+        depriorizado: { color:"#94a3b8", bg:"#f1f5f9", label:"Despriorizado"  },
+      };
+
+      const planRows = [...planMap.entries()].map(([pk, pFixes]) => {
+        const pr = pFixes[0];
+        const statuses    = pFixes.map(f => ganttFixStatus(f));
+        const activeStats = statuses.filter(s => s !== "depriorizado");
+        const doneN       = activeStats.filter(s => s === "done").length;
+        const overdueN    = activeStats.filter(s => s === "overdue").length;
+        const tot         = activeStats.length;
+        const allDone     = tot > 0 && doneN === tot;
+        const isPartial   = doneN > 0 && !allDone;
+        const pct         = tot > 0 ? Math.round(doneN / tot * 100) : 0;
+        let s = tot === 0 ? "depriorizado" : allDone ? "done" : isPartial ? "open" : overdueN > 0 ? "overdue" : "open";
+        const sc = SC[s];
+        const statusLabel = tot === 0 ? sc.label : allDone ? sc.label : isPartial ? `En proceso · ${pct}%` : sc.label;
+        const eds = pFixes.map(f => ganttEndDate(f)).filter(Boolean);
+        const latestEd = eds.length ? new Date(Math.max(...eds)) : null;
+        const dateStr = latestEd
+          ? latestEd.toLocaleDateString("es-CO",{day:"2-digit",month:"short",year:"numeric"})
+          : (pr.cierre || pr.compromiso || "—");
+        return `
+          <div class="gantt-row-clickable" data-gantt-detail="${pk}"
+            style="padding:12px 16px;border-bottom:1px solid var(--light-gray);cursor:pointer">
+            <div style="font-size:12px;color:var(--navy);font-weight:500;margin-bottom:5px;line-height:1.4">${pr.iniciativa || pr.subcategoria || "—"}</div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <span style="font-size:11px;font-weight:650;color:${sc.color};background:${sc.bg};padding:2px 8px;border-radius:999px">${statusLabel}</span>
+              <span style="font-size:11px;color:var(--text-muted)">${tot} cocina${tot!==1?"s":""}</span>
+              <span style="font-size:11px;color:var(--text-muted)">${dateStr}</span>
+              ${pr.responsable ? `<span style="font-size:11px;color:var(--text-muted)">${pr.responsable}</span>` : ""}
+            </div>
+          </div>`;
+      }).join("");
+
+      const modal = document.createElement("div");
+      modal.id = "ganttDetailModal";
+      modal.style.cssText = "position:fixed;inset:0;background:rgba(15,23,42,0.6);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px";
+      modal.innerHTML = `
+        <div style="background:var(--panel);border-radius:12px;box-shadow:0 8px 40px rgba(0,0,0,0.18);max-width:680px;width:100%;max-height:82vh;overflow:hidden;display:flex;flex-direction:column">
+          <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:12px;flex-shrink:0">
+            <div style="flex:1;min-width:0">
+              <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.04em">${sub ? sub + " · " : ""}${area}</div>
+              <div style="font-size:14px;font-weight:650;color:var(--navy);line-height:1.35">${basicText}</div>
+              <div style="margin-top:5px;font-size:12px;color:var(--text-muted)">${planMap.size} plan${planMap.size!==1?"es":""} de acción</div>
+            </div>
+            <button data-close-gantt-modal type="button"
+              style="flex-shrink:0;width:28px;height:28px;border:1px solid var(--border);border-radius:6px;
+                     background:transparent;cursor:pointer;font-size:14px;color:var(--text-muted);
+                     display:flex;align-items:center;justify-content:center">✕</button>
+          </div>
+          <div style="overflow-y:auto;flex:1">${planRows}</div>
+        </div>`;
+
+      modal.addEventListener("click", e => {
+        if (e.target === modal) { modal.remove(); return; }
+        const dr = e.target.closest("[data-gantt-detail]");
+        if (dr) { modal.remove(); showGanttFixDetail(dr.dataset.ganttDetail); }
+      });
+      document.addEventListener("keydown", function esc(e) {
+        if (e.key === "Escape") { modal.remove(); document.removeEventListener("keydown", esc); }
+      });
+      document.body.appendChild(modal);
+    };
+
     const showGanttFixDetail = (planKey) => {
       const existing = document.getElementById("ganttDetailModal");
       if (existing) existing.remove();
@@ -3361,9 +3479,10 @@
         !!(fix.iniciativa || fix.subcategoria || fix.basic)
       );
       const SC = {
-        open:    { color:"#0b769f", bg:"#e7f6fc", label:"A tiempo"   },
-        overdue: { color:"#96607d", bg:"#f4eaf0", label:"Atrasado"   },
-        done:    { color:"#4a9070", bg:"#eef3f0", label:"Completado" },
+        open:         { color:"#0b769f", bg:"#e7f6fc", label:"A tiempo"       },
+        overdue:      { color:"#96607d", bg:"#f4eaf0", label:"Atrasado"       },
+        done:         { color:"#4a9070", bg:"#eef3f0", label:"Completado"     },
+        depriorizado: { color:"#94a3b8", bg:"#f1f5f9", label:"Despriorizado"  },
       };
 
       const matches = allFixes
@@ -3480,12 +3599,17 @@
 
       const todayPx = dateToPx(today);
 
-      const rawFixes = fixesForCurrentType().filter(fix => {
+      // Ciudades disponibles (sin filtro de ciudad ni estado para poblar el selector)
+      const _allGanttFixes = fixesForCurrentType().filter(fix => !!(fix.iniciativa || fix.subcategoria || fix.basic));
+      const ganttCities = [...new Set(_allGanttFixes.map(f => (f.ciudad || "").trim()).filter(Boolean))].sort();
+
+      const rawFixes = _allGanttFixes.filter(fix => {
         if (state.cityFilter !== "Todas" && normalizeText(fix.ciudad) !== normalizeText(state.cityFilter)) return false;
+        if (state.ganttCity !== "all" && normalizeText(fix.ciudad) !== normalizeText(state.ganttCity)) return false;
         if (state.ganttPriority !== "all" && normalizeText(fix.prioridad) !== normalizeText(state.ganttPriority)) return false;
         const s = ganttFixStatus(fix);
-        if (state.ganttFilter !== "all" && s !== state.ganttFilter) return false;
-        return !!(fix.iniciativa || fix.subcategoria || fix.basic);
+        if (state.ganttStatuses.size > 0 && !state.ganttStatuses.has(s)) return false;
+        return true;
       });
 
       const datedFixes   = rawFixes.filter(fix => ganttStartDate(fix) || ganttEndDate(fix));
@@ -3514,13 +3638,27 @@
                 Por área
               </button>
             </div>
-            <label for="ganttFilter">Estado</label>
-            <select id="ganttFilter" style="min-width:130px">
-              <option value="all"     ${state.ganttFilter==="all"     ?"selected":""}>Todos</option>
-              <option value="open"    ${state.ganttFilter==="open"    ?"selected":""}>A tiempo</option>
-              <option value="overdue" ${state.ganttFilter==="overdue" ?"selected":""}>Atrasados</option>
-              <option value="done"    ${state.ganttFilter==="done"    ?"selected":""}>Completados</option>
-            </select>
+            <span style="font-size:11px;color:var(--text-muted);font-weight:500">Estado</span>
+            <div style="display:flex;gap:4px;align-items:center">
+              ${[
+                {v:"open",         label:"A tiempo",      color:"#0b769f"},
+                {v:"overdue",      label:"Atrasados",     color:"#96607d"},
+                {v:"done",         label:"Completados",   color:"#4a9070"},
+                {v:"depriorizado", label:"Despriorizado", color:"#94a3b8"},
+              ].map(({v, label, color}) => {
+                const active = state.ganttStatuses.has(v);
+                return `<button type="button" data-gantt-status="${v}"
+                  style="padding:3px 10px;font-size:11px;border:1.5px solid ${color};border-radius:999px;cursor:pointer;
+                         background:${active ? color : "transparent"};color:${active ? "#fff" : color};
+                         font-weight:${active ? "650" : "400"};transition:all 0.15s">${label}</button>`;
+              }).join("")}
+            </div>
+            ${ganttCities.length > 0 ? `
+            <span style="font-size:11px;color:var(--text-muted);font-weight:500">Ciudad</span>
+            <select id="ganttCityFilter" style="min-width:130px">
+              <option value="all" ${state.ganttCity==="all"?"selected":""}>Todas</option>
+              ${ganttCities.map(c => `<option value="${c}" ${state.ganttCity===c?"selected":""}>${c}</option>`).join("")}
+            </select>` : ""}
             <label for="ganttPriority">Prioridad</label>
             <select id="ganttPriority" style="min-width:120px">
               <option value="all"  ${state.ganttPriority==="all"  ?"selected":""}>Todas</option>
@@ -3578,9 +3716,10 @@
 
       // ── Status config ───────────────────────────────────
       const SC = {
-        open:    { color: "#0b769f", bg: "#e7f6fc", label: "A tiempo"   },
-        overdue: { color: "#96607d", bg: "#f4eaf0", label: "Atrasado"   },
-        done:    { color: "#4a9070", bg: "#eef3f0", label: "Completado" },
+        open:         { color: "#0b769f", bg: "#e7f6fc", label: "A tiempo"      },
+        overdue:      { color: "#96607d", bg: "#f4eaf0", label: "Atrasado"      },
+        done:         { color: "#4a9070", bg: "#eef3f0", label: "Completado"    },
+        depriorizado: { color: "#94a3b8", bg: "#f1f5f9", label: "Despriorizado" },
       };
 
       // ── Group fixes by kitchen or area ──────────────────
@@ -3647,20 +3786,70 @@
             <div class="gantt-right-col" style="width:${TOTAL_W}px;background:var(--soft)">${weekBg}${gridLines}${todayLine}</div>
           </div>`;
 
-        // In area mode: consolidate same-plan fixes into one row with aggregate status
+        // In area mode: group by basic (question), each row = one basic; kitchen mode: one row per fix
         const planEntries = state.ganttGroupBy === "area"
           ? (() => {
-              const planMap = new Map();
+              const basicMap = new Map();
               group.fixes.forEach(fix => {
-                const pk = ganttPlanKey(fix);
-                if (!planMap.has(pk)) planMap.set(pk, []);
-                planMap.get(pk).push(fix);
+                const bk = encodeURIComponent(normalizeText(fix.basic || fix.subcategoria || ""));
+                if (!basicMap.has(bk)) basicMap.set(bk, []);
+                basicMap.get(bk).push(fix);
               });
-              return [...planMap.entries()].map(([pk, planFixes]) => ({ pk, fixes: planFixes, rep: planFixes[0] }));
+              return [...basicMap.entries()].map(([bk, bFixes]) => ({ pk: bk, fixes: bFixes, rep: bFixes[0], isBasicRow: true }));
             })()
-          : group.fixes.map(fix => ({ pk: ganttPlanKey(fix), fixes: [fix], rep: fix }));
+          : group.fixes.map(fix => ({ pk: ganttPlanKey(fix), fixes: [fix], rep: fix, isBasicRow: false }));
 
-        const fixRows = planEntries.map(({ pk, fixes: planFixes, rep }) => {
+        // ── People area: desglose de cocinas por rango de cumplimiento ──
+        if (state.ganttGroupBy === "area" && group.label === PEOPLE_AREA) {
+          // Score por cocina: leer fix.iniciativa (contiene el % DOT o de cumplimiento)
+          // con fallback a fix.basic. Una entrada por cocina, la primera que tenga valor.
+          const kitchenScoreMap = new Map();
+          group.fixes.forEach(fix => {
+            const cid = (fix.cocina || "").trim();
+            if (!cid || cid.toLowerCase() === "méxico" || cid.toLowerCase() === "mexico") return;
+            if (kitchenScoreMap.has(cid)) return;
+            const raw = (fix.iniciativa || fix.basic || "")
+              .replace(",", ".").replace("%", "").trim();
+            const pct = parseFloat(raw);
+            if (!isNaN(pct) && pct >= 0 && pct <= 100) {
+              kitchenScoreMap.set(cid, pct);
+            }
+          });
+          const kitchenScores = [...kitchenScoreMap.entries()].map(([id, score]) => ({ id, score }));
+          const total = kitchenScores.length;
+          const BUCKETS = [
+            { label: "100%",            min: 100, max: Infinity, color: "#4a9070" },
+            { label: "Entre 75% y 99%", min: 75,  max: 99.99,   color: "#0b769f" },
+            { label: "Entre 50% y 74%", min: 50,  max: 74.99,   color: "#b07d2a" },
+            { label: "Menor al 50%",    min: 0,   max: 49.99,   color: "#96607d" },
+          ];
+          const bucketRows = BUCKETS.map(b => {
+            const items = kitchenScores.filter(r => r.score >= b.min && r.score <= b.max);
+            if (!items.length) return "";
+            const barPct = Math.round(items.length / Math.max(1, total) * 100);
+            const ids = items.map(r => r.id);
+            return `
+              <div class="gantt-row" style="cursor:pointer" data-people-range="${encodeURIComponent(b.label)}" data-people-kitchens="${encodeURIComponent(ids.join("|||"))}">
+                <div class="gantt-left-col">
+                  <div style="font-size:12px;font-weight:650;color:${b.color}">${b.label}
+                    <span style="font-weight:400;color:var(--text-muted);margin-left:6px">${items.length} cocina${items.length !== 1 ? "s" : ""}</span>
+                  </div>
+                  <div style="font-size:10px;color:var(--text-muted);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${ids.slice(0,5).join(" · ")}${ids.length > 5 ? " …" : ""}</div>
+                </div>
+                <div class="gantt-right-col" style="width:${TOTAL_W}px;background:var(--bg)">
+                  <div style="position:absolute;inset:0;display:flex;align-items:center;padding:0 16px;gap:12px">
+                    <div style="flex:1;height:6px;border-radius:3px;background:var(--border);overflow:hidden">
+                      <div style="height:100%;width:${barPct}%;background:${b.color};border-radius:3px"></div>
+                    </div>
+                    <span style="font-size:12px;font-weight:650;color:${b.color};min-width:36px;text-align:right">${barPct}%</span>
+                  </div>
+                </div>
+              </div>`;
+          }).join("");
+          return groupRow + bucketRows;
+        }
+
+        const fixRows = planEntries.map(({ pk, fixes: planFixes, rep, isBasicRow }) => {
           // Date range: earliest start → latest end across all kitchen instances
           const allSd = planFixes.map(f => ganttStartDate(f)).filter(Boolean);
           const allEd = planFixes.map(f => ganttEndDate(f)).filter(Boolean);
@@ -3672,22 +3861,29 @@
           const barRight = Math.min(TOTAL_W, dateToPx(effectiveEd) ?? barLeft + 6);
           const barW     = Math.max(6, barRight - barLeft);
 
-          // Aggregate status across all kitchen instances
-          const statuses   = planFixes.map(f => ganttFixStatus(f));
-          const doneCount  = statuses.filter(s => s === "done").length;
-          const overdueCount = statuses.filter(s => s === "overdue").length;
-          const total      = statuses.length;
-          const allDone    = doneCount === total;
-          const isPartial  = doneCount > 0 && !allDone;
-          const pct        = Math.round(doneCount / total * 100);
+          // Aggregate status — exclude depriorizado from date calculations
+          const statuses       = planFixes.map(f => ganttFixStatus(f));
+          const depCount       = statuses.filter(s => s === "depriorizado").length;
+          const activeStatuses = statuses.filter(s => s !== "depriorizado");
+          const doneCount      = activeStatuses.filter(s => s === "done").length;
+          const overdueCount   = activeStatuses.filter(s => s === "overdue").length;
+          const total          = activeStatuses.length;
+          const allDone        = total > 0 && doneCount === total;
+          const isPartial      = doneCount > 0 && !allDone;
+          const pct            = total > 0 ? Math.round(doneCount / total * 100) : 0;
 
           let s, sc, statusLabel;
-          if (allDone) {
+          if (total === 0) {
+            // All fixes are depriorizado
+            s = "depriorizado"; sc = SC["depriorizado"]; statusLabel = SC["depriorizado"].label;
+          } else if (allDone) {
             s = "done";    sc = SC["done"];    statusLabel = SC["done"].label;
-          } else if (overdueCount > 0) {
-            s = "overdue"; sc = SC["overdue"]; statusLabel = isPartial ? `En proceso · ${pct}%` : SC["overdue"].label;
+          } else if (isPartial) {
+            s = "open";    sc = SC["open"];    statusLabel = `En proceso · ${pct}%`;
+          } else if (overdueCount === total) {
+            s = "overdue"; sc = SC["overdue"]; statusLabel = SC["overdue"].label;
           } else {
-            s = "open";    sc = SC["open"];    statusLabel = isPartial ? `En proceso · ${pct}%` : SC["open"].label;
+            s = "open";    sc = SC["open"];    statusLabel = SC["open"].label;
           }
 
           const dateLabel = [
@@ -3699,33 +3895,56 @@
             ? ed.toLocaleDateString("es-CO",{day:"2-digit",month:"short"})
             : (rep.cierre || rep.compromiso || "");
 
-          // Bar inner text: show percentage if partial, date otherwise
+          // For Quality fixes: parse "Basic: X%" from iniciativa/revisado text (comes from live Sheets data)
+          const _basicMatch = (rep.iniciativa || rep.revisado || rep.basic || "")
+            .match(/[Bb]asic\s*:\s*(\d+(?:[.,]\d+)?)\s*%/);
+          const basicQScore = _basicMatch
+            ? Math.round(parseFloat(_basicMatch[1].replace(",", ".")))
+            : null;
+
+          // Bar inner text: show basic score for Quality, otherwise percentage or date
           const barInnerText = barW > 44
-            ? (isPartial ? `${pct}% · ${doneCount}/${total}` : closeDateStr)
-            : (isPartial && barW > 24 ? `${pct}%` : "");
+            ? (basicQScore != null ? `Basic: ${basicQScore}%` : isPartial ? `${pct}% · ${doneCount}/${total}` : closeDateStr)
+            : (barW > 24 ? (basicQScore != null ? `${basicQScore}%` : isPartial ? `${pct}%` : "") : "");
 
           // Kitchen count label for non-trivial groups
           const kitchenCountLabel = (state.ganttGroupBy === "area" && total > 1)
             ? `<span style="font-size:10px;color:var(--text-muted)">${total} cocinas</span>`
             : "";
 
+          const rowClickAttr = isBasicRow ? `data-gantt-basic="${pk}"` : `data-gantt-detail="${pk}"`;
+          const rowLabel = isBasicRow
+            ? (rep.basic || rep.subcategoria || "—")
+            : (rep.iniciativa || rep.subcategoria || rep.basic || "—");
+          const planCount = isBasicRow
+            ? (() => {
+                const pm = new Map();
+                planFixes.forEach(f => { const k = ganttPlanKey(f); if (!pm.has(k)) pm.set(k, 1); });
+                return pm.size;
+              })()
+            : null;
+
           return `
-            <div class="gantt-row gantt-row-clickable" data-gantt-detail="${pk}">
+            <div class="gantt-row gantt-row-clickable" ${rowClickAttr}>
               <div class="gantt-left-col">
-                <div style="font-size:11px;color:var(--navy);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.3">${rep.iniciativa || rep.subcategoria || rep.basic || "—"}</div>
+                <div style="font-size:11px;color:var(--navy);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.3">${rowLabel}</div>
                 <div style="display:flex;gap:5px;align-items:center;margin-top:3px;flex-wrap:wrap">
                   <span style="font-size:10px;font-weight:650;color:${sc.color};background:${sc.bg};padding:1px 6px;border-radius:999px;white-space:nowrap">${statusLabel}</span>
                   ${kitchenCountLabel}
-                  ${rep.prioridad ? `<span style="font-size:10px;color:var(--text-muted)">${rep.prioridad}</span>` : ""}
-                  ${rep.responsable ? `<span style="font-size:10px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:90px" title="${rep.responsable}">${rep.responsable}</span>` : ""}
+                  ${planCount != null ? `<span style="font-size:10px;color:var(--text-muted)">${planCount} plan${planCount!==1?"es":""} · ver detalle</span>` : ""}
+                  ${!isBasicRow && rep.prioridad ? `<span style="font-size:10px;color:var(--text-muted)">${rep.prioridad}</span>` : ""}
+                  ${!isBasicRow && rep.responsable ? `<span style="font-size:10px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:90px" title="${rep.responsable}">${rep.responsable}</span>` : ""}
                 </div>
               </div>
               <div class="gantt-right-col" style="width:${TOTAL_W}px">
                 ${weekBg}${gridLines}${todayLine}
                 <div class="gantt-bar"
-                  style="left:${barLeft}px;width:${barW}px;background:${sc.color};opacity:${s==="done"?0.5:0.88}"
-                  title="${(rep.iniciativa||"").replace(/"/g,"'")} · ${dateLabel} · ${statusLabel}${isPartial ? ` (${doneCount}/${total} cocinas)` : ""}">
-                  ${barInnerText ? `<span style="position:absolute;left:5px;top:50%;transform:translateY(-50%);color:rgba(255,255,255,0.95);font-size:9px;font-weight:650;white-space:nowrap;overflow:hidden;max-width:${barW-10}px">${barInnerText}</span>` : ""}
+                  style="left:${barLeft}px;width:${barW}px;background:${basicQScore != null ? `${sc.color}28` : sc.color};opacity:${s==="done"?0.5:0.88};overflow:hidden"
+                  title="${(rep.iniciativa||"").replace(/"/g,"'")} · ${dateLabel} · ${statusLabel}${basicQScore != null ? ` · Basic: ${basicQScore}%` : isPartial ? ` (${doneCount}/${total} cocinas)` : ""}">
+                  ${basicQScore != null ? `
+                    <div style="position:absolute;left:0;top:0;height:100%;width:${basicQScore}%;background:${sc.color};opacity:1;transition:width 0.3s"></div>
+                    ${barW > 44 ? `<span style="position:absolute;left:5px;top:50%;transform:translateY(-50%);color:${basicQScore > 40 ? 'rgba(255,255,255,0.95)' : sc.color};font-size:9px;font-weight:650;white-space:nowrap;z-index:1">Basic: ${basicQScore}%</span>` : barW > 24 ? `<span style="position:absolute;left:5px;top:50%;transform:translateY(-50%);color:${basicQScore > 40 ? 'rgba(255,255,255,0.95)' : sc.color};font-size:9px;font-weight:650;z-index:1">${basicQScore}%</span>` : ""}
+                  ` : barInnerText ? `<span style="position:absolute;left:5px;top:50%;transform:translateY(-50%);color:rgba(255,255,255,0.95);font-size:9px;font-weight:650;white-space:nowrap;overflow:hidden;max-width:${barW-10}px">${barInnerText}</span>` : ""}
                 </div>
               </div>
             </div>`;
@@ -3735,10 +3954,11 @@
       }).join("");
 
       // ── KPIs ─────────────────────────────────────────────
-      const total   = rawFixes.length;
-      const open    = datedFixes.filter(f => ganttFixStatus(f) === "open").length;
-      const overdue = datedFixes.filter(f => ganttFixStatus(f) === "overdue").length;
-      const done    = datedFixes.filter(f => ganttFixStatus(f) === "done").length;
+      const total        = rawFixes.length;
+      const depriorizado = rawFixes.filter(f => ganttFixStatus(f) === "depriorizado").length;
+      const open         = datedFixes.filter(f => ganttFixStatus(f) === "open").length;
+      const overdue      = datedFixes.filter(f => ganttFixStatus(f) === "overdue").length;
+      const done         = datedFixes.filter(f => ganttFixStatus(f) === "done").length;
 
       byId("gantt").innerHTML = `
         <article class="panel">
@@ -3765,6 +3985,12 @@
               <div class="kpi-value" style="color:#4a9070">${done}</div>
               <div class="kpi-sub">${total ? Math.round(done/total*100) : 0}% del total</div>
             </article>
+            ${depriorizado > 0 ? `
+            <article class="kpi">
+              <div class="kpi-label">Despriorizado</div>
+              <div class="kpi-value" style="color:#94a3b8">${depriorizado}</div>
+              <div class="kpi-sub">Excluidos de fechas</div>
+            </article>` : ""}
           </div>
 
           <div class="gantt-outer">
@@ -3852,7 +4078,8 @@
         state.impactArea = "Todas";
         state.impactResponsible = "Todos";
         state.impactStatus = ["Todos"];
-        state.ganttFilter = "all";
+        state.ganttStatuses = new Set();
+        state.ganttCity = "all";
         state.ganttPriority = "all";
         state.ganttGroupBy = "kitchen";
         state.view = "dashboard";
@@ -3931,6 +4158,51 @@
       if (event.target.closest("[data-close-gantt-modal]")) {
         const m = document.getElementById("ganttDetailModal");
         if (m) m.remove();
+        return;
+      }
+
+      const peopleRangeRow = event.target.closest("[data-people-range]");
+      if (peopleRangeRow) {
+        const label = decodeURIComponent(peopleRangeRow.dataset.peopleRange);
+        const ids = decodeURIComponent(peopleRangeRow.dataset.peopleKitchens).split("|||").filter(Boolean);
+        const existing = document.getElementById("ganttDetailModal");
+        if (existing) existing.remove();
+        const modal = document.createElement("div");
+        modal.id = "ganttDetailModal";
+        modal.style.cssText = "position:fixed;inset:0;background:rgba(15,23,42,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px";
+        modal.innerHTML = `
+          <div style="background:#fff;border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,0.22);width:min(440px,90vw);max-height:75vh;display:flex;flex-direction:column;overflow:hidden;font-family:inherit">
+            <div style="padding:18px 20px 14px;border-bottom:1px solid #e8edf2;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-shrink:0">
+              <div>
+                <div style="font-weight:700;font-size:14px;color:#1e293b">People · ${label}</div>
+                <div style="font-size:12px;color:#64748b;margin-top:3px">${ids.length} cocina${ids.length !== 1 ? "s" : ""}</div>
+              </div>
+              <button data-close-gantt-modal type="button" style="border:0;background:#f1f5f9;border-radius:6px;font-size:14px;cursor:pointer;color:#64748b;padding:4px 8px;line-height:1;flex-shrink:0">&#x2715;</button>
+            </div>
+            <div style="overflow-y:auto;padding:8px 0">
+              ${ids.map((id, i) => `<div style="padding:9px 20px;font-size:13px;color:#1e293b;background:${i%2===0?"#f8fafc":"#fff"}">${id}</div>`).join("")}
+            </div>
+          </div>`;
+        modal.addEventListener("click", e => { if (e.target === modal) modal.remove(); });
+        document.addEventListener("keydown", function esc(e) {
+          if (e.key === "Escape") { modal.remove(); document.removeEventListener("keydown", esc); }
+        });
+        document.body.appendChild(modal);
+        return;
+      }
+
+      const ganttStatusBtn = event.target.closest("[data-gantt-status]");
+      if (ganttStatusBtn) {
+        const sv = ganttStatusBtn.dataset.ganttStatus;
+        if (state.ganttStatuses.has(sv)) state.ganttStatuses.delete(sv);
+        else state.ganttStatuses.add(sv);
+        renderGantt();
+        return;
+      }
+
+      const ganttBasicRow = event.target.closest("[data-gantt-basic]");
+      if (ganttBasicRow) {
+        showGanttBasicDetail(ganttBasicRow.dataset.ganttBasic);
         return;
       }
 
@@ -4070,8 +4342,8 @@
           if (allOption) allOption.checked = false;
         }
       }
-      if (event.target.id === "ganttFilter") {
-        state.ganttFilter = event.target.value;
+      if (event.target.id === "ganttCityFilter") {
+        state.ganttCity = event.target.value;
         renderGantt();
         return;
       }
@@ -4506,6 +4778,8 @@
           const norm = normalizeText(id);
           if (norm && Object.keys(qScores).length) result[ck].byKitchenQuestion[norm] = qScores;
         }
+        // activeQuestionNos: derived from actual kitchen scores (questions with any data = in form)
+        // Stored for use in dashboard to hide removed questions
       }
       // Also attach kitchen metadata so caller can add missing kitchens to COUNTRIES
       result._meta = {
