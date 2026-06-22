@@ -1019,9 +1019,10 @@
       mauve: "#96607D",
     };
 
-    const getStatus = (v) => {
+    const getStatus = (v, threshold) => {
+      const t = threshold ?? (state.country === "CO" ? 80 : 75);
       if (v == null) return { color: PALETTE.slate, bg: PALETTE.lightGray, label: "Pendiente" };
-      if (v >= 75) return { color: PALETTE.cyanDark, bg: "#E7F6FC", label: "Cumple" };
+      if (v >= t) return { color: PALETTE.cyanDark, bg: "#E7F6FC", label: "Cumple" };
       if (v >= 50) return { color: PALETTE.neutralText, bg: "#F8F0E2", bar: PALETTE.neutral, label: "Parcial" };
       return { color: PALETTE.mauve, bg: "#F4EAF0", label: "Crítico" };
     };
@@ -1626,14 +1627,19 @@
     const renderDashboard = () => {
       const rows = withData();
       const avg = rows.length ? rows.reduce((sum, kitchen) => sum + kitchenScore(kitchen), 0) / rows.length : 0;
-      const green = rows.filter(k => kitchenScore(k) >= 75).length;
-      const yellow = rows.filter(k => kitchenScore(k) >= 50 && kitchenScore(k) < 75).length;
+      const scoreTarget = state.country === "CO" ? 80 : 75;
+      const green = rows.filter(k => kitchenScore(k) >= scoreTarget).length;
+      const yellow = rows.filter(k => kitchenScore(k) >= 50 && kitchenScore(k) < scoreTarget).length;
       const red = rows.filter(k => kitchenScore(k) < 50).length;
+      const total = rows.length || 1;
+      const greenPct  = Math.round(green  / total * 100);
+      const yellowPct = Math.round(yellow / total * 100);
+      const redPct    = Math.round(red    / total * 100);
       const kpis = [
         { label: "% Básicos", value: fmt(avg), status: avg },
-        { label: "Cocinas ≥75%", value: green, sub: "verde", status: 80 },
-        { label: "Cocinas 50-75%", value: yellow, sub: "amarillo", status: 60 },
-        { label: "Cocinas <50%", value: red, sub: "crítico", status: 30 },
+        { label: `Cocinas ≥${scoreTarget}%`, value: green,  sub: `${greenPct}% del total`,  status: 80 },
+        { label: `Cocinas 50-${scoreTarget}%`, value: yellow, sub: `${yellowPct}% del total`, status: 60 },
+        { label: "Cocinas <50%",               value: red,    sub: `${redPct}% del total`,    status: 30 },
       ];
 
       const prevCityScores = (() => {
@@ -1971,8 +1977,9 @@
     };
 
     const detailCategory = (value) => {
+      const t = state.country === "CO" ? 80 : 75;
       if (value == null) return "na";
-      if (value >= 75) return "full";
+      if (value >= t) return "full";
       if (value >= 50) return "partial";
       return "fail";
     };
@@ -3817,11 +3824,12 @@
           });
           const kitchenScores = [...kitchenScoreMap.entries()].map(([id, score]) => ({ id, score }));
           const total = kitchenScores.length;
+          const _rankTarget = state.country === "CO" ? 80 : 75;
           const BUCKETS = [
-            { label: "100%",            min: 100, max: Infinity, color: "#4a9070" },
-            { label: "Entre 75% y 99%", min: 75,  max: 99.99,   color: "#0b769f" },
-            { label: "Entre 50% y 74%", min: 50,  max: 74.99,   color: "#b07d2a" },
-            { label: "Menor al 50%",    min: 0,   max: 49.99,   color: "#96607d" },
+            { label: "100%",                               min: 100,         max: Infinity, color: "#4a9070" },
+            { label: `Entre ${_rankTarget}% y 99%`,        min: _rankTarget, max: 99.99,    color: "#0b769f" },
+            { label: `Entre 50% y ${_rankTarget - 1}%`,   min: 50,          max: _rankTarget - 0.01, color: "#b07d2a" },
+            { label: "Menor al 50%",                       min: 0,           max: 49.99,    color: "#96607d" },
           ];
           const bucketRows = BUCKETS.map(b => {
             const items = kitchenScores.filter(r => r.score >= b.min && r.score <= b.max);
