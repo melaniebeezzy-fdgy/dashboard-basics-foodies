@@ -5350,6 +5350,18 @@
 
     loadSavedSync();
     render();
+
+    // Auto-sync al cargar: si los datos tienen más de 1 hora o no hay sync guardado,
+    // sincroniza automáticamente con Google Sheets sin que el usuario tenga que hacer clic.
+    (async () => {
+      const saved = syncStorage.read();
+      const lastSync = saved?.lastSyncAt ? new Date(saved.lastSyncAt) : null;
+      const hoursSince = lastSync ? (Date.now() - lastSync.getTime()) / 36e5 : Infinity;
+      if (hoursSince > 1) {
+        await new Promise(r => setTimeout(r, 800)); // esperar render inicial
+        byId("syncBtn").click();
+      }
+    })();
   </script>
 </body>
 </html>
