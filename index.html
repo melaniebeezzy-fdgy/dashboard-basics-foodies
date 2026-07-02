@@ -5188,6 +5188,22 @@
         const added = mergeExtraKitchens(extraKitchens);
         window.EXTRA_KITCHENS = extraKitchens; // persisted via saveSyncData
         if (added > 0) results.push(`+${added} cocinas nuevas del sheet`);
+        // Agregar cocinas nuevas a SHEET_DETAIL_DATA.kitchens para que sheetKitchenFor() las encuentre
+        if (added > 0 && window.SHEET_DETAIL_DATA?.kitchens) {
+          const countryNames = { MX: "México", CO: "Colombia", PE: "Perú" };
+          const numQ = (window.SHEET_DETAIL_DATA.questions || []).length || 35;
+          const existingSheetNorms = new Set(window.SHEET_DETAIL_DATA.kitchens.map(k => normalizeText(k.name)));
+          for (const ck of ["MX", "CO", "PE"]) {
+            (extraKitchens[ck] || []).forEach(({ id, city }) => {
+              if (!id || existingSheetNorms.has(normalizeText(id))) return;
+              window.SHEET_DETAIL_DATA.kitchens.push({
+                name: id, country: countryNames[ck] || ck, city: city || "",
+                values: Array(numQ).fill(null),
+              });
+              existingSheetNorms.add(normalizeText(id));
+            });
+          }
+        }
         // Actualizar textos de preguntas en SHEET_DETAIL_DATA desde el sheet Preguntas.
         // Solo actualiza campos de texto (colper, mex, bloque, tema) por coincidencia de question.no
         // sin cambiar los índices del array (los índices deben seguir alineados con kitchen.values).
