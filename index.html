@@ -1228,6 +1228,10 @@
     const fmt = (value, decimals = 1) => value == null ? "Pendiente" : `${Number(value).toFixed(decimals)}%`;
     const byId = (id) => document.getElementById(id);
     const DEFAULT_DATA_READ_AT = "2026-06-02T00:00:00-05:00";
+    const REPORT_YEAR = 2026;
+    const REPORT_QUARTER = 2;
+    const REPORT_REFERENCE_DATE = new Date(REPORT_YEAR, (REPORT_QUARTER * 3) - 1, 2);
+    const reportQuarterLabel = () => `Q${REPORT_QUARTER} ${REPORT_YEAR}`;
     const SYNC_STORAGE_KEY = "foodology_basicos_last_sync_v2";
     const syncStorage = {
       read() {
@@ -2543,14 +2547,40 @@
       return closeDate && closeDate <= cutoffDate;
     };
 
-    const fixMatchesQuestion = (fix, question, countryKey) => {
+    // Alias de subcategorías CO → tema de pregunta (para fixes cuya subcategoría
+    // en la hoja no coincide exactamente con el tema de la pregunta).
+    const CO_SUBCATEGORIA_ALIAS = {
+      "basura":                                    "gestion de residuos",
+      "deposito de agua y calidad de agua":        "sistemas de agua y drenaje",
+      "area de lavado y desinfeccion":             "limpieza y desinfeccion",
+      "area de produccion y manipulacion de alimentos": "limpieza y desinfeccion",
+      "area de recibo":                            "utensilios y superficies",
+      "almacen":                                   "utensilios y superficies",
+      "capacitacion de conocimiento":              "epp e higiene personal",
+    };
+
+    const fixAreaLabelFromText = (value) => {
+      const text = normalizeText(value);
+      if (!text) return "";
+      if (text.includes("CALIDAD") || text.includes("QUALITY") || text === "QTY") return "Quality";
+      if (text.includes("CITY") || text.includes("CITIES") || text.includes("OPS")) return "City";
+      if (text.includes("ADMIN")) return "Admin";
+      if (text.includes("PEOPLE")) return "People";
+      return value;
+    };
+
+    const fixAreaValue = (fix) => {
+      const direct = fixAreaLabelFromText(fix.area);
+      if (direct) return direct;
+      const responsibleArea = fixAreaLabelFromText(fix.responsable);
+      return responsibleArea || "Sin área";
+    };
+
+    const fixMatchesQuestionContent = (fix, question) => {
       if (fix.basic) {
-        // 1. Match por número: "B5", "5", " B 5 " → question.no
         const bNum = fix.basic.match(/^\s*b?\s*(\d+)\s*$/i);
         if (bNum) return parseInt(bNum[1]) === question.no;
 
-        // 2. Match parcial por nombre contra mex, colper o nombre de fallback.
-        //    Tolerante a variaciones: uno contiene al otro.
         const nb = normalizeText(fix.basic);
         const checkText = (text) => {
           if (!text) return false;
@@ -2559,10 +2589,43 @@
         };
         return checkText(question.mex) || checkText(question.colper) || checkText(basicName(question.index));
       }
-      // Sin basic: el fix cubre TODA la subcategoria/área.
-      // Si subcategoria o área coincide con el tema de la pregunta → aplica a todos los básicos de ese tema.
-      const fixTopic = normalizeText(fix.subcategoria) || normalizeText(fix.area);
+
+      let fixTopic = normalizeText(fix.subcategoria) || normalizeText(fix.area);
+      if (state.country === "CO" && fixTopic && CO_SUBCATEGORIA_ALIAS[fixTopic]) {
+        fixTopic = CO_SUBCATEGORIA_ALIAS[fixTopic];
+      }
       return !!(fixTopic && fixTopic === normalizeText(question.tema));
+    };
+
+    const fixMatchesQuestion = (fix, question, countryKey) => {
+      // Para CO: el responsable define el área del fix.
+      // Si contiene una keyword de área conocida → solo aplica a esa área.
+      // Si es un nombre/equipo sin keyword → aplica a todas (no restringir).
+      const coAreaOk = () => {
+        if (countryKey !== "CO" || !fix.responsable) return true;
+        const nr = normalizeText(fixAreaValue(fix));
+        const na = normalizeText(question.area || "");
+        // Mapeos conocidos
+        if (nr === "QUALITY" && na === "QUALITY") return true;
+        if (nr.includes("CITY") && na === "CITY") return true;
+        if (nr.includes("ADMIN") && na === "ADMIN") return true;
+        if (nr.includes("PEOPLE") && na === "PEOPLE") return true;
+        if (nr === na) return true;
+        // Si el responsable contiene alguna keyword de área → es area-específico → excluir si no coincide
+        const hasAreaKeyword = nr.includes("QUALITY") ||
+                               nr.includes("CITY") || nr.includes("ADMIN") || nr.includes("PEOPLE");
+        // Sin keyword de área (persona, equipo operativo) → aplica a todas
+        return !hasAreaKeyword;
+      };
+
+      if (fix.basic) {
+        // Si el Fix trae el básico explícito, manda el texto/número del básico.
+        // El área del Fix se usa para agrupar/proyectar, no para bloquear el match.
+        return fixMatchesQuestionContent(fix, question);
+      }
+      // Sin basic: el fix cubre TODA la subcategoria. Para CO, el responsable
+      // determina qué preguntas (por área) del tema cubre este fix.
+      return fixMatchesQuestionContent(fix, question) && coAreaOk();
     };
 
     const fixMatchesKitchen = (fix, kitchen, countryKey) => {
@@ -2601,8 +2664,6 @@
 
     const fixBudgetAmount = (fix) => moneyValue(fix.totalQ || fix.cotizacion || fix.total || fix.presupuesto || "");
 
-    const fixAreaValue = (fix) => fix.area || "Sin área";
-
     const fixMatchesImpactArea = (fix) => {
       return state.impactArea === "Todas" || normalizeText(fixAreaValue(fix)) === normalizeText(state.impactArea);
     };
@@ -2629,6 +2690,11 @@
     const fixMatchesImpactStatus = (fix) => {
       // Despriorizado nunca cuenta en el cálculo de mejora
       if (normalizeText(fixStatusValue(fix)) === "DESPRIORIZADO") return false;
+      const selected = selectedImpactStatuses();
+      return selected.includes("Todos") || selected.some(status => normalizeText(fixStatusValue(fix)) === normalizeText(status));
+    };
+
+    const fixMatchesPlanStatus = (fix) => {
       const selected = selectedImpactStatuses();
       return selected.includes("Todos") || selected.some(status => normalizeText(fixStatusValue(fix)) === normalizeText(status));
     };
@@ -2703,7 +2769,12 @@
 
       // Si hay filtro de área de pregunta, restringir a esos básicos
       if (questionAreaFilter && questionAreaFilter !== "Todas") {
-        questions = questions.filter(q => (q.area || "Sin área") === questionAreaFilter);
+        if (state.country === "CO") {
+          const areaFixes = fixesForCurrentType().filter(fix => fixMatchesAreaChoice(fix, questionAreaFilter));
+          questions = questions.filter(question => areaFixes.some(fix => fixMatchesQuestionContent(fix, question)));
+        } else {
+          questions = questions.filter(q => (q.area || "Sin área") === questionAreaFilter);
+        }
       }
       if (!questions.length) return null;
 
@@ -2715,14 +2786,18 @@
           : includeUndated
             ? (!closeDate || !cutoffDate || closeDate <= cutoffDate)
             : fixAppliesByCutoff(fix, cutoffDate);
-        return fixMatchesImpactResponsible(fix) && fixMatchesImpactStatus(fix) && dateApplies && fixMatchesKitchen(fix, kitchen, state.country);
+        return fixMatchesImpactResponsible(fix) &&
+          fixMatchesImpactStatus(fix) &&
+          dateApplies &&
+          fixMatchesKitchen(fix, kitchen, state.country) &&
+          (state.country !== "CO" || !questionAreaFilter || questionAreaFilter === "Todas" || fixMatchesAreaChoice(fix, questionAreaFilter));
       });
 
       // ── Lógica estándar por básicos ──
       const fikuFsK = (window.FORM_SCORES || {})[state.country];
       const fikuNormId = normalizeText(kitchen?.id || "");
       const fikuFormQ = fikuFsK?.byKitchenQuestion?.[fikuNormId] || null;
-      const fikuHasFsData = !!fikuFsK?.byKitchenQuestion;
+      const fikuHasFsData = !!fikuFormQ;
       let fixedCount = 0;
       const appliedFixes = new Set();
       const originalValues = [];
@@ -2742,10 +2817,13 @@
       // % original usa el mismo cálculo que Dashboard (kitchenScore = byName de FORM_SCORES)
       const perQOriginal = originalValues.length ? originalValues.reduce((sum, value) => sum + value, 0) / originalValues.length : null;
       const perQAdjusted = adjustedValues.length ? adjustedValues.reduce((sum, value) => sum + value, 0) / adjustedValues.length : null;
-      const original = kitchenScore(kitchen) ?? perQOriginal;
-      // % proyectado = base del Dashboard + delta de mejora calculado per-pregunta
+      const isAreaProjection = !!(questionAreaFilter && questionAreaFilter !== "Todas");
+      const original = isAreaProjection ? perQOriginal : (kitchenScore(kitchen) ?? perQOriginal);
+      // % proyectado = en área usa el promedio real de sus básicos; en total usa el score base del Dashboard + delta.
       const delta = (perQAdjusted != null && perQOriginal != null) ? (perQAdjusted - perQOriginal) : 0;
-      const adjusted = original != null ? Math.min(100, Math.max(original, original + delta)) : perQAdjusted;
+      const adjusted = isAreaProjection
+        ? perQAdjusted
+        : (original != null ? Math.min(100, Math.max(original, original + delta)) : perQAdjusted);
       const periodFixes = [...appliedFixes].filter(fix => {
         const closeDate = fixCloseDate(fix);
         if (afterQuarterStartDate) return closeDate && closeDate >= afterQuarterStartDate;
@@ -2778,7 +2856,7 @@
       const fkpFsK = (window.FORM_SCORES || {})[state.country];
       const fkpNormId = normalizeText(kitchen?.id || "");
       const fkpFormQ = fkpFsK?.byKitchenQuestion?.[fkpNormId] || null;
-      const fkpHasFsData = !!fkpFsK?.byKitchenQuestion;
+      const fkpHasFsData = !!fkpFormQ;
       const appliedFixes = new Set();
       questions.forEach(question => {
         const sv = sheetKitchen.values[question.index];
@@ -2795,11 +2873,25 @@
     // Devuelve los fixes que cubren al menos una pregunta del área (question.area) en el período dado.
     const fixesForAreaPeriod = (questionArea, period) => {
       if (!questionArea || !period) return [];
+      if (state.country === "CO") {
+        return fixesForCurrentType()
+          .filter(fix => state.cityFilter === "Todas" || normalizeText(fix.ciudad) === normalizeText(state.cityFilter))
+          .filter(fix => fixMatchesImpactResponsible(fix))
+          .filter(fix => fixMatchesPlanStatus(fix))
+          .filter(fix => fixMatchesAreaChoice(fix, questionArea))
+          .filter(fix => {
+            const closeDate = fixCloseDate(fix);
+            if (period.undated) return !closeDate;
+            if (period.afterQuarterStart) return closeDate && closeDate >= period.afterQuarterStart;
+            return closeDate && closeDate >= period.start && closeDate <= period.cutoff;
+          })
+          .map(fix => ({ ...fix, kitchenId: fix.cocina, kitchenCity: fix.ciudad }));
+      }
       // Preguntas que pertenecen a esta área de básico
       const areaQuestions = questionSourceForCurrentType().questions
         .map((q, i) => ({ ...q, index: i }))
         .filter(q => (q.area || "Sin área") === questionArea);
-      if (!areaQuestions.length) return [];
+      const areaHasQuestions = areaQuestions.length > 0;
 
       const seenCountryWide = new Set();
       return filtered().flatMap(kitchen => {
@@ -2809,6 +2901,7 @@
           .filter(fix => fixMatchesImpactResponsible(fix))
           .filter(fix => fixMatchesImpactStatus(fix))
           .filter(fix => fixMatchesKitchen(fix, kitchen, state.country))
+          .filter(fix => state.country !== "CO" || fixMatchesAreaChoice(fix, questionArea))
           .filter(fix => {
             const closeDate = fixCloseDate(fix);
             if (period.undated) return !closeDate;
@@ -2816,7 +2909,9 @@
             return closeDate && closeDate >= period.start && closeDate <= period.cutoff;
           })
           // Solo fixes que cubren al menos un básico de esta área
-          .filter(fix => areaQuestions.some(q => fixMatchesQuestion(fix, q, state.country)))
+          .filter(fix => state.country === "CO"
+            ? fixMatchesAreaChoice(fix, questionArea)
+            : areaHasQuestions && areaQuestions.some(q => fixMatchesQuestion(fix, q, state.country)))
           .map(fix => {
             if (!isCountryWideFix(fix)) return { ...fix, kitchenId: kitchen.id, kitchenCity: kitchen.city };
             const key = globalFixKey(fix);
@@ -2970,6 +3065,13 @@
       return areas.map(area => {
         if (area === "Todas") return null;
 
+        // Preguntas que pertenecen a esta área de básico. En CO, cuando el fix no
+        // tiene responsable/área, se muestra como "Sin área" aunque no recalcula score.
+        const areaQuestions = questionSourceForCurrentType().questions
+          .map((q, i) => ({ ...q, index: i }))
+          .filter(q => (q.area || "Sin área") === area);
+        const areaHasQuestions = areaQuestions.length > 0;
+
         // ── Score por cocina: básicos de esta área con TODOS los fixes aplicados ──
         const kitchenRows = filtered().map(kitchen => {
           const periodValues = periods
@@ -2981,23 +3083,37 @@
           return { original, latest, periodValues };
         }).filter(Boolean);
 
-        if (!kitchenRows.length) return null;
-
-        const periodAverages = periods.map((_, pi) => {
-          const vals = kitchenRows.map(r => r.periodValues[pi]?.impact.adjusted).filter(v => v != null);
-          return _avg(vals);
-        });
-
         // ── Conteo: fixes únicos que cubren al menos un básico de esta área ──
         // Un fix "cubre" el área si fixMatchesQuestion para alguna pregunta de esa área.
-        const areaQuestions = questionSourceForCurrentType().questions
-          .map((q, i) => ({ ...q, index: i }))
-          .filter(q => (q.area || "Sin área") === area);
-
         const seenFixes = new Set();
         const periodSeenFixes = periods.map(() => new Set());
         const periodBudgets = periods.map(() => 0);
 
+        if (state.country === "CO") {
+          fixesForCurrentType()
+            .filter(fix => state.cityFilter === "Todas" || normalizeText(fix.ciudad) === normalizeText(state.cityFilter))
+            .filter(fix => fixMatchesImpactResponsible(fix))
+            .filter(fix => fixMatchesPlanStatus(fix))
+            .filter(fix => fixMatchesAreaChoice(fix, area))
+            .forEach((fix) => {
+              const k = fix._rowIdx ?? globalFixKey(fix);
+              seenFixes.add(k);
+              periods.forEach((period, pi) => {
+                const cd = fixCloseDate(fix);
+                const applies = period.afterQuarterStart
+                  ? cd && cd >= period.afterQuarterStart
+                  : period.undated
+                    ? !cd
+                    : cd && period.start && cd >= period.start && cd <= period.cutoff;
+                if (applies) {
+                  if (!periodSeenFixes[pi].has(k)) {
+                    periodBudgets[pi] += fixBudgetAmount(fix);
+                  }
+                  periodSeenFixes[pi].add(k);
+                }
+              });
+            });
+        } else {
         filtered().forEach(kitchen => {
           const sheetKitchen = sheetKitchenFor(kitchen);
           if (!sheetKitchen) return;
@@ -3005,7 +3121,10 @@
             fixMatchesImpactResponsible(fix) &&
             fixMatchesImpactStatus(fix) &&
             fixMatchesKitchen(fix, kitchen, state.country) &&
-            areaQuestions.some(q => fixMatchesQuestion(fix, q, state.country))
+            (state.country !== "CO" || fixMatchesAreaChoice(fix, area)) &&
+            (state.country === "CO"
+              ? fixMatchesAreaChoice(fix, area)
+              : areaHasQuestions && areaQuestions.some(q => fixMatchesQuestion(fix, q, state.country)))
           );
           kitchenFixes.forEach((fix) => {
             const k = fix._rowIdx ?? globalFixKey(fix);
@@ -3026,7 +3145,14 @@
             });
           });
         });
+        }
         const periodFixedCounts = periodSeenFixes.map(s => s.size);
+        if (!kitchenRows.length && !seenFixes.size) return null;
+
+        const periodAverages = periods.map((_, pi) => {
+          const vals = kitchenRows.map(r => r.periodValues[pi]?.impact.adjusted).filter(v => v != null);
+          return _avg(vals);
+        });
 
         return {
           area,
@@ -3045,7 +3171,7 @@
 
     const renderAreaImpactTable = (periods, areas) => {
       // areaImpactRows ya filtra "Todas" y áreas sin cocinas; mostrar todas con al menos un básico evaluado
-      const rows = areaImpactRows(periods, areas).filter(row => row.original != null);
+      const rows = areaImpactRows(periods, areas).filter(row => row.original != null || row.fixedCount > 0);
       const width = 170 + 120 + (periods.length * 135) + 120 + 140;
       const selectedArea = normalizeText(state.impactArea);
 
@@ -3125,10 +3251,10 @@
     };
 
     const currentQuarterPeriods = () => {
-      const now = new Date();
-      const year = now.getFullYear();
-      const currentMonth = now.getMonth();
-      const quarterStart = Math.floor(currentMonth / 3) * 3;
+      const now = new Date(REPORT_REFERENCE_DATE);
+      const year = REPORT_YEAR;
+      const currentMonth = REPORT_REFERENCE_DATE.getMonth();
+      const quarterStart = (REPORT_QUARTER - 1) * 3;
       const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
       const periods = [];
       for (let month = quarterStart; month < quarterStart + 3; month += 1) {
@@ -3175,7 +3301,7 @@
       // Si CO no tiene fixes con área definida, se cae a question.area como respaldo.
       const _qAreaSource = questionSourceForCurrentType().questions;
       const _fixAreaVals = state.country === "CO"
-        ? [...new Set((fixesData().CO || []).map(f => f.area).filter(Boolean))]
+        ? [...new Set((fixesData().CO || []).map(fixAreaValue).filter(Boolean))]
         : [];
       const _areaPool = (_fixAreaVals.length > 0 && state.country === "CO")
         ? _fixAreaVals
@@ -3260,7 +3386,7 @@
         <article class="panel">
           <div class="detail-head">
             <div>
-              <div class="detail-title">Impacto Fix · Evolución Q${Math.floor(new Date().getMonth() / 3) + 1}</div>
+              <div class="detail-title">Impacto Fix · Evolución ${reportQuarterLabel()}</div>
               <div class="detail-sub">${data().name} · ${state.cityFilter === "Todas" ? "Todas las ciudades" : state.cityFilter} · ${typeLabel()} · Área básico: ${state.impactArea} · Responsable: ${state.impactResponsible} · Status: ${impactStatusLabel()}</div>
             </div>
             <div class="city-control" style="margin-left:auto">
@@ -3392,10 +3518,10 @@
 
     // Builds Q periods: whole months for Apr/May, weekly for Jun (current month)
     const ganttQuarterPeriods = () => {
-      const now   = new Date();
-      const year  = now.getFullYear();
-      const curM  = now.getMonth();
-      const qStart = Math.floor(curM / 3) * 3;
+      const now   = new Date(REPORT_REFERENCE_DATE);
+      const year  = REPORT_YEAR;
+      const curM  = REPORT_REFERENCE_DATE.getMonth();
+      const qStart = (REPORT_QUARTER - 1) * 3;
       const MN = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
       const periods = [];
       for (let m = qStart; m < qStart + 3; m++) {
@@ -4049,7 +4175,7 @@
           <div class="gantt-outer">
             <!-- Row 1: month names grouped -->
             <div class="gantt-row" style="min-height:24px;position:sticky;top:0;z-index:10;border-bottom:1px solid var(--border)">
-              <div class="gantt-left-col gantt-header-label" style="font-size:10px;color:var(--text-muted);justify-content:flex-end;border-right:2px solid var(--border)">Q${Math.floor(new Date().getMonth()/3)+1} ${new Date().getFullYear()}</div>
+              <div class="gantt-left-col gantt-header-label" style="font-size:10px;color:var(--text-muted);justify-content:flex-end;border-right:2px solid var(--border)">${reportQuarterLabel()}</div>
               <div class="gantt-right-col" style="width:${TOTAL_W}px;height:24px;background:var(--soft)">${headerTop}</div>
             </div>
             <!-- Row 2: period labels (S1…S4 for Jun, full name for Apr/May) -->
@@ -4585,10 +4711,10 @@
       // Fallback de posiciones por país (por si los headers no se encuentran)
       // CO: C=Subcategoría(2), D=Cocina(3), E=Basic(4), F=Ciudad(5),
       //     G=Iniciativa/Plan(6), H=Fecha compromiso(7), I=Fecha cierre(8),
-      //     J=Cotización(9), K=Responsable/Prioridad(10), L=Status(11)
+      //     J=Cotización(9), K=Área(10), L=Status(11), M=Prioridad(12)
       const FALLBACK_COLS = {
         MX: { subcategoria:2, area:3, cocina:4, ciudad:5, iniciativa:6, basic:7, compromiso:8, cierre:9, abril:10, mayo:11, junio:12, totalQ:13, responsable:14, prioridad:15, status:16, revisado:17, evidencia:18, firma:19, presupuesto:20 },
-        CO: { subcategoria:2, cocina:3, basic:4, ciudad:5, iniciativa:6, compromiso:7, cierre:8, cotizacion:9, totalQ:9, area:10, responsable:10, prioridad:10, status:11 },
+        CO: { subcategoria:2, cocina:3, basic:4, ciudad:5, iniciativa:6, compromiso:7, cierre:8, cotizacion:9, totalQ:9, area:10, responsable:10, status:11, prioridad:12 },
         PE: { subcategoria:2, cocina:3, iniciativa:4, compromiso:5, cierre:6, mensual:7, cotizacion:8, totalQ:8, ejecutado:9, responsable:10, prioridad:11, status:12 },
         CP: { subcategoria:2, cocina:3, ciudad:4, iniciativa:5, basic:6, compromiso:7, cierre:8, cotizacion:9, totalQ:9, responsable:10, prioridad:11, status:12, area:13 },
       };
@@ -5077,7 +5203,14 @@
               if (meta.mex)    q.mex    = meta.mex;
               if (meta.bloque) q.bloque = meta.bloque;
               if (meta.tema)   q.tema   = meta.tema;
-              if (meta.area)   q.area   = meta.area;
+              if (meta.area && (!q.area || q.area === "Sin área"))   q.area   = meta.area;
+              // Si el área sigue siendo "Sin área", intentar herencia por bloque
+              if ((!q.area || q.area === "Sin área") && q.bloque) {
+                const sibling = window.SHEET_DETAIL_DATA.questions.find(eq =>
+                  eq !== q && eq.bloque === q.bloque && eq.area && eq.area !== "Sin área"
+                );
+                if (sibling) q.area = sibling.area;
+              }
             }
           });
           // 2. Agregar preguntas nuevas del sheet al final del array
@@ -5085,13 +5218,20 @@
           let newQCount = 0;
           formScores._questions.forEach(q => {
             if (q.no && !existingNos.has(q.no)) {
+              // Herencia de área: si el sheet no provee área, buscar una pregunta
+              // del mismo bloque que ya tenga área asignada y usarla.
+              const inheritedArea = q.area
+                || window.SHEET_DETAIL_DATA.questions.find(eq =>
+                    eq.bloque === (q.bloque || "Sin bloque") && eq.area && eq.area !== "Sin área"
+                  )?.area
+                || "Sin área";
               window.SHEET_DETAIL_DATA.questions.push({
                 no:     q.no,
                 bloque: q.bloque  || "Sin bloque",
                 tema:   q.tema    || "Sin tema",
                 mex:    q.mex     || "",
                 colper: q.colper  || q.mex || "",
-                area:   q.area    || "Sin área",
+                area:   inheritedArea,
               });
               newQCount++;
             }
