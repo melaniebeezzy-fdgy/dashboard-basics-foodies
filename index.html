@@ -962,7 +962,7 @@
   <main class="wrap">
     <header class="header">
       <div>
-        <div class="title">Básicos para Foodies contentos · Q2 2026</div>
+        <div class="title" id="reportTitle">Básicos para Foodies contentos · Q2 2026</div>
         <div class="meta">
           Fuente:
           <a href="https://docs.google.com/spreadsheets/d/1krQxz6jWQxgCGSJaL4VziAnRQAFBmT29WKC4vThFx_M/edit" target="_blank" rel="noreferrer">Google Sheets</a>
@@ -1229,9 +1229,20 @@
     const byId = (id) => document.getElementById(id);
     const DEFAULT_DATA_READ_AT = "2026-06-02T00:00:00-05:00";
     const REPORT_YEAR = 2026;
-    const REPORT_QUARTER = 2;
-    const REPORT_REFERENCE_DATE = new Date(REPORT_YEAR, (REPORT_QUARTER * 3) - 1, 2);
-    const reportQuarterLabel = () => `Q${REPORT_QUARTER} ${REPORT_YEAR}`;
+    // Trimestre por país: Colombia trabaja Q3 2026; México (y CPs) y Perú siguen en Q2 2026.
+    const REPORT_QUARTER_BY_COUNTRY = { MX: 2, CO: 3, PE: 2 };
+    const reportQuarter = () => REPORT_QUARTER_BY_COUNTRY[state.country] ?? 2;
+    const reportReferenceDate = () => {
+      const quarter = reportQuarter();
+      const qStart = new Date(REPORT_YEAR, (quarter - 1) * 3, 1);
+      const qEnd = new Date(REPORT_YEAR, quarter * 3, 0);
+      const now = new Date();
+      // Trimestre en curso: usar la fecha de hoy (semana actual real).
+      if (now >= qStart && now <= qEnd) return now;
+      // Trimestre cerrado o futuro: comportamiento original (día 2 del último mes del Q).
+      return new Date(REPORT_YEAR, (quarter * 3) - 1, 2);
+    };
+    const reportQuarterLabel = () => `Q${reportQuarter()} ${REPORT_YEAR}`;
     const SYNC_STORAGE_KEY = "foodology_basicos_last_sync_v2";
     const syncStorage = {
       read() {
@@ -3251,10 +3262,11 @@
     };
 
     const currentQuarterPeriods = () => {
-      const now = new Date(REPORT_REFERENCE_DATE);
+      const refDate = reportReferenceDate();
+      const now = new Date(refDate);
       const year = REPORT_YEAR;
-      const currentMonth = REPORT_REFERENCE_DATE.getMonth();
-      const quarterStart = (REPORT_QUARTER - 1) * 3;
+      const currentMonth = refDate.getMonth();
+      const quarterStart = (reportQuarter() - 1) * 3;
       const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
       const periods = [];
       for (let month = quarterStart; month < quarterStart + 3; month += 1) {
@@ -3518,10 +3530,11 @@
 
     // Builds Q periods: whole months for Apr/May, weekly for Jun (current month)
     const ganttQuarterPeriods = () => {
-      const now   = new Date(REPORT_REFERENCE_DATE);
+      const refDate = reportReferenceDate();
+      const now   = new Date(refDate);
       const year  = REPORT_YEAR;
-      const curM  = REPORT_REFERENCE_DATE.getMonth();
-      const qStart = (REPORT_QUARTER - 1) * 3;
+      const curM  = refDate.getMonth();
+      const qStart = (reportQuarter() - 1) * 3;
       const MN = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
       const periods = [];
       for (let m = qStart; m < qStart + 3; m++) {
@@ -4212,6 +4225,9 @@
     const _VIEWS = ["dashboard","kitchens","basics","kitchen-detail-sheet","basic-detail-sheet","fixes","fix-impact","gantt"];
     const _dirty = Object.fromEntries(_VIEWS.map(v => [v, true]));
     const _updateChrome = () => {
+      const titleText = `Básicos para Foodies contentos · ${reportQuarterLabel()}`;
+      byId("reportTitle").textContent = titleText;
+      document.title = titleText;
       updateSyncMeta();
       renderCountryTabs();
       renderCitySelect();
