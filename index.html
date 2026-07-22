@@ -2352,6 +2352,8 @@
       if (!text) return 0;
       const cleaned = text
         .replace(/[^\d,.-]/g, "")
+        .replace(/^[.,]+/, "")            // quita separadores colgantes al inicio (ej. "S/." deja un ".")
+        .replace(/[.,]+$/, "")            // quita separadores colgantes al final
         .replace(/\.(?=\d{3}(\D|$))/g, "")
         .replace(/,(?=\d{3}(\D|$))/g, "")
         .replace(",", ".");
@@ -2408,7 +2410,7 @@
       const totalBudget = rows.reduce((sum, row) => sum + moneyValue(row.totalQ || row.cotizacion || row.total || ""), 0);
       const _total = rows.length || 1;
       const statusPct = (n) => `${Math.round(n / _total * 100)}% del total`;
-      const ejecutadoRows   = rows.filter(row => { const s = normalizeText(row.status || ""); return ["EJECUTADO","CERRADO","CERRADA"].some(k => s.includes(k)); });
+      const ejecutadoRows   = rows.filter(row => { const s = normalizeText(row.status || ""); return ["EJECUTADO","CERRADO","CERRADA","REALIZADO"].some(k => s.includes(k)); });
       const enProcesoRows   = rows.filter(row => { const s = normalizeText(row.status || ""); return s.includes("EN PROCESO") || s === "PROCESO"; });
       const pendienteRows   = rows.filter(row => normalizeText(row.status || "").includes("PENDIENTE"));
       const desPriorizRows  = rows.filter(row => { const s = normalizeText(row.status || ""); return s.includes("DESPRIORIZADO") || s.includes("DESCARTADO"); });
@@ -3518,7 +3520,7 @@
     const ganttEndDate   = (fix) => fixCloseDate(fix);
     const ganttFixStatus = (fix) => {
       const n = normalizeText(fix.status);
-      if (["EJECUTADO", "CERRADO", "CERRADA"].includes(n)) return "done";
+      if (["EJECUTADO", "CERRADO", "CERRADA", "REALIZADO"].includes(n)) return "done";
       if (n === "DESPRIORIZADO") return "depriorizado";
       const d = ganttEndDate(fix);
       if (d) {
@@ -4774,6 +4776,11 @@
         resolvedCols[field] = foundCol >= 0 ? foundCol : (fallback[field] ?? -1);
       });
 
+      // PE: la columna rotulada "Status" contiene notas libres; el estado real
+      // (Pendiente / En proceso / Ejecutado / Realizado) está en la columna "Ejecutado".
+      // Forzamos que status ← Ejecutado para PE.
+      if (countryKey === "PE" && resolvedCols.ejecutado >= 0) resolvedCols.status = resolvedCols.ejecutado;
+
       if (countryKey === "CO") console.log(`[parseFixTable CO] hasColLabels=${hasColLabels} dataStartRow=${dataStartRow} colByHeader=`, JSON.stringify(colByHeader), `resolvedCols=`, JSON.stringify(resolvedCols));
       return rows.slice(dataStartRow).map((row, rowIndex) => {
         const cells = row.c || [];
@@ -4874,17 +4881,14 @@
         const meta = (extraKitchens || {})[ck] || [];
         const kitchensArr = COUNTRIES[ck]?.kitchens;
         if (!kitchensArr) continue;
-        // Purgar puntos físicos y duplicados por número (ej: cargados desde localStorage)
-        const seenNums = new Set();
+        // Purgar puntos físicos y duplicados por nombre normalizado.
+        // (No se deduplica por número: en PE conviven 01 CP LIMA y 01 SAN ISIDRO.)
         const seenNorms = new Set();
         const filtered_ = kitchensArr.filter(k => {
           const norm = normalizeText(k.id);
-          const num  = kitchenNumber(k.id);
           if (PF_NORMS.has(norm)) return false;
-          if (num && seenNums.has(num)) return false;
           if (seenNorms.has(norm)) return false;
           seenNorms.add(norm);
-          if (num) seenNums.add(num);
           return true;
         });
         if (filtered_.length !== kitchensArr.length) {
@@ -4892,18 +4896,14 @@
           kitchensArr.push(...filtered_);
         }
         const existingNorms = new Set(kitchensArr.map(k => normalizeText(k.id)));
-        const existingNums  = new Set(kitchensArr.map(k => kitchenNumber(k.id)).filter(Boolean));
         meta.forEach(({ id, city }) => {
           if (!id) return;
           const norm = normalizeText(id);
           if (PF_NORMS.has(norm)) return;
-          // Deduplicar por nombre normalizado O por número de cocina
-          const num = kitchenNumber(id);
+          // Deduplicar solo por nombre normalizado (no por número de cocina)
           if (existingNorms.has(norm)) return;
-          if (num && existingNums.has(num)) return;
           kitchensArr.push({ id, city: city || "", basic: null, seg: null, hig: null, limp: null, infra: null, ppl: null });
           existingNorms.add(norm);
-          if (num) existingNums.add(num);
           added++;
         });
       }
