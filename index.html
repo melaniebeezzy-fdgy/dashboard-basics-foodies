@@ -1889,6 +1889,28 @@
       return totalQ ? totalPts / totalQ : kitchenScore(kitchen);
     };
 
+    // % Basic de un área (City/Quality/Admin/People): promedio del cumplimiento de
+    // los básicos de esa área en las cocinas/CP del filtro actual.
+    const areaBasicScore = (areaLabel) => {
+      const na = normalizeText(areaLabel);
+      if (!na) return null;
+      const fsK = (window.FORM_SCORES || {})[state.country];
+      const kits = filtered().filter(k => state.typeFilter === "cp" ? isCPKitchen(k) : !isCPKitchen(k));
+      const vals = [];
+      kits.forEach(k => {
+        const qs = detailDataForKitchen(k).questions.map((q, i) => ({ ...q, index: i })).filter(q => normalizeText(q.area) === na);
+        if (!qs.length) return;
+        const bq = fsK?.byKitchenQuestion?.[normalizeText(k.id)];
+        const sk = sheetKitchenFor(k);
+        qs.forEach(q => {
+          let v = bq ? (bq[q.no] ?? null) : null;
+          if (v == null && sk) v = sk.values[q.index] ?? null;
+          if (v != null) vals.push(v);
+        });
+      });
+      return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+    };
+
     const renderDashboard = () => {
       const rows = withData();
       const avg = rows.length ? rows.reduce((sum, kitchen) => sum + kitchenScore(kitchen), 0) / rows.length : 0;
@@ -4488,7 +4510,7 @@
         }
         const projFull = group.kitchen ? ganttProjected(group.kitchen, "all") : null;
         const projDone = group.kitchen ? ganttProjected(group.kitchen, "done") : null;
-        const curScore = group.kitchen ? kitchenScore(group.kitchen) : null;
+        const curScore = group.kitchen ? kitchenScore(group.kitchen) : (state.ganttGroupBy === "area" ? areaBasicScore(group.label) : null);
         const curBadge = curScore != null ? `<span style="font-size:12px;font-weight:700;color:${getStatus(curScore).color}">${Math.round(curScore)}%</span>` : "";
         const nFixes = group.fixes.length;
         const gBudget = group.fixes.reduce((s, fix) => s + (group.kitchen ? fixBudgetForKitchen(fix, group.kitchen) : fixBudgetAmount(fix)), 0);
