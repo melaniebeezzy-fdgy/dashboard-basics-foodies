@@ -1832,6 +1832,63 @@
       return window.PREV_CO_SCORES.byKitchen?.[normalizeText(kitchen.id)]?.score ?? null;
     };
 
+    // Proyección del cierre de una cocina aplicando sus planes de acción (compartida
+    // por Dashboard y Gantt). mode "all" = todos los planes salvo despriorizados;
+    // mode "done" = solo los completados/ejecutados.
+    const projStatusIsDone  = (fix) => ["EJECUTADO", "CERRADO", "CERRADA", "REALIZADO"].includes(normalizeText(fixStatusValue(fix)));
+    const projStatusIsDepri = (fix) => normalizeText(fixStatusValue(fix)) === "DESPRIORIZADO";
+    const projectedScore = (kitchen, mode) => {
+      if (!kitchen) return null;
+      const fsK = (window.FORM_SCORES || {})[state.country];
+      const norm = normalizeText(kitchen.id);
+      const formQ = fsK?.byKitchenQuestion?.[norm] || null;
+      const sheetKitchen = sheetKitchenFor(kitchen);
+      const hasPerQ = !!formQ || !!(sheetKitchen && (sheetKitchen.values || []).some(v => v != null));
+      const questions = detailDataForKitchen(kitchen).questions.map((q, i) => ({ ...q, index: i }));
+      if (!questions.length) return null;
+      const isResolved = mode === "done" ? projStatusIsDone : (fix) => !projStatusIsDepri(fix);
+      const allFixes = fixesForKitchen(kitchen).filter(fix => fixMatchesKitchen(fix, kitchen, state.country));
+      const resolvingFixes = allFixes.filter(isResolved);
+      if (hasPerQ) {
+        const vals = [];
+        questions.forEach(q => {
+          const sv = sheetKitchen ? sheetKitchen.values[q.index] : null;
+          const fv = formQ ? (formQ[q.no] ?? null) : null;
+          const value = formQ ? fv : (sv != null ? sv : null);
+          if (value == null) return;
+          const covered = resolvingFixes.some(fix => fixMatchesQuestion(fix, q, state.country));
+          vals.push((covered && value < 100) ? 100 : value);
+        });
+        return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+      }
+      const temaMap = fsK?.byKitchenTema?.[norm];
+      const SS = (fsK && fsK._questions) ? null : window.Q3_SCHEMA;
+      // Sub-áreas: del esquema del país si existe, o de las preguntas del diagnóstico.
+      const subareas = SS ? SS.subareas : (() => {
+        const temas = []; questions.forEach(q => { if (q.tema && !temas.includes(q.tema)) temas.push(q.tema); });
+        return temas.map(t => ({ name: t, questionNos: questions.filter(q => q.tema === t).map(q => q.no) }));
+      })();
+      if (!temaMap) return kitchenScore(kitchen);
+      let totalPts = 0, totalQ = 0;
+      subareas.forEach(sa => {
+        const P = temaMap[sa.name];
+        if (P == null) return;
+        const n = sa.questionNos.length;
+        const saQs = questions.filter(q => q.tema === sa.name);
+        const failing = saQs.filter(q => allFixes.some(fix => fixMatchesQuestion(fix, q, state.country)));
+        const resolved = saQs.filter(q => resolvingFixes.some(fix => fixMatchesQuestion(fix, q, state.country)));
+        let avg;
+        if (!failing.length || P >= 100) { avg = P; }
+        else {
+          const deficitPerQ = Math.min(100, (100 - P) * n / failing.length);
+          const unresolved = failing.length - resolved.length;
+          avg = Math.max(0, Math.min(100, 100 - (unresolved * deficitPerQ) / n));
+        }
+        totalPts += avg * n; totalQ += n;
+      });
+      return totalQ ? totalPts / totalQ : kitchenScore(kitchen);
+    };
+
     const renderDashboard = () => {
       const rows = withData();
       const avg = rows.length ? rows.reduce((sum, kitchen) => sum + kitchenScore(kitchen), 0) / rows.length : 0;
@@ -1859,11 +1916,20 @@
         if (state.dashboardBlock) return prevKitchenBloque(k, state.dashboardBlock);
         return prevKitchenBasic(k);
       };
+      // Proyección (cierre si se completan los planes no despriorizados).
+      const projScores = rows.map(k => projectedScore(k, "all"));
+      const projValid = projScores.filter(v => v != null);
+      const projAvg = projValid.length ? projValid.reduce((a, b) => a + b, 0) / projValid.length : null;
+      const hasProj = projValid.length > 0;
+      const projGreen  = projScores.filter(p => p != null && p >= scoreTarget).length;
+      const projYellow = projScores.filter(p => p != null && p >= midMin && p < scoreTarget).length;
+      const projRed    = projScores.filter(p => p != null && p < midMin).length;
+      const projTag = (v) => `&#8594; <strong>${v}</strong> proy.`;
       const kpis = [
-        { label: "% Básicos", value: fmt(avg), status: avg, sub: (mxDelta && q2avg != null) ? `${cq3DeltaBadge(avg, q2avg)} vs Q2` : "" },
-        { label: `Cocinas ≥${scoreTarget}%`, value: green,  sub: `${greenPct}% del total`,  status: 100 },
-        { label: `Cocinas ${midMin}-${scoreTarget}%`, value: yellow, sub: `${yellowPct}% del total`, status: midMin },
-        { label: `Cocinas <${midMin}%`,         value: red,    sub: `${redPct}% del total`,    status: 30 },
+        { label: "% Básicos", value: fmt(avg), status: avg, sub: [(mxDelta && q2avg != null) ? `${cq3DeltaBadge(avg, q2avg)} vs Q2` : "", hasProj ? `Proyectado ${fmt(projAvg)}` : ""].filter(Boolean).join(" · ") },
+        { label: `Cocinas ≥${scoreTarget}%`, value: green,  sub: `${greenPct}% del total${hasProj ? ` · ${projTag(projGreen)}` : ""}`,  status: 100 },
+        { label: `Cocinas ${midMin}-${scoreTarget}%`, value: yellow, sub: `${yellowPct}% del total${hasProj ? ` · ${projTag(projYellow)}` : ""}`, status: midMin },
+        { label: `Cocinas <${midMin}%`,         value: red,    sub: `${redPct}% del total${hasProj ? ` · ${projTag(projRed)}` : ""}`,    status: 30 },
       ];
 
       const prevCityScores = (() => {
