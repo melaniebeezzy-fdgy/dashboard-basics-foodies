@@ -9,17 +9,23 @@
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <style>
     :root {
+      --primary: #090e3e;        /* color principal (títulos, valores, marca) */
       --navy: #242f42;
-      --dark-blue: #0e2841;
+      --dark-blue: #090e3e;       /* principal */
+      --ribbon: #090e3e;          /* azul oscuro de la cinta superior */
+      --dark-blue-2: #153d64;
       --light-gray: #e8e8e8;
       --teal: #156082;
       --cyan-dark: #0b769f;
       --cyan: #0f9ed5;
       --slate: #345964;
+      --steel: #467886;
       --mauve: #96607d;
+      --mauve-light: #c19eb1;
       --bg: #f8f9fa;
       --panel: #ffffff;
       --soft: #f2f5f7;
+      --kpi-bg: #eaf2fa;          /* fondo azul clarito de las tarjetas KPI */
       --text-muted: #60707c;
       --border: #d9e0e4;
       --radius: 8px;
@@ -33,6 +39,32 @@
       color: var(--navy);
       font-family: 'Poppins', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       letter-spacing: 0;
+    }
+    .brandbar {
+      background: var(--ribbon);
+      min-height: 56px;
+      display: flex;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 200;
+      box-shadow: 0 1px 6px rgba(9, 14, 62, 0.25);
+    }
+    .brandbar-inner {
+      width: min(1720px, calc(100% - 48px));
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .brandbar img { height: 30px; width: auto; display: block; }
+    .brand-title {
+      color: #ffffff;
+      font-family: 'Poppins', sans-serif;
+      font-weight: 600;
+      font-size: 17px;
+      letter-spacing: 0.2px;
     }
     button, select {
       font: inherit;
@@ -49,17 +81,17 @@
     }
     a { color: var(--cyan-dark); }
     .wrap {
-      width: min(1180px, calc(100% - 32px));
+      width: min(1720px, calc(100% - 48px));
       margin: 0 auto;
-      padding: 28px 0 40px;
+      padding: 14px 0 40px;
     }
     .header {
       display: flex;
       justify-content: space-between;
-      align-items: flex-start;
+      align-items: center;
       gap: 16px;
-      padding-bottom: 18px;
-      margin-bottom: 20px;
+      padding-bottom: 12px;
+      margin-bottom: 16px;
       border-bottom: 1px solid var(--border);
       flex-wrap: wrap;
     }
@@ -98,6 +130,16 @@
       flex-wrap: wrap;
       margin-bottom: 20px;
     }
+    .country-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px 20px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+    .country-row .tabs { margin-bottom: 0; }
+    .country-row .city-control { margin-left: auto; }
     .country-tab {
       padding: 9px 16px;
       font-size: 14px;
@@ -229,8 +271,8 @@
     }
     .kpi {
       padding: 16px;
-      background: var(--soft);
-      border: 1px solid var(--border);
+      background: var(--kpi-bg);
+      border: 1px solid #d3e2f0;
       border-radius: var(--radius);
       min-height: 116px;
     }
@@ -929,6 +971,16 @@
       border-radius: 2px;
       line-height: 1.4;
     }
+    .gantt-proj-col {
+      flex-shrink: 0;
+      width: 190px;
+      padding: 6px 14px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 4px;
+      align-items: flex-start;
+    }
     .gantt-row-clickable { cursor: pointer; }
     .gantt-row-clickable:hover .gantt-left-col { background: rgba(11,118,159,0.05) !important; }
     .gantt-row-clickable:hover .gantt-bar { filter: brightness(0.88); }
@@ -959,30 +1011,25 @@
   </style>
 </head>
 <body>
+  <div class="brandbar">
+    <div class="brandbar-inner">
+      <div class="brand-title" id="reportTitle">Básicos para Foodies contentos · Q3 2026</div>
+      <img src="logo-foodology.png" alt="Foodology" />
+    </div>
+  </div>
   <main class="wrap">
     <header class="header">
-      <div>
-        <div class="title" id="reportTitle">Básicos para Foodies contentos · Q2 2026</div>
-        <div class="meta">
-          Fuente:
-          <a href="https://docs.google.com/spreadsheets/d/1krQxz6jWQxgCGSJaL4VziAnRQAFBmT29WKC4vThFx_M/edit" target="_blank" rel="noreferrer">Google Sheets</a>
-          · Datos leídos: 2 jun 2026
-        </div>
+      <div class="meta">
+        Fuente:
+        <a href="https://docs.google.com/spreadsheets/d/1krQxz6jWQxgCGSJaL4VziAnRQAFBmT29WKC4vThFx_M/edit" target="_blank" rel="noreferrer">Google Sheets</a>
+        · Datos leídos: 2 jun 2026
       </div>
       <button class="sync" id="syncBtn" type="button"><span>&#x21bb;</span><span>Sincronizar Sheets</span></button>
     </header>
 
     <div class="api-msg" id="apiMsg"></div>
-    <nav class="tabs" id="countryTabs" aria-label="País"></nav>
-    <section class="toolbar">
-      <button class="view-tab active" data-view="dashboard" type="button">&#x25a6; Dashboard</button>
-      <button class="view-tab" data-view="kitchens" type="button">&#x25a4; Por cocina</button>
-      <button class="view-tab" data-view="basics" type="button">&#x2611; Por básico</button>
-      <button class="view-tab" data-view="kitchen-detail-sheet" type="button">&#x25a5; Detalle por cocina</button>
-      <button class="view-tab" data-view="basic-detail-sheet" type="button">&#x25a7; Detalle por básico</button>
-      <button class="view-tab" data-view="fixes" type="button">&#x25a8; Fix</button>
-      <button class="view-tab" data-view="fix-impact" type="button">&#x25a9; Impacto Fix</button>
-      <button class="view-tab" data-view="gantt" type="button">&#x25f6; Gantt</button>
+    <div class="country-row">
+      <nav class="tabs" id="countryTabs" aria-label="País"></nav>
       <div class="city-control">
         <label for="typeSelect">Tipo</label>
         <select id="typeSelect">
@@ -992,8 +1039,29 @@
         </select>
         <label for="citySelect">Ciudad</label>
         <select id="citySelect"></select>
+        <span id="diagControl" style="display:none;align-items:center;gap:6px">
+          <label for="diagSelect">Diagnóstico</label>
+          <select id="diagSelect">
+            <option value="all">Todas</option>
+            <option value="real">Con dato real</option>
+            <option value="projected">Proyectadas</option>
+          </select>
+        </span>
       </div>
+    </div>
+    <section class="toolbar">
+      <button class="view-tab active" data-view="dashboard" type="button">&#x25a6; Dashboard</button>
+      <button class="view-tab" data-view="kitchens" type="button">&#x25a4; Por cocina</button>
+      <button class="view-tab" data-view="basics" type="button">&#x2611; Por básico</button>
+      <button class="view-tab" data-view="kitchen-detail-sheet" type="button">&#x25a5; Detalle por cocina</button>
+      <button class="view-tab" data-view="basic-detail-sheet" type="button">&#x25a7; Detalle por básico</button>
+      <button class="view-tab" data-view="fixes" type="button">&#x25a8; Fix</button>
+      <button class="view-tab" data-view="fix-impact" type="button">&#x25a9; Impacto Fix</button>
+      <button class="view-tab" data-view="gantt" type="button">&#x25f6; Gantt</button>
+      <button class="view-tab" data-view="comparativo-q3" type="button">&#x21c6; Comparativo Q</button>
     </section>
+
+    <div id="diagBar" style="display:none"></div>
 
     <section id="dashboard" class="screen active"></section>
     <section id="kitchens" class="screen"></section>
@@ -1003,28 +1071,38 @@
     <section id="fixes" class="screen"></section>
     <section id="fix-impact" class="screen"></section>
     <section id="gantt" class="screen"></section>
+    <section id="comparativo-q3" class="screen"></section>
   </main>
 
   <script src="sheet-detail-data.js"></script>
   <script src="cp-detail-data.js"></script>
   <script src="fixes-data.js"></script>
+  <script src="prev-q-data.js"></script>
+  <script src="export-prev-q.js"></script>
+  <script src="q3-mapping.js"></script>
+  <script src="q3-data.js"></script>
+  <script src="q3-mx.js"></script>
   <script>
     const PALETTE = {
       lightGray: "#E8E8E8",
       teal: "#156082",
-      neutral: "#e8d2aeff",
-      neutralText: "#8a6a35",
+      neutral: "#e8d2ae",       // crema → estado Intermedio
+      neutralText: "#8a6a35",   // café legible para texto sobre crema
       cyanDark: "#0B769F",
+      cyan: "#0F9ED5",
       slate: "#345964",
+      steel: "#467886",
       mauve: "#96607D",
+      mauveLight: "#C19EB1",
+      primary: "#090E3E",
     };
 
     const getStatus = (v, threshold) => {
-      const t = threshold ?? (state.country === "CO" ? 80 : 75);
+      const t = threshold ?? (state.country === "CO" ? 80 : state.country === "MX" ? 90 : 75);
       if (v == null) return { color: PALETTE.slate, bg: PALETTE.lightGray, label: "Pendiente" };
       if (v >= t) return { color: PALETTE.cyanDark, bg: "#E7F6FC", label: "Cumple" };
-      if (v >= 50) return { color: PALETTE.neutralText, bg: "#F8F0E2", bar: PALETTE.neutral, label: "Parcial" };
-      return { color: PALETTE.mauve, bg: "#F4EAF0", label: "Crítico" };
+      if (v >= 75) return { color: PALETTE.neutralText, bg: "#F8F0E2", bar: PALETTE.neutral, label: "Intermedio" };  // crema
+      return { color: PALETTE.mauve, bg: "#F4EAF0", bar: PALETTE.mauveLight, label: "Crítico" };                    // rosado (<75%)
     };
 
     const BASICS_NAMES = [
@@ -1057,7 +1135,11 @@
     ];
 
     const TOTAL_BASICS = 36;
-    const sheetData = () => window.SHEET_DETAIL_DATA || { questions: [], kitchens: [] };
+    // MX opera sobre el diagnóstico del Q3 (preguntas + cocinas recalculadas);
+    // el resto de países usa el dataset global.
+    const sheetData = () => (state.country === "MX" && window.SHEET_DETAIL_DATA_MX_Q3)
+      ? window.SHEET_DETAIL_DATA_MX_Q3
+      : (window.SHEET_DETAIL_DATA || { questions: [], kitchens: [] });
     const cpData = () => window.CP_DETAIL_DATA || { questions: [], kitchens: [] };
     const fixesData = () => window.FIXES_DATA || { MX: [], CO: [], PE: [], CP: [] };
     // DOT% per MX kitchen — used for "People" area compliance instead of question values
@@ -1189,6 +1271,47 @@
       }
     };
 
+    // Secciones (bloques) de los Centros de Producción: agrupan los temas del
+    // cuestionario CP en 4 bloques.
+    const CP_BLOCKS_ORDER = [
+      "Permisos y exteriores",
+      "Área de recibo, almacén y basura",
+      "Áreas principales y calidad del agua",
+      "Higiene, limpieza y locativos",
+    ];
+    const CP_TEMA_BLOCK = {
+      "Permisos": "Permisos y exteriores",
+      "Exteriores": "Permisos y exteriores",
+      "Área de recibo": "Área de recibo, almacén y basura",
+      "Almacén": "Área de recibo, almacén y basura",
+      "Basura": "Área de recibo, almacén y basura",
+      "Área de producción y manipulación de alimentos": "Áreas principales y calidad del agua",
+      "Área de lavado y desinfección": "Áreas principales y calidad del agua",
+      "Depósito de agua y Calidad de agua": "Áreas principales y calidad del agua",
+      "Control de plagas": "Higiene, limpieza y locativos",
+      "Limpieza y desinfección": "Higiene, limpieza y locativos",
+      "Pisos, paredes y techos": "Higiene, limpieza y locativos",
+      "General": "Higiene, limpieza y locativos",
+    };
+    const cpBlockForTema = (t) => CP_TEMA_BLOCK[t] || "Higiene, limpieza y locativos";
+
+    // Las sub-áreas del Q3 se renombraron respecto a los temas del Q2. Este mapeo
+    // permite comparar cada sub-área del Q3 con su tema equivalente del Q2.
+    const Q3_SUB_TO_Q2_TEMA = {
+      "Seguridad eléctrica y de gas": "Seguridad eléctrica y de gas",
+      "Refrigeración constante": "Refrigeración constante",
+      "Iluminación y ventilación": "Iluminación y ventilación",
+      "Equipos críticos": "Equipos críticos",
+      "Estación de lavado de manos": "EPP e higiene personal",
+      "Dotación, uniformes y servicios al personal": "Uniformes",
+      "Control y manejo de plagas": "Control de plagas",
+      "Programa de limpieza y desinfección": "Limpieza y desinfección",
+      "Manejo de residuos": "Gestión de residuos",
+      "Pisos, paredes, techos y zoclos": "Pisos, paredes y techos",
+      "Utensilios, lockers y áreas de trabajo": "Utensilios y superficies",
+      "Agua potable y drenajes": "Sistemas de agua y drenaje",
+    };
+
     const BLOCK_LABELS = [
       { key:"seg", label:"Seguridad y condiciones operativas" },
       { key:"hig", label:"Higiene personal y sanitaria" },
@@ -1202,6 +1325,10 @@
       view: "dashboard",
       typeFilter: "all",
       cityFilter: "Todas",
+      diagFilter: "all",   // all | real | projected  (transición Q anterior → Q actual)
+      cq3Kitchen: null,    // cocina expandida en Comparativo Q3
+      cq3Sub: null,        // "cocina||subárea" seleccionada para ver preguntas
+      cq3ShowPending: false,
       selectedKitchen: null,
       detailKitchenId: null,
       basicDetailValue: 0,
@@ -1230,7 +1357,7 @@
     const DEFAULT_DATA_READ_AT = "2026-06-02T00:00:00-05:00";
     const REPORT_YEAR = 2026;
     // Trimestre por país: Colombia trabaja Q3 2026; México (y CPs) y Perú siguen en Q2 2026.
-    const REPORT_QUARTER_BY_COUNTRY = { MX: 2, CO: 3, PE: 2 };
+    const REPORT_QUARTER_BY_COUNTRY = { MX: 3, CO: 3, PE: 2 };
     const reportQuarter = () => REPORT_QUARTER_BY_COUNTRY[state.country] ?? 2;
     const reportReferenceDate = () => {
       const quarter = reportQuarter();
@@ -1301,6 +1428,11 @@
         };
       }
       if (saved.prevCoScores) window.PREV_CO_SCORES = saved.prevCoScores;
+      if (saved.cpDetail && saved.cpDetail.kitchens?.length) window.CP_DETAIL_DATA = saved.cpDetail; // diagnóstico Q3 de CP
+      if (saved.cpPrev) window.CP_PREV = saved.cpPrev;   // baseline Q anterior de CP
+      if (saved.q3ResultsMx) window.Q3_RESULTS_MX = saved.q3ResultsMx;   // diagnóstico Q3 MX (todas las cocinas)
+      if (saved.q3PreguntasMx) window.Q3_PREGUNTAS_MX = saved.q3PreguntasMx;  // diagnóstico Q3 MX por pregunta (autoritativo)
+      if (saved.q2FormMx) window.Q2_FORM_MX = saved.q2FormMx;            // Q2 MX para el comparativo
       if (saved.lastSyncAt) window.LAST_SYNC_AT = saved.lastSyncAt;
       if (saved.fixStatus) window.LAST_FIX_SYNC_STATUS = saved.fixStatus;
       // Purgar puntos físicos que pudieran haberse colado en localStorage
@@ -1314,6 +1446,11 @@
         formData: window.SHEET_DETAIL_DATA ? { kitchens: window.SHEET_DETAIL_DATA.kitchens } : null,
         extraKitchens: window.EXTRA_KITCHENS || null,
         prevCoScores: window.PREV_CO_SCORES || null,
+        q3ResultsMx: window.Q3_RESULTS_MX || null,
+        q3PreguntasMx: window.Q3_PREGUNTAS_MX || null,
+        q2FormMx: window.Q2_FORM_MX || null,
+        cpDetail: window.CP_DETAIL_DATA || null,
+        cpPrev: window.CP_PREV || null,
         lastSyncAt: payload.lastSyncAt,
         fixStatus: window.LAST_FIX_SYNC_STATUS || "",
       };
@@ -1332,11 +1469,16 @@
     const filtered = (() => {
       let _k = null, _v = null;
       const fn = () => {
-        const k = `${state.country}|${state.cityFilter}|${state.typeFilter}`;
+        const k = `${state.country}|${state.cityFilter}|${state.typeFilter}|${state.diagFilter}`;
         if (k === _k) return _v;
         _k = k;
         const byCity = state.cityFilter === "Todas" ? data().kitchens : data().kitchens.filter(ki => ki.city === state.cityFilter);
-        return (_v = byCity.filter(matchesTypeFilter));
+        let out = byCity.filter(matchesTypeFilter);
+        // Filtro de transición: Con dato real / Proyectadas (pendientes de diagnóstico)
+        if (state.diagFilter !== "all" && diagActive()) {
+          out = out.filter(ki => kitchenSource(ki) === state.diagFilter);
+        }
+        return (_v = out);
       };
       fn.reset = () => { _k = null; _v = null; };
       return fn;
@@ -1375,6 +1517,31 @@
     const renderCitySelect = () => {
       byId("typeSelect").value = state.typeFilter;
       byId("citySelect").innerHTML = cities().map(city => `<option value="${city}" ${city === state.cityFilter ? "selected" : ""}>${city}</option>`).join("");
+    };
+
+    // Barra de indicadores de estado del trimestre + control de filtro por diagnóstico.
+    const renderDiagBar = () => {
+      const control = byId("diagControl");
+      const bar = byId("diagBar");
+      const s = diagSummary();
+      if (!s || s.total === 0) {
+        if (control) control.style.display = "none";
+        if (bar) bar.style.display = "none";
+        return;
+      }
+      if (control) control.style.display = "inline-flex";
+      byId("diagSelect").value = state.diagFilter;
+      const card = (label, value, color) =>
+        `<div style="flex:1;min-width:130px;background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px">
+           <div style="font-size:11px;color:var(--text-muted)">${label}</div>
+           <div style="font-size:18px;font-weight:650;color:${color || "var(--dark-blue)"}">${value}</div>
+         </div>`;
+      bar.style.cssText = "display:flex;gap:10px;flex-wrap:wrap;margin:0 0 16px";
+      bar.innerHTML =
+        card(`Cocinas · ${s.currentLabel}`, s.total) +
+        card("Con diagnóstico real", s.real, PALETTE.cyanDark) +
+        card(`Proyectadas · cierre ${s.prevLabel}`, s.projected, PALETTE.neutralText) +
+        card("% diagnósticos completados", `${s.pct}%`, s.pct >= 50 ? PALETTE.cyanDark : PALETTE.mauve);
     };
 
     const summarizeQuestionValues = (questionIndex, matches) => {
@@ -1453,6 +1620,13 @@
         const vals = kitchens.map(k => fsCountry.byKitchenBloque[normalizeText(k.id)]?.[block] ?? null).filter(v => v !== null);
         return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
       };
+      // Promedio de bloque en el Q anterior (cocinas MX = Q2; CP = baseline CP).
+      const mxDeltaD = state.typeFilter === "cp" ? !!window.CP_PREV : (state.country === "MX" && !!window.Q2_FORM_MX);
+      const formBloqueAvgQ2 = (block) => {
+        const kitchens = filtered().filter(k => state.typeFilter === "cp" ? isCPKitchen(k) : !isCPKitchen(k));
+        const vals = kitchens.map(k => prevKitchenBloque(k, block)).filter(v => v != null);
+        return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+      };
       const hasTema = !!(fsCountry?.byKitchenTema && Object.keys(fsCountry.byKitchenTema).length);
       const hasFormQuestion = !!(fsCountry?.byKitchenQuestion && Object.keys(fsCountry.byKitchenQuestion).length);
       // Returns summarizeQuestionValues-compatible object using Preguntas sheet data
@@ -1512,7 +1686,8 @@
             <div class="drill-title">${block}</div>
             <div class="drill-meta">
               <span>${summary.total} básicos</span>
-              <span style="display:flex;align-items:center;gap:4px">
+              <span style="display:flex;align-items:center;gap:6px">
+                ${mxDeltaD ? cq3DeltaBadge(summary.avg, formBloqueAvgQ2(block)) : ""}
                 ${trendBadgeHtml(summary.avg, prevBlockAvg)}
                 <strong style="color:${s.color}">${summary.avg != null ? fmt(summary.avg) : "N/A"}</strong>
               </span>
@@ -1614,6 +1789,15 @@
     // People (Uniformes) usa area="People", no bloque (B35/B36 están en "Higiene personal y sanitaria")
     const kitchenBlockScore = (kitchen, blockLabel) => {
       const isPeople = blockLabel === "People (Uniformes)";
+      // Preferir el % de bloque ya calculado (FORM_SCORES.byKitchenBloque), que en
+      // MX-Q3 cubre TODAS las cocinas con dato (aunque no tengan respuesta cruda).
+      if (!isPeople) {
+        const kbBk = ((window.FORM_SCORES || {})[state.country])?.byKitchenBloque?.[normalizeText(kitchen.id)];
+        if (kbBk) {
+          const hit = Object.keys(kbBk).find(k => normalizeText(k) === normalizeText(blockLabel));
+          if (hit && kbBk[hit] != null) return kbBk[hit];
+        }
+      }
       const questions = detailDataForKitchen(kitchen).questions
         .map((q, i) => ({ ...q, index: i }))
         .filter(q => isPeople ? q.area === PEOPLE_AREA : normalizeText(q.bloque || "") === normalizeText(blockLabel));
@@ -1649,19 +1833,35 @@
     const renderDashboard = () => {
       const rows = withData();
       const avg = rows.length ? rows.reduce((sum, kitchen) => sum + kitchenScore(kitchen), 0) / rows.length : 0;
-      const scoreTarget = state.country === "CO" ? 80 : 75;
+      const scoreTarget = state.country === "CO" ? 80 : state.country === "MX" ? 90 : 75;
       const green = rows.filter(k => kitchenScore(k) >= scoreTarget).length;
-      const yellow = rows.filter(k => kitchenScore(k) >= 50 && kitchenScore(k) < scoreTarget).length;
-      const red = rows.filter(k => kitchenScore(k) < 50).length;
+      const midMin = Math.min(75, scoreTarget);
+      const yellow = rows.filter(k => kitchenScore(k) >= midMin && kitchenScore(k) < scoreTarget).length;
+      const red = rows.filter(k => kitchenScore(k) != null && kitchenScore(k) < midMin).length;
       const total = rows.length || 1;
       const greenPct  = Math.round(green  / total * 100);
       const yellowPct = Math.round(yellow / total * 100);
       const redPct    = Math.round(red    / total * 100);
+      // Variación en pp vs Q anterior. Funciona para cocinas MX (Q2) y para CP
+      // (baseline de "Cp preguntas"). Se activa si alguna fila tiene dato previo.
+      const q2avgList = rows.map(k => prevKitchenBasic(k)).filter(v => v != null);
+      const q2avg = q2avgList.length ? q2avgList.reduce((a, b) => a + b, 0) / q2avgList.length : null;
+      const mxDelta = q2avgList.length > 0;
+      const q2CityScores = mxDelta ? (() => {
+        const acc = {};
+        filtered().forEach(k => { const v = prevKitchenBasic(k); if (v == null || !k.city) return; (acc[k.city] = acc[k.city] || { s: 0, n: 0 }); acc[k.city].s += v; acc[k.city].n += 1; });
+        return Object.fromEntries(Object.entries(acc).map(([c, { s, n }]) => [c, s / n]));
+      })() : {};
+      const q2ForRank = (k) => {
+        if (state.dashboardTheme) return prevKitchenTema(k, state.dashboardTheme);
+        if (state.dashboardBlock) return prevKitchenBloque(k, state.dashboardBlock);
+        return prevKitchenBasic(k);
+      };
       const kpis = [
-        { label: "% Básicos", value: fmt(avg), status: avg },
-        { label: `Cocinas ≥${scoreTarget}%`, value: green,  sub: `${greenPct}% del total`,  status: 80 },
-        { label: `Cocinas 50-${scoreTarget}%`, value: yellow, sub: `${yellowPct}% del total`, status: 60 },
-        { label: "Cocinas <50%",               value: red,    sub: `${redPct}% del total`,    status: 30 },
+        { label: "% Básicos", value: fmt(avg), status: avg, sub: (mxDelta && q2avg != null) ? `${cq3DeltaBadge(avg, q2avg)} vs Q2` : "" },
+        { label: `Cocinas ≥${scoreTarget}%`, value: green,  sub: `${greenPct}% del total`,  status: 100 },
+        { label: `Cocinas ${midMin}-${scoreTarget}%`, value: yellow, sub: `${yellowPct}% del total`, status: 80 },
+        { label: `Cocinas <${midMin}%`,         value: red,    sub: `${redPct}% del total`,    status: 30 },
       ];
 
       const prevCityScores = (() => {
@@ -1679,7 +1879,10 @@
       const cityBars = Object.entries(computedCityScores()).map(([city, score]) => {
         const prevCity = prevCityScores[city] ?? null;
         const trendStr = trendBadgeHtml(score, prevCity);
-        return scoreBar(score, city) + (trendStr ? `<div style="text-align:right;margin-top:-8px;margin-bottom:4px;font-size:11px;color:#718096">${trendStr} Q1: ${prevCity.toFixed(1)}%</div>` : "");
+        const mxCityDelta = (mxDelta && q2CityScores[city] != null)
+          ? `<div style="text-align:right;margin-top:-8px;margin-bottom:6px;font-size:11px">${cq3DeltaBadge(score, q2CityScores[city])} <span style="color:#718096">vs Q2</span></div>`
+          : "";
+        return scoreBar(score, city) + (trendStr ? `<div style="text-align:right;margin-top:-8px;margin-bottom:4px;font-size:11px;color:#718096">${trendStr} Q1: ${prevCity.toFixed(1)}%</div>` : "") + mxCityDelta;
       }).join("");
       const rankQuestions = dashboardRankingQuestions();
       const rankingModeLabel = state.dashboardTheme
@@ -1720,7 +1923,8 @@
               <span class="rank-number">#${index + 1}</span>
               <span class="rank-id">${k.id}</span>
             </div>
-            <span style="display:flex;align-items:center;gap:4px">
+            <span style="display:flex;align-items:center;gap:6px">
+              ${mxDelta ? cq3DeltaBadge(k.rankValue, q2ForRank(k)) : ""}
               ${trendBadgeHtml(k.rankValue, ps)}
               ${badge(k.rankValue)}
             </span>
@@ -1732,7 +1936,7 @@
         <div class="kpis">
           ${kpis.map(k => {
             const s = getStatus(k.status);
-            return `<article class="kpi"><div class="kpi-label">${k.label}</div><div class="kpi-value" style="color:${s.color}">${k.value}</div>${k.sub ? `<div class="kpi-sub">${k.sub}</div>` : ""}</article>`;
+            return `<article class="kpi" style="background:${s.bg};border-color:${s.color}40"><div class="kpi-label">${k.label}</div><div class="kpi-value" style="color:${s.color}">${k.value}</div>${k.sub ? `<div class="kpi-sub">${k.sub}</div>` : ""}</article>`;
           }).join("")}
         </div>
         <div class="grid-2 dashboard-grid">
@@ -1791,6 +1995,7 @@
               <div>
                 <div class="kitchen-id">${k.id}</div>
                 <div class="city">${k.city}</div>
+                ${!isCPKitchen(k) && kitchenSource(k) ? `<div style="margin-top:6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">${diagBadge(kitchenSource(k))}${diagDeltaBadge(k)}</div>` : ""}
               </div>
               ${badge(kScore)}
             </div>
@@ -1815,6 +2020,7 @@
             <div>
               <div class="detail-title">${k.id}</div>
               <div class="detail-sub">${k.city} · ${data().name}</div>
+              ${!isCPKitchen(k) && kitchenSource(k) ? `<div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">${diagBadge(kitchenSource(k), 11)}${diagDeltaBadge(k)}${kitchenSource(k) === "projected" && kitchenPrevProjected(k) != null ? `<span style="font-size:11px;color:var(--text-muted)">Base: cierre ${diagSummary()?.prevLabel || "Q ant."}</span>` : ""}</div>` : ""}
             </div>
             ${badge(kScore)}
           </div>
@@ -1984,11 +2190,178 @@
                     : undefined;
         if (score != null) return score;
       }
+      // MX en Q3: una cocina que no está en el diagnóstico Q3 es "pendiente" (sin dato),
+      // no mostramos el valor semilla antiguo.
+      if (state.country === "MX" && window.SHEET_DETAIL_DATA_MX_Q3 && !isCPKitchen(kitchen)) return null;
       // 2. Fall back to SHEET_DETAIL_DATA values lookup
       const sheetKitchen = sheetKitchenFor(kitchen);
       if (sheetKitchen?.values?.some(v => v != null)) return scoreFromValues(sheetKitchen.values);
       // 3. Fall back to hardcoded basic
       return kitchen?.basic ?? null;
+    };
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // TRANSICIÓN ENTRE TRIMESTRES (Q anterior → Q actual)
+    // Fusiona el cierre proyectado congelado (PREV_Q_DATA) dentro de FORM_SCORES
+    // para las cocinas que aún NO tienen diagnóstico real del Q actual, de modo
+    // que toda la lógica existente (score, bloques, temas, básicos, ranking)
+    // muestre el punto de partida correcto sin cambios. Regla: real Q actual >
+    // proyectado Q anterior; nunca reemplazar un real por una proyección.
+    // Guarda el origen por cocina para badges e indicadores en window.DIAG_STATUS.
+    // ─────────────────────────────────────────────────────────────────────────
+    const avgOf = (arr) => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null;
+    const currentQuarterFromToday = () => {
+      const now = new Date();
+      return `Q${Math.floor(now.getMonth() / 3) + 1} ${now.getFullYear()}`;
+    };
+    const diagCurrentLabel = () => window.CURRENT_DIAG_LABEL || currentQuarterFromToday();
+    // Marca qué cocinas traían diagnóstico real del Q actual ANTES de fusionar.
+    const markRealNorms = (fs) => { if (fs && !fs.__realNorms) fs.__realNorms = Object.keys(fs.byName || {}); return fs; };
+    // Mapa nº de pregunta → { bloque, tema } para derivar bloques/temas del proyectado.
+    const questionMetaByNo = () => {
+      const map = {};
+      (sheetData().questions || []).forEach(q => { if (q.no != null) map[q.no] = { bloque: q.bloque || "", tema: q.tema || "" }; });
+      return map;
+    };
+    // Fusiona PREV_Q_DATA en FORM_SCORES para cocinas sin diagnóstico real del Q actual.
+    const applyPrevQTransition = () => {
+      window.DIAG_STATUS = {};
+      const prevAll = window.PREV_Q_DATA || {};
+      const meta = questionMetaByNo();
+      for (const ck of ["MX", "CO", "PE"]) {
+        const fs = (window.FORM_SCORES || {})[ck];
+        if (!fs) continue;
+        markRealNorms(fs);
+        const prev = prevAll[ck];
+        const realSet = new Set(fs.__realNorms || Object.keys(fs.byName || {}));
+        const status = { currentLabel: diagCurrentLabel(), prevLabel: prev?.quarterLabel || "Q anterior", byKitchen: {} };
+        (COUNTRIES[ck]?.kitchens || []).forEach(k => {
+          const norm = normalizeText(k.id);
+          if (!norm) return;
+          const num = kitchenNumber(k.id);
+          const hasReal = realSet.has(norm) && fs.byName?.[norm] != null;
+          const prevScore = prev?.byKitchen?.[norm]?.score ?? null;
+          status.byKitchen[norm] = { source: hasReal ? "real" : "projected", prevScore };
+          if (!hasReal && prev?.byKitchen?.[norm]) {
+            const byQ = prev.byKitchen[norm].byQuestion || {};
+            const score = prev.byKitchen[norm].score ?? avgOf(Object.values(byQ).filter(v => v != null));
+            if (score != null) { fs.byName[norm] = score; if (num) fs.byNum[num] = score; }
+            fs.byKitchenQuestion = fs.byKitchenQuestion || {};
+            fs.byKitchenQuestion[norm] = { ...byQ };
+            const bloqueAcc = {}, temaAcc = {};
+            Object.entries(byQ).forEach(([no, v]) => {
+              if (v == null) return;
+              const m = meta[no]; if (!m) return;
+              if (m.bloque) (bloqueAcc[m.bloque] = bloqueAcc[m.bloque] || []).push(v);
+              if (m.tema)   (temaAcc[m.tema]   = temaAcc[m.tema]   || []).push(v);
+            });
+            fs.byKitchenBloque = fs.byKitchenBloque || {};
+            fs.byKitchenTema   = fs.byKitchenTema   || {};
+            fs.byKitchenBloque[norm] = Object.fromEntries(Object.entries(bloqueAcc).map(([b, a]) => [b, avgOf(a)]));
+            fs.byKitchenTema[norm]   = Object.fromEntries(Object.entries(temaAcc).map(([t, a]) => [t, avgOf(a)]));
+          }
+        });
+        window.DIAG_STATUS[ck] = status;
+      }
+    };
+    const diagActive = () => !!(window.PREV_Q_DATA && window.PREV_Q_DATA[state.country] && window.DIAG_STATUS && window.DIAG_STATUS[state.country]);
+    const kitchenSource = (kitchen) => {
+      if (!diagActive()) return null;
+      return window.DIAG_STATUS[state.country].byKitchen[normalizeText(kitchen?.id || "")]?.source || null;
+    };
+    const kitchenPrevProjected = (kitchen) => {
+      if (!diagActive()) return null;
+      return window.DIAG_STATUS[state.country].byKitchen[normalizeText(kitchen?.id || "")]?.prevScore ?? null;
+    };
+    const kitchenDiagDelta = (kitchen) => {
+      if (kitchenSource(kitchen) !== "real") return null;
+      const prev = kitchenPrevProjected(kitchen), real = kitchenScore(kitchen);
+      return (prev != null && real != null) ? real - prev : null;
+    };
+    const diagSummary = () => {
+      if (!diagActive()) return null;
+      const st = window.DIAG_STATUS[state.country];
+      const kitchens = (COUNTRIES[state.country]?.kitchens || []).filter(k => !isCPKitchen(k));
+      let real = 0, proj = 0;
+      kitchens.forEach(k => { const s = st.byKitchen[normalizeText(k.id)]?.source; if (s === "real") real++; else if (s === "projected") proj++; });
+      const total = real + proj;
+      return { total, real, projected: proj, pct: total ? Math.round((real / total) * 100) : 0, currentLabel: st.currentLabel, prevLabel: st.prevLabel };
+    };
+    // Badge REAL / PROYECTADO (colores coherentes con la paleta existente).
+    const diagBadge = (source, size = 10) => {
+      if (!source) return "";
+      const real = source === "real";
+      const s = diagSummary();
+      const bg = real ? "#E7F6FC" : "#F8F0E2";
+      const color = real ? PALETTE.cyanDark : PALETTE.neutralText;
+      const border = real ? "#9fd6ea" : "#e0c58a";
+      const tip = real
+        ? `Resultado del diagnóstico del Q actual${s ? ` (${s.currentLabel})` : ""}.`
+        : `Cierre proyectado del ${s ? s.prevLabel : "Q anterior"} considerando planes de acción. Aún sin diagnóstico del Q actual.`;
+      return `<span title="${tip}" style="display:inline-flex;align-items:center;gap:4px;font-size:${size}px;font-weight:700;letter-spacing:.3px;padding:2px 6px;border-radius:4px;background:${bg};color:${color};border:1px solid ${border};white-space:nowrap">${real ? "&#9679;" : "&#9680;"} ${real ? "REAL" : "PROYECTADO"}</span>`;
+    };
+    const diagDeltaBadge = (kitchen) => {
+      const d = kitchenDiagDelta(kitchen);
+      if (d == null) return "";
+      const sign = d > 0 ? "+" : "";
+      const color = d > 0.5 ? "#276749" : d < -0.5 ? "#9b2c2c" : PALETTE.textMuted || "#60707c";
+      return `<span title="Real Q actual vs. cierre proyectado del Q anterior" style="font-size:11px;font-weight:600;color:${color}">${sign}${d.toFixed(1)} pp</span>`;
+    };
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // EXPORTADOR: congela el "cierre proyectado" del Q que está por cerrar.
+    // Reutiliza la misma proyección por básico del dashboard (planes ejecutados o
+    // en proceso suben a 100 los básicos que cubren). Produce, por país:
+    //   { quarterLabel, byKitchen: { <norm>: { score, byQuestion: {no:val} } } }
+    // Se ejecuta UNA vez por trimestre (window.buildPrevQSnapshot) y su salida se
+    // vuelca a prev-q-data.js (ver export-prev-q.js). No muta ningún estado.
+    // ─────────────────────────────────────────────────────────────────────────
+    const projFixCounts = (fix) => {
+      const n = normalizeText(fixStatusValue(fix));
+      if (["EJECUTADO", "CERRADO", "CERRADA", "REALIZADO"].includes(n)) return true;   // ejecutado
+      if (["EN PROCESO", "EN PROGRESO", "PROCESO", "EN CURSO"].includes(n)) return true; // en proceso
+      return false; // pendiente / despriorizado / otros → no proyecta
+    };
+    window.buildPrevQSnapshot = ({ countries = ["MX"], quarterLabel = null } = {}) => {
+      const savedCountry = state.country;
+      const snap = {};
+      try {
+        countries.forEach(ck => {
+          state.country = ck;
+          const label = quarterLabel || `Q${reportQuarter()} ${REPORT_YEAR}`;
+          const fsK = (window.FORM_SCORES || {})[ck];
+          const hasFsData = !!fsK?.byKitchenQuestion;
+          const byKitchen = {};
+          (COUNTRIES[ck]?.kitchens || []).forEach(k => {
+            if (isCPKitchen(k)) return;
+            const norm = normalizeText(k.id);
+            const sheetKitchen = sheetKitchenFor(k);
+            const formQ = fsK?.byKitchenQuestion?.[norm] || null;
+            const questions = detailDataForKitchen(k).questions.map((q, index) => ({ ...q, index }));
+            if (!questions.length) return;
+            const fixes = fixesForKitchen(k).filter(fix => projFixCounts(fix) && fixMatchesKitchen(fix, k, ck));
+            const byQuestion = {};
+            const vals = [];
+            questions.forEach(q => {
+              const sv = sheetKitchen ? sheetKitchen.values[q.index] : null;
+              const formVal = formQ ? (formQ[q.no] ?? null) : null;
+              const value = hasFsData ? formVal : (sv != null ? sv : formVal);
+              if (value == null) return;
+              const covered = fixes.some(fix => fixMatchesQuestion(fix, q, ck));
+              const projected = (covered && value < 100) ? 100 : value;
+              if (q.no != null) byQuestion[q.no] = projected;
+              vals.push(projected);
+            });
+            if (!vals.length) return;
+            const score = Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10;
+            byKitchen[norm] = { score, byQuestion };
+          });
+          snap[ck] = { quarterLabel: label, byKitchen };
+        });
+      } finally {
+        state.country = savedCountry;
+      }
+      return snap;
     };
 
     const sheetKitchensForDashboardDrill = () => {
@@ -1999,7 +2372,7 @@
     };
 
     const detailCategory = (value) => {
-      const t = state.country === "CO" ? 80 : 75;
+      const t = state.country === "CO" ? 80 : state.country === "MX" ? 90 : 75;
       if (value == null) return "na";
       if (value >= t) return "full";
       if (value >= 50) return "partial";
@@ -3538,10 +3911,14 @@
       const curM  = refDate.getMonth();
       const qStart = (reportQuarter() - 1) * 3;
       const MN = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+      // Meses expandidos en semanas (por defecto, el mes actual). Se puede
+      // abrir/cerrar cualquier mes haciendo clic en su encabezado.
+      if (!state.ganttExpandedMonths) state.ganttExpandedMonths = new Set([curM]);
+      const expanded = state.ganttExpandedMonths;
       const periods = [];
       for (let m = qStart; m < qStart + 3; m++) {
-        if (m === curM) {
-          // Break current month into weeks
+        if (expanded.has(m)) {
+          // Desglosar el mes en semanas
           const last = new Date(year, m + 1, 0);
           let d = new Date(year, m, 1);
           let wk = 1;
@@ -3552,7 +3929,7 @@
             periods.push({
               key: `m${m}-w${wk}`, label: `${MN[m]} S${wk}`, shortLabel: `S${wk}`,
               start: wStart, end: cutoff,
-              isWeek: true, monthName: MN[m],
+              isWeek: true, month: m, monthName: MN[m],
               isCurrentWeek: wStart <= now && now <= cutoff,
             });
             wk++;
@@ -3562,7 +3939,7 @@
           periods.push({
             key: `m${m}`, label: MN[m], shortLabel: MN[m],
             start: new Date(year, m, 1), end: new Date(year, m + 1, 0),
-            isWeek: false, monthName: MN[m], isCurrentWeek: false,
+            isWeek: false, month: m, monthName: MN[m], isCurrentWeek: false,
           });
         }
       }
@@ -3890,13 +4267,17 @@
       periods.forEach(p => {
         const last = monthGroups[monthGroups.length - 1];
         if (last && last.name === p.monthName) { last.endPx = p.endPx; }
-        else monthGroups.push({ name: p.monthName, startPx: p.startPx, endPx: p.endPx });
+        else monthGroups.push({ name: p.monthName, month: p.month, startPx: p.startPx, endPx: p.endPx });
       });
-      const headerTop = monthGroups.map(g => `
-        <div style="position:absolute;left:${g.startPx}px;width:${g.endPx-g.startPx}px;height:100%;
-             border-right:1px solid var(--border);display:flex;align-items:center;padding:0 8px;overflow:hidden">
+      const headerTop = monthGroups.map(g => {
+        const isExp = state.ganttExpandedMonths?.has(g.month);
+        return `
+        <div data-gantt-month="${g.month}" title="${isExp ? "Colapsar" : "Expandir"} ${g.name}" style="position:absolute;left:${g.startPx}px;width:${g.endPx-g.startPx}px;height:100%;
+             border-right:1px solid var(--border);display:flex;align-items:center;gap:5px;padding:0 8px;overflow:hidden;cursor:pointer">
+          <span style="font-size:9px;color:var(--slate);flex-shrink:0">${isExp ? "&#9662;" : "&#9656;"}</span>
           <span style="font-size:11px;font-weight:650;color:var(--slate);text-transform:capitalize;white-space:nowrap">${g.name}</span>
-        </div>`).join("");
+        </div>`;
+      }).join("");
 
       // Row 2: individual period labels
       const headerBottom = periods.map(p => `
@@ -3949,11 +4330,78 @@
           const kFixes = datedFixes.filter(fix => fixMatchesKitchen(fix, kitchen, state.country));
           if (!kFixes.length) return;
           kFixes.forEach(fix => usedFixes.add(fix));
-          groups.push({ label: kitchen.id, sublabel: kitchen.city, fixes: kFixes });
+          groups.push({ label: kitchen.id, sublabel: kitchen.city, fixes: kFixes, kitchen });
         });
         const unmatched = datedFixes.filter(fix => !usedFixes.has(fix));
         if (unmatched.length) groups.push({ label: "Planes generales", sublabel: data().name, fixes: unmatched });
       }
+
+      // Proyección del cierre de una cocina aplicando sus planes de acción.
+      //  · mode "all"  → cierre proyectado: se completan TODOS los planes salvo
+      //                  los despriorizados (Pendiente + En proceso + Ejecutado).
+      //  · mode "done" → cómo va hoy: solo con los planes ya completados/ejecutados.
+      const ganttStatusIsDone  = (fix) => ["EJECUTADO","CERRADO","CERRADA","REALIZADO"].includes(normalizeText(fixStatusValue(fix)));
+      const ganttStatusIsDepri = (fix) => normalizeText(fixStatusValue(fix)) === "DESPRIORIZADO";
+      const ganttProjected = (kitchen, mode) => {
+        if (!kitchen) return null;
+        const fsK = (window.FORM_SCORES || {})[state.country];
+        const norm = normalizeText(kitchen.id);
+        const formQ = fsK?.byKitchenQuestion?.[norm] || null;
+        const sheetKitchen = sheetKitchenFor(kitchen);
+        const hasPerQ = !!formQ || !!(sheetKitchen && (sheetKitchen.values || []).some(v => v != null));
+        const questions = detailDataForKitchen(kitchen).questions.map((q, i) => ({ ...q, index: i }));
+        if (!questions.length) return null;
+        const isResolved = mode === "done" ? ganttStatusIsDone : (fix) => !ganttStatusIsDepri(fix);
+        const allFixes = fixesForKitchen(kitchen).filter(fix => fixMatchesKitchen(fix, kitchen, state.country));
+        const resolvingFixes = allFixes.filter(isResolved);
+
+        // Caso A: hay respuesta por pregunta (o valores de hoja) → proyección directa.
+        if (hasPerQ) {
+          const vals = [];
+          questions.forEach(q => {
+            const sv = sheetKitchen ? sheetKitchen.values[q.index] : null;
+            const fv = formQ ? (formQ[q.no] ?? null) : null;
+            const value = formQ ? fv : (sv != null ? sv : null);
+            if (value == null) return;
+            const covered = resolvingFixes.some(fix => fixMatchesQuestion(fix, q, state.country));
+            vals.push((covered && value < 100) ? 100 : value);
+          });
+          return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+        }
+
+        // Caso B (fallback): solo hay % por sub-área (cocinas del tab Resultados).
+        // El déficit de cada sub-área se atribuye a los básicos que tienen plan
+        // (un básico con plan = básico incumplido). Completar los planes no
+        // despriorizados elimina su parte del déficit; los despriorizados quedan.
+        const temaMap = fsK?.byKitchenTema?.[norm];
+        const S = window.Q3_SCHEMA;
+        if (!temaMap || !S) return kitchenScore(kitchen);
+        let totalPts = 0, totalQ = 0;
+        S.subareas.forEach(sa => {
+          const P = temaMap[sa.name];
+          if (P == null) return;
+          const n = sa.questionNos.length;
+          const saQs = questions.filter(q => q.tema === sa.name);
+          const failing  = saQs.filter(q => allFixes.some(fix => fixMatchesQuestion(fix, q, state.country)));
+          const resolved = saQs.filter(q => resolvingFixes.some(fix => fixMatchesQuestion(fix, q, state.country)));
+          let avg;
+          if (!failing.length || P >= 100) {
+            avg = P;
+          } else {
+            const deficitPerQ = Math.min(100, (100 - P) * n / failing.length);
+            const unresolved = failing.length - resolved.length;
+            avg = Math.max(0, Math.min(100, 100 - (unresolved * deficitPerQ) / n));
+          }
+          totalPts += avg * n;
+          totalQ += n;
+        });
+        return totalQ ? totalPts / totalQ : kitchenScore(kitchen);
+      };
+      const ganttProjBadge = (val, label) => {
+        if (val == null) return "";
+        const s = getStatus(val);
+        return `<span style="font-size:10px;font-weight:650;color:${s.color};background:${s.bg};padding:1px 7px;border-radius:999px;white-space:nowrap">${label} ${Math.round(val)}%</span>`;
+      };
 
       // ── Render rows ──────────────────────────────────────
       const groupsHtml = groups.map(group => {
@@ -3970,13 +4418,19 @@
             groupStatusBadge = `<span style="font-size:10px;font-weight:650;color:${color};background:${bg};padding:1px 7px;border-radius:999px;margin-left:4px">${pct}% · ${group.kDone}/${group.kTotal} cocinas</span>`;
           }
         }
+        const projFull = group.kitchen ? ganttProjected(group.kitchen, "all") : null;
+        const projDone = group.kitchen ? ganttProjected(group.kitchen, "done") : null;
+        const curScore = group.kitchen ? kitchenScore(group.kitchen) : null;
+        const curBadge = curScore != null ? `<span style="font-size:12px;font-weight:700;color:${getStatus(curScore).color}">${Math.round(curScore)}%</span>` : "";
+        const nFixes = group.fixes.length;
         const groupRow = `
           <div class="gantt-row gantt-group-row">
             <div class="gantt-left-col" style="background:var(--soft);border-right:2px solid var(--border)">
-              <div style="font-weight:650;color:var(--dark-blue);font-size:12px;display:flex;align-items:center;flex-wrap:wrap;gap:2px">${group.label}${groupStatusBadge}</div>
-              <div style="font-size:11px;color:var(--text-muted)">${group.sublabel}</div>
+              <div style="font-weight:650;color:var(--dark-blue);font-size:12px;display:flex;align-items:center;flex-wrap:wrap;gap:6px">${group.label}${curBadge}${groupStatusBadge}</div>
+              <div style="font-size:11px;color:var(--text-muted)">${group.sublabel}${group.kitchen ? ` · ${nFixes} plan${nFixes !== 1 ? "es" : ""}` : ""}</div>
             </div>
             <div class="gantt-right-col" style="width:${TOTAL_W}px;background:var(--soft)">${weekBg}${gridLines}${todayLine}</div>
+            ${group.kitchen ? `<div class="gantt-proj-col">${projFull != null ? ganttProjBadge(projFull, "Proyectado") : ""}${projDone != null ? ganttProjBadge(projDone, "Con completados") : ""}</div>` : ""}
           </div>`;
 
         // In area mode: group by basic (question), each row = one basic; kitchen mode: one row per fix
@@ -4010,7 +4464,7 @@
           });
           const kitchenScores = [...kitchenScoreMap.entries()].map(([id, score]) => ({ id, score }));
           const total = kitchenScores.length;
-          const _rankTarget = state.country === "CO" ? 80 : 75;
+          const _rankTarget = state.country === "CO" ? 80 : state.country === "MX" ? 90 : 75;
           const BUCKETS = [
             { label: "100%",                               min: 100,         max: Infinity, color: "#4a9070" },
             { label: `Entre ${_rankTarget}% y 99%`,        min: _rankTarget, max: 99.99,    color: "#0b769f" },
@@ -4159,28 +4613,28 @@
           ${filterHead}
 
           <div class="kpis">
-            <article class="kpi">
+            <article class="kpi" style="background:#eef1f8;border-color:#090e3e40">
               <div class="kpi-label">Total planes</div>
-              <div class="kpi-value">${total}</div>
+              <div class="kpi-value" style="color:#090e3e">${total}</div>
               <div class="kpi-sub">${undatedFixes.length ? `${undatedFixes.length} sin fecha` : "todos con fecha"}</div>
             </article>
-            <article class="kpi">
+            <article class="kpi" style="background:#e7f6fc;border-color:#0b769f40">
               <div class="kpi-label">A tiempo</div>
               <div class="kpi-value" style="color:#0b769f">${open}</div>
               <div class="kpi-sub">${total ? Math.round(open/total*100) : 0}% del total</div>
             </article>
-            <article class="kpi">
+            <article class="kpi" style="background:#f4eaf0;border-color:#96607d40">
               <div class="kpi-label">Atrasados</div>
               <div class="kpi-value" style="color:#96607d">${overdue}</div>
               <div class="kpi-sub">Fecha cierre vencida</div>
             </article>
-            <article class="kpi">
+            <article class="kpi" style="background:#e8f3ec;border-color:#4a907040">
               <div class="kpi-label">Completados</div>
               <div class="kpi-value" style="color:#4a9070">${done}</div>
               <div class="kpi-sub">${total ? Math.round(done/total*100) : 0}% del total</div>
             </article>
             ${depriorizado > 0 ? `
-            <article class="kpi">
+            <article class="kpi" style="background:#f1f5f9;border-color:#94a3b840">
               <div class="kpi-label">Despriorizado</div>
               <div class="kpi-value" style="color:#94a3b8">${depriorizado}</div>
               <div class="kpi-sub">Excluidos de fechas</div>
@@ -4192,6 +4646,7 @@
             <div class="gantt-row" style="min-height:24px;position:sticky;top:0;z-index:10;border-bottom:1px solid var(--border)">
               <div class="gantt-left-col gantt-header-label" style="font-size:10px;color:var(--text-muted);justify-content:flex-end;border-right:2px solid var(--border)">${reportQuarterLabel()}</div>
               <div class="gantt-right-col" style="width:${TOTAL_W}px;height:24px;background:var(--soft)">${headerTop}</div>
+              <div class="gantt-proj-col" style="font-size:10px;color:var(--text-muted);font-weight:650;flex-direction:row;align-items:center">Proyección Q</div>
             </div>
             <!-- Row 2: period labels (S1…S4 for Jun, full name for Apr/May) -->
             <div class="gantt-row" style="min-height:28px;position:sticky;top:24px;z-index:9;border-bottom:2px solid var(--border)">
@@ -4224,7 +4679,349 @@
     };
     // ─────────────────────────────────────────────────────
 
-    const _VIEWS = ["dashboard","kitchens","basics","kitchen-detail-sheet","basic-detail-sheet","fixes","fix-impact","gantt"];
+    // ═══════════════════════════════════════════════════════════════════════
+    // COMPARATIVO Q3 vs Q2 (México). Recalcula todo desde las respuestas crudas
+    // congeladas (window.Q3_DATA) usando el mapeo validado (window.Q3_SCHEMA).
+    // El "anterior" (Q2) sale de FORM_SCORES (los mismos datos Q2 del dashboard).
+    // ═══════════════════════════════════════════════════════════════════════
+    const cq3Ready = () => !!(window.Q3_SCHEMA && window.Q3_DATA && window.Q3_DATA.answered);
+    // El comparativo respeta el filtro de Tipo: "cp" → Centros de Producción.
+    const cq3IsCP = () => state.typeFilter === "cp";
+    // Esquema (bloques/sub-áreas/preguntas) según el tipo seleccionado.
+    const cq3Schema = () => {
+      if (cq3IsCP() && window.CP_DETAIL_DATA?.questions?.length) {
+        const qs = window.CP_DETAIL_DATA.questions;
+        const temas = [...new Set(qs.map(q => q.tema || "Sin tema"))];
+        return {
+          isCP: true,
+          blocks: CP_BLOCKS_ORDER.filter(b => temas.some(t => cpBlockForTema(t) === b)),
+          subareas: temas.map(t => ({ name: t, block: cpBlockForTema(t), questionNos: qs.filter(q => (q.tema || "Sin tema") === t).map(q => q.no) })),
+          questions: qs.map(q => ({ no: q.no, subarea: q.tema || "Sin tema", block: cpBlockForTema(q.tema || "Sin tema"), text: (state.country === "MX" ? q.mex : (q.colper || q.mex)) || "", inverted: false })),
+        };
+      }
+      // Cocinas: usar la estructura del diagnóstico MX vigente (bloque/tema reales
+      // de la pestaña "Preguntas"), para que dashboard y comparativo coincidan.
+      const fsq = (window.FORM_SCORES || {}).MX;
+      if (fsq && fsq._isQ3 && fsq._questions && fsq._questions.length && fsq._questions[0].tema) {
+        const qs = fsq._questions;
+        const blocks = []; qs.forEach(q => { if (q.bloque && !blocks.includes(q.bloque)) blocks.push(q.bloque); });
+        const temas = []; qs.forEach(q => { if (q.tema && !temas.includes(q.tema)) temas.push(q.tema); });
+        return {
+          blocks,
+          subareas: temas.map(t => ({ name: t, block: (qs.find(q => q.tema === t) || {}).bloque || "", questionNos: qs.filter(q => q.tema === t).map(q => q.no) })),
+          questions: qs.map(q => ({ no: q.no, subarea: q.tema, block: q.bloque, text: q.mex, inverted: !!q.inverted })),
+        };
+      }
+      return window.Q3_SCHEMA;
+    };
+    const cq3QMap = () => { const m = {}; (cq3Schema().questions || []).forEach(q => m[q.no] = q); return m; };
+    // Respuesta → 0..100. Acepta texto (Sí/Parcialmente/No) o valor numérico (CP).
+    const cq3Val = (qno, raw) => {
+      if (typeof raw === "number") return raw;
+      const q = cq3QMap()[qno];
+      const n = normalizeText(raw);
+      let v = n === "SI" ? 100 : n === "PARCIALMENTE" ? 50 : n === "NO" ? 0 : null;
+      if (v == null) return null;
+      return (q && q.inverted) ? 100 - v : v;
+    };
+    const cq3Mean = (arr) => { const a = arr.filter(x => x != null); return a.length ? a.reduce((s, x) => s + x, 0) / a.length : null; };
+    // Calcula sub-áreas, bloques y Basic de una cocina que respondió el Q3.
+    const cq3Calc = (name) => {
+      const k = window.Q3_DATA.answered[name];
+      if (!k) return null;
+      const S = window.Q3_SCHEMA;
+      const sub = {};
+      S.subareas.forEach(sa => { sub[sa.name] = cq3Mean(sa.questionNos.map(no => cq3Val(no, k.byQuestion[no]))); });
+      const blk = {};
+      S.blocks.forEach(b => { blk[b] = cq3Mean(S.subareas.filter(sa => sa.block === b).map(sa => sub[sa.name])); });
+      const basic = cq3Mean(S.questions.map(q => cq3Val(q.no, k.byQuestion[q.no])));
+      return { name, city: k.city, tipo: k.tipo, sub, blk, basic, byQuestion: k.byQuestion, obs: k.obs || {} };
+    };
+    // ── Datos Q2 (anterior) desde FORM_SCORES del dashboard ──
+    const cq3PunctNorm = (s) => normalizeText(s).replace(/[.,]/g, "").replace(/\s+/g, " ").trim();
+    const cq3Q2Block = (norm, blockName) => {
+      if (cq3IsCP()) {                                    // CP: promedio de sus temas en el Q2
+        const bt = window.CP_PREV?.[norm]?.byTema;
+        if (!bt) return null;
+        const target = cq3PunctNorm(blockName);
+        const vals = Object.keys(bt).filter(t => cq3PunctNorm(cpBlockForTema(t)) === target).map(t => bt[t]).filter(v => v != null);
+        return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+      }
+      const fs = window.Q2_FORM_MX || (window.FORM_SCORES || {}).MX;
+      const bk = fs?.byKitchenBloque?.[norm];
+      if (!bk) return null;
+      const target = cq3PunctNorm(blockName);
+      const hit = Object.keys(bk).find(k => cq3PunctNorm(k) === target);
+      return hit ? bk[hit] : null;
+    };
+    const cq3Q2Sub = (norm, subName) => {
+      const tk = cq3IsCP() ? (window.CP_PREV?.[norm]?.byTema) : (window.Q2_FORM_MX || (window.FORM_SCORES || {}).MX)?.byKitchenTema?.[norm];
+      if (!tk) return null;
+      // En cocinas, la sub-área del Q3 se traduce a su tema equivalente del Q2.
+      const lookupName = cq3IsCP() ? subName : (Q3_SUB_TO_Q2_TEMA[subName] || subName);
+      const target = cq3PunctNorm(lookupName);
+      const hit = Object.keys(tk).find(k => cq3PunctNorm(k) === target);
+      return hit ? tk[hit] : null;
+    };
+    const cq3Q2Basic = (norm) => cq3IsCP()
+      ? (window.CP_PREV?.[norm]?.basic ?? null)
+      : ((window.Q2_FORM_MX || (window.FORM_SCORES || {}).MX)?.byName?.[norm] ?? null);
+
+    // Score del Q ANTERIOR para una cocina, según su tipo:
+    //  · CP  → baseline de "Cp preguntas" histórico (window.CP_PREV)
+    //  · MX  → Q2 de cocinas (Q2_FORM_MX)
+    const prevKitchenBasic = (k) => {
+      const norm = normalizeText(k.id);
+      if (isCPKitchen(k)) return window.CP_PREV?.[norm]?.basic ?? null;
+      if (state.country === "MX") return cq3Q2Basic(norm);
+      return null;
+    };
+    const prevKitchenTema = (k, tema) => {
+      const norm = normalizeText(k.id);
+      if (isCPKitchen(k)) return window.CP_PREV?.[norm]?.byTema?.[tema] ?? null;
+      if (state.country === "MX") return cq3Q2Sub(norm, tema);
+      return null;
+    };
+    const prevKitchenBloque = (k, block) => {
+      const norm = normalizeText(k.id);
+      if (isCPKitchen(k)) return window.CP_PREV?.[norm]?.basic ?? null; // CP: un solo bloque = Basic
+      if (state.country === "MX") return cq3Q2Block(norm, block);
+      return null;
+    };
+    // Flecha mejora / desmejora (umbral 1 pp).
+    const cq3Delta = (q3, q2) => {
+      if (q3 == null || q2 == null) return null;
+      return q3 - q2;
+    };
+    const cq3DeltaBadge = (q3, q2, showPP = true) => {
+      const d = cq3Delta(q3, q2);
+      if (d == null) return `<span style="font-size:11px;color:var(--text-muted)">—</span>`;
+      const up = d > 1, down = d < -1;
+      const color = up ? "#276749" : down ? "#9b2c2c" : (PALETTE.slate);
+      const arrow = up ? "&#9650;" : down ? "&#9660;" : "&#9644;";
+      return `<span title="Q3 vs Q2 2026" style="font-size:11px;font-weight:700;color:${color};white-space:nowrap">${arrow}${showPP ? ` ${Math.abs(d).toFixed(0)} pp` : ""}</span>`;
+    };
+    const cq3Pct = (v) => v == null ? "—" : `${Math.round(v)}%`;
+    const cq3AnswerBadge = (qno, raw) => {
+      if (raw == null || raw === "") return `<span style="font-size:11px;color:var(--text-muted)">Sin respuesta</span>`;
+      const isNum = typeof raw === "number";
+      const v = isNum ? raw : cq3Val(qno, raw);
+      const label = isNum ? (v >= 100 ? "Cumple" : v >= 50 ? "Parcial" : "No cumple") : raw;
+      const bg = v >= 100 ? "#E7F6FC" : v >= 50 ? "#F8F0E2" : "#F4EAF0";
+      const color = v >= 100 ? PALETTE.cyanDark : v >= 50 ? PALETTE.neutralText : PALETTE.mauve;
+      return `<span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;background:${bg};color:${color};white-space:nowrap">${label}${isNum ? ` ${Math.round(v)}%` : ""}</span>`;
+    };
+    // Respuesta Q2 (anterior) por pregunta, matcheando por sub-área/tema si existe.
+    const cq3Q2AnswerLabel = (v) => v == null ? "—" : v >= 100 ? "Cumplía" : v >= 50 ? "Parcial" : "No cumplía";
+
+    // Filas del comparativo. Si hay diagnóstico en vivo (Q3_RESULTS_MX), se usa ese
+    // (todas las cocinas con dato); el detalle por pregunta se toma del crudo donde
+    // exista. Si no hay sync, cae al crudo congelado.
+    const cq3Rows = () => {
+      // CP: filas desde el diagnóstico de Centros de Producción (CP_DETAIL_DATA).
+      if (cq3IsCP()) {
+        const cp = window.CP_DETAIL_DATA;
+        if (!cp?.kitchens?.length) return [];
+        const S = cq3Schema();
+        return cp.kitchens.map(k => {
+          const byQuestion = {};
+          cp.questions.forEach((q, i) => { byQuestion[q.no] = k.values[i] ?? null; });
+          const sub = {};
+          S.subareas.forEach(sa => { sub[sa.name] = cq3Mean(sa.questionNos.map(no => byQuestion[no])); });
+          const blk = {};
+          S.blocks.forEach(b => { blk[b] = cq3Mean(S.subareas.filter(sa => sa.block === b).map(sa => sub[sa.name])); });
+          const basic = cq3Mean(cp.questions.map((q, i) => k.values[i]));
+          return { name: k.name, city: k.city || "", tipo: "CP", blk, sub, basic, byQuestion, obs: {} };
+        }).sort((a, b) => (a.basic ?? 999) - (b.basic ?? 999));
+      }
+      // Cocinas: usar el diagnóstico MX vigente (FORM_SCORES.MX, de la pestaña
+      // "Preguntas"). Observaciones del crudo congelado donde existan.
+      const fs = (window.FORM_SCORES || {}).MX;
+      if (fs && fs._isQ3 && fs.byName && Object.keys(fs.byName).length) {
+        const metaByNorm = {};
+        ((window.SHEET_DETAIL_DATA_MX_Q3 || {}).kitchens || []).forEach(k => { metaByNorm[normalizeText(k.name)] = k; });
+        const ans = window.Q3_DATA.answered || {};
+        const obsByNorm = {}; Object.keys(ans).forEach(n => { obsByNorm[normalizeText(n)] = ans[n].obs || {}; });
+        return Object.keys(fs.byName).map(nm => {
+          const meta = metaByNorm[nm] || {};
+          return {
+            name: meta.name || nm, city: meta.city || "", tipo: "Cocina",
+            blk: fs.byKitchenBloque[nm] || {}, sub: fs.byKitchenTema[nm] || {},
+            basic: fs.byName[nm], byQuestion: fs.byKitchenQuestion[nm] || null,
+            obs: obsByNorm[nm] || {},
+          };
+        }).sort((a, b) => (a.basic ?? 999) - (b.basic ?? 999));
+      }
+      const R = window.Q3_RESULTS_MX;
+      if (R && Object.keys(R).length) {
+        const ans = window.Q3_DATA.answered || {};
+        const rawByNorm = {}; Object.keys(ans).forEach(n => { rawByNorm[normalizeText(n)] = ans[n]; });
+        return Object.keys(R).map(nm => R[nm]).filter(r => r.basic != null).map(r => {
+          const raw = rawByNorm[normalizeText(r.name)];
+          return { name: r.name, city: r.city, tipo: r.tipo, blk: r.blocks, sub: r.subareas, basic: r.basic, byQuestion: raw ? raw.byQuestion : null, obs: raw ? (raw.obs || {}) : {} };
+        }).sort((a, b) => (a.basic ?? 999) - (b.basic ?? 999));
+      }
+      return Object.keys(window.Q3_DATA.answered).map(cq3Calc).sort((a, b) => (a.basic ?? 999) - (b.basic ?? 999));
+    };
+    const cq3Pending = () => {
+      if (cq3IsCP()) return [];
+      if (window.Q3_PREGUNTAS_MX?.pending) return window.Q3_PREGUNTAS_MX.pending.slice().sort();
+      const R = window.Q3_RESULTS_MX;
+      if (R && Object.keys(R).length) {
+        return Object.keys(R).filter(nm => R[nm].basic == null).map(nm => R[nm].name).sort();
+      }
+      return window.Q3_DATA.pending || [];
+    };
+
+    const renderComparativoQ3 = () => {
+      const host = byId("comparativo-q3");
+      if (!cq3Ready()) { host.innerHTML = `<div class="empty">No se cargaron los datos del Q3 (q3-data.js / q3-mapping.js).</div>`; return; }
+      const S = cq3Schema();
+      const isCP = cq3IsCP();
+      const unit = isCP ? "CP" : "Cocinas";
+      const rows = cq3Rows();
+      const pending = cq3Pending();
+      const qLabel = window.Q3_DATA.quarterLabel || "Q3";
+      const avgBasic = cq3Mean(rows.map(r => r.basic));
+      const deltas = rows.map(r => cq3Delta(r.basic, cq3Q2Basic(normalizeText(r.name)))).filter(x => x != null);
+      const avgDelta = cq3Mean(deltas);
+      const hasQ2 = isCP
+        ? !!(window.CP_PREV && Object.keys(window.CP_PREV).length)
+        : !!((window.FORM_SCORES || {}).MX?.byName && Object.keys((window.FORM_SCORES || {}).MX.byName).length);
+
+      const kpi = (label, value, color) =>
+        `<div style="flex:1;min-width:150px;background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px">
+           <div style="font-size:11px;color:var(--text-muted)">${label}</div>
+           <div style="font-size:20px;font-weight:650;color:${color || "var(--dark-blue)"}">${value}</div>
+         </div>`;
+
+      const blockHead = S.blocks.map(b => `<th style="text-align:center;font-size:11px;padding:8px 6px">${b}</th>`).join("");
+
+      const kitchenRow = (r) => {
+        const norm = normalizeText(r.name);
+        const isOpen = state.cq3Kitchen === r.name;
+        const blkCells = S.blocks.map(b => {
+          const q3 = r.blk[b]; const q2 = cq3Q2Block(norm, b);
+          const s = getStatus(q3, 75);
+          return `<td style="text-align:center;padding:8px 6px">
+            <div style="font-weight:650;color:${s.color}">${cq3Pct(q3)}</div>
+            <div>${hasQ2 ? cq3DeltaBadge(q3, q2, false) : ""}</div>
+          </td>`;
+        }).join("");
+        const bs = getStatus(r.basic, 75);
+        const q2b = cq3Q2Basic(norm);
+        return `
+          <tr class="cq3-krow" data-cq3-kitchen="${r.name}" style="cursor:pointer;border-top:1px solid var(--border);${isOpen ? "background:var(--panel-alt,#f7f9fb)" : ""}">
+            <td style="padding:8px 10px;font-weight:600;white-space:nowrap">${isOpen ? "&#9662;" : "&#9656;"} ${r.name}${r.tipo === "PF" ? ` <span style="font-size:9px;color:var(--text-muted)">PF</span>` : ""}</td>
+            <td style="padding:8px 6px;color:var(--text-muted);font-size:12px">${r.city || ""}</td>
+            ${blkCells}
+            <td style="text-align:center;padding:8px 6px;font-weight:700;color:${bs.color}">${r.basic == null ? "—" : r.basic.toFixed(1) + "%"}</td>
+            <td style="text-align:center;padding:8px 6px">${hasQ2 ? cq3DeltaBadge(r.basic, q2b, true) : "—"}</td>
+          </tr>
+          ${isOpen ? `<tr><td colspan="${4 + S.blocks.length}" style="padding:0 10px 14px 10px">${cq3SubareaPanel(r)}</td></tr>` : ""}
+        `;
+      };
+
+      host.innerHTML = `
+        <div class="panel" style="margin-bottom:14px">
+          <div class="detail-title">Comparativo ${qLabel} vs Q2 2026 · México${isCP ? " · Centros de Producción" : ""}</div>
+          <div class="detail-sub">Recalculado desde el diagnóstico del ${qLabel}. Clic en ${isCP ? "un CP" : "una cocina"} para desglosar por ${isCP ? "tema" : "sub-área"}; clic en el detalle para ver cada pregunta y su respuesta.</div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
+            ${kpi(`${unit} con ${qLabel}`, rows.length)}
+            ${isCP ? "" : kpi("Pendientes de diagnóstico", pending.length, PALETTE.neutralText)}
+            ${kpi(`Basic promedio ${qLabel}`, avgBasic == null ? "—" : avgBasic.toFixed(1) + "%", PALETTE.cyanDark)}
+            ${kpi("Variación promedio vs Q2", !hasQ2 || avgDelta == null ? "—" : (avgDelta > 0 ? "+" : "") + avgDelta.toFixed(1) + " pp", avgDelta > 0 ? "#276749" : "#9b2c2c")}
+          </div>
+          ${!hasQ2 ? `<div class="hint" style="margin-top:8px">Sincroniza el dashboard (botón Actualizar) para traer los datos del Q2 y ver la comparación mejora/desmejora.</div>` : ""}
+        </div>
+        <div class="panel" style="overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:13px">
+            <thead><tr style="background:var(--dark-blue,#12324a);color:#fff">
+              <th style="text-align:left;padding:8px 10px">${isCP ? "Centro de Producción" : "Cocina"}</th>
+              <th style="text-align:left;padding:8px 6px">Ciudad</th>
+              ${blockHead}
+              <th style="text-align:center;padding:8px 6px">Basic ${qLabel}</th>
+              <th style="text-align:center;padding:8px 6px">Δ vs Q2</th>
+            </tr></thead>
+            <tbody>${rows.map(kitchenRow).join("")}</tbody>
+          </table>
+        </div>
+        ${isCP || !pending.length ? "" : `
+        <div class="panel" style="margin-top:14px">
+          <div class="cq3-pending-toggle" data-cq3-pending="1" style="cursor:pointer;font-weight:600">${state.cq3ShowPending ? "&#9662;" : "&#9656;"} Pendientes de diagnóstico ${qLabel} (${pending.length})</div>
+          ${state.cq3ShowPending ? `<div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px">${pending.map(p => `<span style="font-size:12px;padding:4px 10px;border:1px solid var(--border);border-radius:14px;color:var(--text-muted)">${p}</span>`).join("")}</div>` : ""}
+        </div>`}
+      `;
+    };
+
+    const cq3SubareaPanel = (r) => {
+      const S = cq3Schema();
+      const norm = normalizeText(r.name);
+      const hasQ2 = cq3IsCP() ? !!window.CP_PREV : !!((window.FORM_SCORES || {}).MX?.byName);
+      const blocks = S.blocks.map(b => {
+        const subs = S.subareas.filter(sa => sa.block === b);
+        const subRows = subs.map(sa => {
+          const q3 = r.sub[sa.name]; const q2 = cq3Q2Sub(norm, sa.name);
+          const s = getStatus(q3, 75);
+          const selKey = `${r.name}||${sa.name}`;
+          const isSel = state.cq3Sub === selKey;
+          return `
+            <div class="cq3-sub" data-cq3-sub="${selKey}" style="cursor:pointer;display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:6px;${isSel ? "background:#eef4f8" : ""}">
+              <span style="flex:1">${isSel ? "&#9662;" : "&#9656;"} ${sa.name} <span style="font-size:10px;color:var(--text-muted)">(${sa.questionNos.length} preg.)</span></span>
+              <span style="font-weight:650;color:${s.color};min-width:44px;text-align:right">${cq3Pct(q3)}</span>
+              <span style="min-width:70px;text-align:right">${hasQ2 ? cq3DeltaBadge(q3, q2, true) : ""}</span>
+            </div>
+            ${isSel ? cq3QuestionList(r, sa) : ""}
+          `;
+        }).join("");
+        const bq3 = r.blk[b]; const bs = getStatus(bq3, 75);
+        return `
+          <div style="margin-bottom:10px">
+            <div style="display:flex;align-items:center;gap:8px;padding:4px 8px;font-weight:700;font-size:13px;border-left:3px solid ${bs.color}">
+              <span style="flex:1">${b}</span>
+              <span style="color:${bs.color}">${cq3Pct(bq3)}</span>
+              <span style="min-width:70px;text-align:right">${hasQ2 ? cq3DeltaBadge(bq3, cq3Q2Block(norm, b), true) : ""}</span>
+            </div>
+            <div style="margin-left:4px">${subRows}</div>
+          </div>`;
+      }).join("");
+      return `<div style="background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:10px 12px">${blocks}</div>`;
+    };
+
+    const cq3QuestionList = (r, sa) => {
+      const S = cq3Schema();
+      const norm = normalizeText(r.name);
+      const q2sub = cq3Q2Sub(norm, sa.name);
+      if (!r.byQuestion) {
+        return `<div style="margin:2px 0 10px 14px;background:#fbfdff;border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:11px;color:var(--text-muted)">
+          Sin respuesta cruda cargada para esta cocina — se muestra el % por sub-área, pero no el detalle pregunta por pregunta.
+          ${q2sub != null ? `<br>Referencia Q2 de la sub-área: <strong>${Math.round(q2sub)}%</strong>` : ""}
+        </div>`;
+      }
+      const qs = S.questions.filter(q => q.subarea === sa.name);
+      const rowsHtml = qs.map(q => {
+        const raw = r.byQuestion[q.no];
+        const obs = r.obs[q.no];
+        return `
+          <div style="padding:8px 10px;border-top:1px solid var(--border)">
+            <div style="display:flex;gap:10px;align-items:flex-start">
+              <div style="flex:1;font-size:12px">${q.text}${q.inverted ? ` <span style="font-size:9px;color:var(--text-muted)">(invertida)</span>` : ""}</div>
+              ${cq3AnswerBadge(q.no, raw)}
+            </div>
+            ${obs ? `<div style="margin-top:4px;font-size:11px;color:var(--text-muted);font-style:italic">&#128221; ${obs}</div>` : ""}
+          </div>`;
+      }).join("");
+      return `
+        <div style="margin:2px 0 10px 14px;background:#fbfdff;border:1px solid var(--border);border-radius:6px">
+          <div style="padding:6px 10px;font-size:11px;color:var(--text-muted);background:#f2f7fb;border-radius:6px 6px 0 0">
+            Respuesta anterior (Q2) de esta sub-área: <strong>${q2sub == null ? "sin dato" : Math.round(q2sub) + "%"}</strong>
+            ${q2sub != null ? ` · ${cq3Q2AnswerLabel(q2sub)}` : ""}
+          </div>
+          ${rowsHtml}
+        </div>`;
+    };
+
+    const _VIEWS = ["dashboard","kitchens","basics","kitchen-detail-sheet","basic-detail-sheet","fixes","fix-impact","gantt","comparativo-q3"];
     const _dirty = Object.fromEntries(_VIEWS.map(v => [v, true]));
     const _updateChrome = () => {
       const titleText = `Básicos para Foodies contentos · ${reportQuarterLabel()}`;
@@ -4233,6 +5030,7 @@
       updateSyncMeta();
       renderCountryTabs();
       renderCitySelect();
+      renderDiagBar();
       document.querySelectorAll(".screen").forEach(el => el.classList.toggle("active", el.id === state.view));
       document.querySelectorAll(".view-tab").forEach(btn => btn.classList.toggle("active", btn.dataset.view === state.view));
     };
@@ -4245,6 +5043,7 @@
       "fixes": renderFixes,
       "fix-impact": renderFixImpact,
       "gantt": renderGantt,
+      "comparativo-q3": renderComparativoQ3,
     })[id];
     const _renderView = (id) => {
       const fn = _renderFnFor(id);
@@ -4262,6 +5061,7 @@
         state.country = countryButton.dataset.country;
         state.cityFilter = "Todas";
         state.typeFilter = "all";
+        state.diagFilter = "all";
         state.selectedKitchen = null;
         state.detailKitchenId = null;
         state.dashboardBlock = null;
@@ -4290,6 +5090,29 @@
         state.selectedKitchen = null;
         _updateChrome();
         if (_dirty[state.view]) _renderView(state.view);
+        return;
+      }
+
+      // ── Comparativo Q3: sub-área (más específico primero), cocina, pendientes ──
+      const cq3SubEl = event.target.closest("[data-cq3-sub]");
+      if (cq3SubEl) {
+        const key = cq3SubEl.dataset.cq3Sub;
+        state.cq3Sub = state.cq3Sub === key ? null : key;
+        renderComparativoQ3();
+        return;
+      }
+      const cq3KEl = event.target.closest("[data-cq3-kitchen]");
+      if (cq3KEl) {
+        const name = cq3KEl.dataset.cq3Kitchen;
+        if (state.cq3Kitchen === name) { state.cq3Kitchen = null; state.cq3Sub = null; }
+        else { state.cq3Kitchen = name; state.cq3Sub = null; }
+        renderComparativoQ3();
+        return;
+      }
+      const cq3PendEl = event.target.closest("[data-cq3-pending]");
+      if (cq3PendEl) {
+        state.cq3ShowPending = !state.cq3ShowPending;
+        renderComparativoQ3();
         return;
       }
 
@@ -4348,6 +5171,16 @@
       const ganttGroupBtn = event.target.closest("[data-gantt-groupby]");
       if (ganttGroupBtn) {
         state.ganttGroupBy = ganttGroupBtn.dataset.ganttGroupby;
+        renderGantt();
+        return;
+      }
+
+      const ganttMonthBtn = event.target.closest("[data-gantt-month]");
+      if (ganttMonthBtn) {
+        const m = parseInt(ganttMonthBtn.dataset.ganttMonth, 10);
+        if (!state.ganttExpandedMonths) state.ganttExpandedMonths = new Set();
+        if (state.ganttExpandedMonths.has(m)) state.ganttExpandedMonths.delete(m);
+        else state.ganttExpandedMonths.add(m);
         renderGantt();
         return;
       }
@@ -4598,6 +5431,13 @@
       render();
     });
 
+    byId("diagSelect").addEventListener("change", (event) => {
+      state.diagFilter = event.target.value;
+      state.selectedKitchen = null;
+      state.detailKitchenId = null;
+      render();
+    });
+
     const fetchPublicSheetTableOnce = ({ gid, sheet, timeoutMs = 90000, customSheetId }) => new Promise((resolve, reject) => {
       const callbackName = `sheetSync_${Date.now()}_${Math.floor(Math.random() * 100000)}`;
       const script = document.createElement("script");
@@ -4704,7 +5544,7 @@
       const FIELD_HEADERS = {
         subcategoria: ["SUBCATEGORIA", "CATEGORIA", "BLOQUE"],
         area:         ["AREA", "PILAR", "EQUIPO"],
-        cocina:       ["COCINA", "KITCHEN", "LOCAL"],
+        cocina:       ["COCINA", "KITCHEN", "LOCAL", "CP"],
         ciudad:       ["CIUDAD", "CITY", "MUNICIPIO"],
         iniciativa:   ["INICIATIVA PLAN DE ACCION", "INICIATIVA", "PLAN DE ACCION", "PLAN", "DESCRIPCION", "ACCION"],
         basic:        ["BASIC", "BASICO", "PREGUNTA BASICA", "PREGUNTA"],
@@ -4731,10 +5571,10 @@
       //     G=Iniciativa/Plan(6), H=Fecha compromiso(7), I=Fecha cierre(8),
       //     J=Cotización(9), K=Área(10), L=Status(11), M=Prioridad(12)
       const FALLBACK_COLS = {
-        MX: { subcategoria:2, area:3, cocina:4, ciudad:5, iniciativa:6, basic:7, compromiso:8, cierre:9, abril:10, mayo:11, junio:12, totalQ:13, responsable:14, prioridad:15, status:16, revisado:17, evidencia:18, firma:19, presupuesto:20 },
+        MX: { subcategoria:2, area:3, ciudad:4, cocina:5, basic:6, iniciativa:7, compromiso:8, cierre:9, abril:10, mayo:11, junio:12, totalQ:13, responsable:14, status:15, prioridad:16, revisado:17, evidencia:18, presupuesto:19 },
         CO: { subcategoria:2, cocina:3, basic:4, ciudad:5, iniciativa:6, compromiso:7, cierre:8, cotizacion:9, totalQ:9, area:10, responsable:10, status:11, prioridad:12 },
         PE: { subcategoria:2, cocina:3, iniciativa:4, compromiso:5, cierre:6, mensual:7, cotizacion:8, totalQ:8, ejecutado:9, responsable:10, prioridad:11, status:12 },
-        CP: { subcategoria:2, cocina:3, ciudad:4, iniciativa:5, basic:6, compromiso:7, cierre:8, cotizacion:9, totalQ:9, responsable:10, prioridad:11, status:12, area:13 },
+        CP: { subcategoria:2, ciudad:3, cocina:4, basic:5, iniciativa:6, compromiso:7, cierre:8, cotizacion:9, totalQ:9, responsable:10, status:11, prioridad:12, area:13 },
       };
 
       const rows = table.rows || [];
@@ -4822,14 +5662,18 @@
       const next = { ...prev };
       const results = [];
       let anySuccess = false;
+      // MX Q3: los planes de acción salen del nuevo archivo (pestaña de planes MX),
+      // igual que Colombia usa su propia hoja. Los demás países se mantienen.
+      const MX_Q3_FIX_SHEET_ID = "186o3CErXrysBMijH40Pnoq0K2C4OzxWFgA9G_WeWStE";
+      const MX_Q3_FIX_GID = "1260122100";
       for (const config of [
-        { key: "MX", sheet: "Fixes MX" },
+        { key: "MX", sheet: "Fixes MX", customSheetId: MX_Q3_FIX_SHEET_ID, gid: MX_Q3_FIX_GID },
         { key: "CO", sheet: "Fixes CO" },
         { key: "PE", sheet: "Fixes PE" },
-        { key: "CP", sheet: "Fixes CPs" },
+        { key: "CP", sheet: "Fixes CPs", customSheetId: MX_Q3_FIX_SHEET_ID },
       ]) {
         try {
-          const table = await fetchPublicSheetTable({ sheet: config.sheet, timeoutMs: 90000, retries: 1 });
+          const table = await fetchPublicSheetTable({ sheet: config.sheet, gid: config.gid, customSheetId: config.customSheetId, timeoutMs: 90000, retries: 1 });
           const parsed = parseFixTable(table, config.key);
           // Only overwrite if we got data, to avoid wiping local data on empty response
           if (parsed.length > 0 || (table.rows || []).length > 2) {
@@ -4850,6 +5694,222 @@
       window.LAST_FIX_SYNC_STATUS = results.join(" · ");
       window.LAST_FIX_SYNC_ANY_SUCCESS = anySuccess;
       return window.FIXES_DATA;
+    };
+
+    // Lee una celda de % (formateada tipo "71%", "56.%" o fracción 0.71) → número 0..100.
+    const parsePctCell = (cell) => {
+      const s = String(displaySheetCell(cell)).replace(/[^0-9.,]/g, "").replace(/[.,]$/, "").replace(",", ".");
+      if (!s) return null;
+      const n = parseFloat(s);
+      if (isNaN(n)) return null;
+      return n <= 1.0001 ? n * 100 : n;
+    };
+
+    // Sincroniza el diagnóstico Q3 de MX desde la pestaña "Resultados Q3 2026"
+    // (todas las cocinas con dato: Basic + 4 bloques + 12 sub-áreas). Es la fuente
+    // que el motor de Google sí lee completa (la de respuestas crudas no).
+    const Q3_MX_RESULTS_SHEET_ID = "186o3CErXrysBMijH40Pnoq0K2C4OzxWFgA9G_WeWStE";
+    const Q3_MX_RESULTS_GID = "285527799";
+    const syncQ3ResultsMX = async () => {
+      const S = window.Q3_SCHEMA;
+      if (!S) return null;
+      const table = await fetchPublicSheetTable({ gid: Q3_MX_RESULTS_GID, customSheetId: Q3_MX_RESULTS_SHEET_ID, timeoutMs: 60000, retries: 1 });
+      const rows = table.rows || [];
+      const out = {};
+      rows.forEach(row => {
+        const c = row.c || [];
+        const tipo = normalizeText(displaySheetCell(c[0]));
+        if (tipo !== "COCINA" && tipo !== "PF") return; // saltar filas de ciudad/país
+        const name = displaySheetCell(c[2]).trim();
+        if (!name) return;
+        const basic = parsePctCell(c[19]);
+        const blocks = {}; S.blocks.forEach((b, i) => { blocks[b] = parsePctCell(c[15 + i]); });
+        const subareas = {}; S.subareas.forEach((sa, i) => { subareas[sa.name] = parsePctCell(c[3 + i]); });
+        out[normalizeText(name)] = { name, city: displaySheetCell(c[1]).trim(), tipo: tipo === "PF" ? "PF" : "Cocina", basic, blocks, subareas };
+      });
+      if (Object.keys(out).length) window.Q3_RESULTS_MX = out;
+      return out;
+    };
+
+    // Diagnóstico Q3 de cocinas MX desde la pestaña "Preguntas" (matriz autoritativa:
+    // filas = preguntas con Bloque/Tema/Área/texto, columnas = cocinas con % por pregunta).
+    // Es la fuente correcta del detalle por pregunta (el form crudo difería).
+    const syncQ3PreguntasMX = async () => {
+      const table = await fetchPublicSheetTable({ sheet: "Preguntas", customSheetId: Q3_MX_RESULTS_SHEET_ID, timeoutMs: 60000, retries: 1 });
+      const cols = table.cols || [];
+      const rows = table.rows || [];
+      const hasLabels = cols.some(c => (c.label || "").trim().length > 2);
+      const labels = hasLabels ? cols.map(c => (c.label || "").trim()) : ((rows[0] || {}).c || []).map(c => displaySheetCell(c).trim());
+      const dataRows = hasLabels ? rows : rows.slice(1);
+      const findCol = (...names) => labels.findIndex(l => names.some(n => normalizeText(l) === normalizeText(n)));
+      const cBloque = findCol("Bloque"), cTema = findCol("Tema"), cArea = findCol("Área", "Area"), cMex = findCol("Preguntas MEX");
+      // Columnas de cocinas de México (excluye CP y otros países).
+      const kcols = [];
+      labels.forEach((l, i) => {
+        if (normalizeText(l).indexOf("MEXICO") === 0) {
+          const parts = l.trim().split(/\s+/);
+          const name = parts.slice(2).join(" ");
+          if (!name || /\bCP\b/i.test(name)) return;   // saltar CPs
+          kcols.push({ i, name, city: parts[1] || "" });
+        }
+      });
+      if (!kcols.length) return null;
+      const questions = [];
+      const byKitchen = {}, meta = {};
+      kcols.forEach(k => { const nm = normalizeText(k.name); byKitchen[nm] = {}; meta[nm] = { name: k.name, city: k.city }; });
+      dataRows.forEach(row => {
+        const c = row.c || [];
+        const no = parseInt(displaySheetCell(c[0]), 10);
+        if (!Number.isFinite(no)) return;
+        questions.push({
+          no,
+          bloque: displaySheetCell(c[cBloque]) || "",
+          tema: displaySheetCell(c[cTema]) || "",
+          area: displaySheetCell(c[cArea]) || "City",
+          mex: displaySheetCell(c[cMex]) || "",
+        });
+        kcols.forEach(k => { byKitchen[normalizeText(k.name)][no] = parsePctCell(c[k.i]); });
+      });
+      const pending = [];
+      Object.keys(byKitchen).forEach(nm => {
+        const vals = questions.map(q => byKitchen[nm][q.no]).filter(v => v != null);
+        if (!vals.length) { pending.push(meta[nm].name); delete byKitchen[nm]; }
+      });
+      if (questions.length && Object.keys(byKitchen).length) {
+        window.Q3_PREGUNTAS_MX = { questions, byKitchen, meta, pending };
+        return window.Q3_PREGUNTAS_MX;
+      }
+      return null;
+    };
+
+    // Sincroniza el diagnóstico de los Centros de Producción desde la hoja
+    // "Cp preguntas" (matriz: filas = preguntas, columnas = CPs con % por pregunta).
+    const syncCpFromSheet = async () => {
+      const table = await fetchPublicSheetTable({ sheet: "Cp preguntas", customSheetId: Q3_MX_RESULTS_SHEET_ID, timeoutMs: 60000, retries: 1 });
+      const cols = table.cols || [];
+      const rows = table.rows || [];
+      const hasColLabels = cols.some(c => (c.label || "").trim().length > 2);
+      const labels = hasColLabels ? cols.map(c => (c.label || "").trim()) : ((rows[0] || {}).c || []).map(c => displaySheetCell(c).trim());
+      const dataRows = hasColLabels ? rows : rows.slice(1);
+      // Detectar columnas de CP por su encabezado (ej. "CDMX 42 CP CDMX", "Bogotá 04 ACOPIO BOG").
+      const cpCols = [];
+      labels.forEach((lab, idx) => {
+        if ((/\bCP\b/i.test(lab) || /ACOPIO/i.test(lab)) && /\d/.test(lab)) {
+          const name = lab.replace(/^\S+\s+/, "").trim();       // quita la ciudad inicial
+          const city = (lab.split(/\s+/)[0] || "").trim();
+          const country = /BOG|BOGOT/i.test(lab) ? "Colombia" : /LIMA/i.test(lab) ? "Perú" : "México";
+          cpCols.push({ idx, name, city, country });
+        }
+      });
+      if (!cpCols.length) return null;
+      const questions = [];
+      const valsByCol = {}; cpCols.forEach(c => { valsByCol[c.idx] = []; });
+      dataRows.forEach(row => {
+        const c = row.c || [];
+        const no = parseInt(displaySheetCell(c[0]), 10);
+        if (!Number.isFinite(no)) return;
+        const cpTema = displaySheetCell(c[2]) || "Sin tema";
+        questions.push({
+          no,
+          bloque: cpBlockForTema(cpTema),
+          tema: cpTema,
+          area: displaySheetCell(c[3]) || "Sin área",
+          mex: displaySheetCell(c[4]) || "",
+          colper: displaySheetCell(c[5]) || displaySheetCell(c[4]) || "",
+        });
+        cpCols.forEach(cp => valsByCol[cp.idx].push(parsePctCell(c[cp.idx])));
+      });
+      const kitchens = cpCols
+        .map(cp => ({ name: cp.name, country: cp.country, city: cp.city, values: valsByCol[cp.idx] }))
+        .filter(k => k.values.some(v => v != null));   // solo CPs con datos cargados
+      if (questions.length && kitchens.length) {
+        window.CP_DETAIL_DATA = { questions, kitchens };
+        return { questions: questions.length, kitchens: kitchens.length };
+      }
+      return null;
+    };
+
+    // Baseline del Q ANTERIOR para CP: lee "Cp preguntas" del sheet histórico
+    // (1krQxz...) y calcula el % Basic y por tema de cada CP, para la variación pp.
+    const syncCpPrevFromSheet = async () => {
+      const table = await fetchPublicSheetTable({ sheet: "Cp preguntas", timeoutMs: 60000, retries: 1 });
+      const cols = table.cols || [];
+      const rows = table.rows || [];
+      const hasColLabels = cols.some(c => (c.label || "").trim().length > 2);
+      const labels = hasColLabels ? cols.map(c => (c.label || "").trim()) : ((rows[0] || {}).c || []).map(c => displaySheetCell(c).trim());
+      const dataRows = hasColLabels ? rows : rows.slice(1);
+      const cpCols = [];
+      labels.forEach((lab, idx) => {
+        if ((/\bCP\b/i.test(lab) || /ACOPIO/i.test(lab)) && /\d/.test(lab)) cpCols.push({ idx, name: lab.replace(/^\S+\s+/, "").trim() });
+      });
+      if (!cpCols.length) return null;
+      const acc = {};
+      cpCols.forEach(cp => { acc[normalizeText(cp.name)] = { vals: [], temaVals: {} }; });
+      dataRows.forEach(row => {
+        const c = row.c || [];
+        const tema = displaySheetCell(c[2]) || "Sin tema";
+        cpCols.forEach(cp => {
+          const v = parsePctCell(c[cp.idx]);
+          if (v == null) return;
+          const a = acc[normalizeText(cp.name)];
+          a.vals.push(v);
+          (a.temaVals[tema] = a.temaVals[tema] || []).push(v);
+        });
+      });
+      const prev = {};
+      Object.keys(acc).forEach(nm => {
+        const a = acc[nm];
+        if (!a.vals.length) return;
+        const basic = a.vals.reduce((x, y) => x + y, 0) / a.vals.length;
+        const byTema = {};
+        Object.keys(a.temaVals).forEach(t => { const arr = a.temaVals[t]; byTema[t] = arr.reduce((x, y) => x + y, 0) / arr.length; });
+        prev[nm] = { basic, byTema };
+      });
+      if (Object.keys(prev).length) window.CP_PREV = prev;
+      return prev;
+    };
+
+    // Reconcilia la lista de cocinas de MX con los nombres del Q3 (el sheet manda):
+    // alinea por NÚMERO de cocina (renombra variantes como "39 MTY CENTRO" →
+    // "39 MONTERREY CENTRO"), agrega las que falten y elimina duplicados. Así una
+    // misma cocina no aparece dos veces por diferencias de nombre. No toca los CP.
+    const reconcileMXKitchens = () => {
+      if (!COUNTRIES.MX) return;
+      const numMap = {};
+      const addName = (name, city) => { const n = kitchenNumber(name); if (n && !numMap[n]) numMap[n] = { name: name, city: city || "" }; };
+      const R = window.Q3_RESULTS_MX || {};
+      Object.keys(R).forEach(k => addName(R[k].name, R[k].city));
+      if (window.Q3_DATA) {
+        Object.keys(window.Q3_DATA.answered || {}).forEach(nm => addName(nm, (window.Q3_DATA.answered[nm] || {}).city));
+        (window.Q3_DATA.pending || []).forEach(nm => addName(nm));
+      }
+      // Renombrar cocinas (no CP) al nombre canónico del Q3 por número.
+      COUNTRIES.MX.kitchens.forEach(k => {
+        if (isCPKitchen(k)) return;
+        const n = kitchenNumber(k.id);
+        if (n && numMap[n] && normalizeText(k.id) !== normalizeText(numMap[n].name)) {
+          k.id = numMap[n].name;
+          if (numMap[n].city) k.city = numMap[n].city;
+        }
+      });
+      // Agregar cocinas del Q3 que no existan (por número).
+      const haveNum = {};
+      COUNTRIES.MX.kitchens.forEach(k => { if (!isCPKitchen(k)) { const n = kitchenNumber(k.id); if (n) haveNum[n] = true; } });
+      Object.keys(numMap).forEach(n => {
+        if (!haveNum[n]) { COUNTRIES.MX.kitchens.push({ id: numMap[n].name, city: numMap[n].city, basic: null, seg: null, hig: null, limp: null, infra: null, ppl: null }); haveNum[n] = true; }
+      });
+      // Deduplicar (cocinas no CP) por número y por nombre normalizado.
+      const seenNum = {}, seenNorm = {}, kept = [];
+      COUNTRIES.MX.kitchens.forEach(k => {
+        if (isCPKitchen(k)) { kept.push(k); return; }
+        const n = kitchenNumber(k.id), nm = normalizeText(k.id);
+        if ((n && seenNum[n]) || seenNorm[nm]) return;
+        if (n) seenNum[n] = true;
+        seenNorm[nm] = true;
+        kept.push(k);
+      });
+      COUNTRIES.MX.kitchens.length = 0;
+      COUNTRIES.MX.kitchens.push(...kept);
     };
 
     // ── Form data parser ─────────────────────────────────────────────────
@@ -5178,11 +6238,46 @@
       return { byTema, byQuestion, byKitchen };
     };
 
+    // Autodetección de la pestaña de diagnóstico del Q ACTUAL.
+    // Cada trimestre se crea una pestaña nueva "Preguntas Q<n>" (opcionalmente con año)
+    // y las anteriores se conservan. Buscamos la más reciente que exista; si no hay
+    // ninguna con formato de trimestre, usamos la pestaña base "Preguntas".
+    const parseQuarterLabel = (name) => {
+      const m = normalizeText(name).match(/Q\s*([1-4])(?:\s+(\d{4}))?/);
+      if (!m) return null;
+      return { q: +m[1], y: m[2] ? +m[2] : null, label: `Q${m[1]}${m[2] ? " " + m[2] : ""}` };
+    };
+    const detectCurrentDiagSheet = async () => {
+      const now = new Date();
+      const cy = now.getFullYear();
+      const cq = Math.floor(now.getMonth() / 3) + 1;
+      const candidates = [];
+      // del más reciente al más antiguo (incluye el trimestre siguiente por si se adelanta la carga)
+      for (let q = Math.min(cq + 1, 4); q >= 1; q--) {
+        candidates.push(`Preguntas Q${q} ${cy}`);
+        candidates.push(`Preguntas Q${q}`);
+      }
+      for (const name of candidates) {
+        try {
+          const t = await fetchPublicSheetTable({ sheet: name, timeoutMs: 25000, retries: 0 });
+          if (t && (t.rows || []).length > 5) return { name, label: parseQuarterLabel(name)?.label || name };
+        } catch (_) { /* la pestaña no existe: seguimos */ }
+      }
+      return null;
+    };
+
     const syncFormDataFromSheets = async () => {
       const results = [];
       try {
-        const table = await fetchPublicSheetTable({ sheet: "Preguntas", timeoutMs: 60000, retries: 2 });
+        let diagSheet = "Preguntas";
+        try {
+          const det = await detectCurrentDiagSheet();
+          if (det) { diagSheet = det.name; window.CURRENT_DIAG_LABEL = det.label; }
+          else { window.CURRENT_DIAG_LABEL = null; }
+        } catch (_) { /* si falla la detección, usamos la pestaña base */ }
+        const table = await fetchPublicSheetTable({ sheet: diagSheet, timeoutMs: 60000, retries: 2 });
         const formScores = parsePreguntasScores(table);
+        if (diagSheet !== "Preguntas") results.push(`Diagnóstico Q actual: "${diagSheet}"`);
         const counts = ["MX","CO","PE"].map(k => `${k}:${Object.keys(formScores[k].byName).length}`).join(" ");
         results.push(`Preguntas ✓ ${counts} cocinas`);
         window.FORM_SCORES = formScores;
@@ -5338,6 +6433,14 @@
         const fixes      = await syncFixesFromSheets();
         const formResult = await syncFormDataFromSheets();
         const dotResult  = await syncDotMxFromSheets();
+        applyPrevQTransition();  // fusiona cierre proyectado Q anterior donde falte diagnóstico del Q actual
+        try { await syncQ3ResultsMX(); } catch (e) { /* si falla, se usa lo congelado/guardado */ }
+        try { await syncQ3PreguntasMX(); } catch (e) { /* fuente autoritativa por pregunta; si falla, se usa Resultados/crudo */ }
+        let cpStr = "";
+        try { const cp = await syncCpFromSheet(); if (cp) cpStr = `CP: ${cp.kitchens} centros · ${cp.questions} preguntas`; } catch (e) { /* se usa CP estático/guardado */ }
+        try { await syncCpPrevFromSheet(); } catch (e) { /* sin baseline de CP → sin variación */ }
+        buildQ3MX();             // MX opera sobre el Q3 (preserva el Q2 recién sincronizado para el comparativo)
+        reconcileMXKitchens();   // alinea nombres al Q3 y elimina duplicados por número
         const syncAt = new Date().toISOString();
         saveSyncData({ lastSyncAt: syncAt });
         const now = formatSyncMetaDate(syncAt);
@@ -5354,7 +6457,7 @@
           : (formParts ? `Forms: ${formParts}` : "");
         const dotStr  = dotCocinas > 0 ? `% Dot MX: ${dotCocinas} cocinas` : "";
         const fixStr  = `Fixes (${totalPlanes} total): ${window.LAST_FIX_SYNC_STATUS || `MX ${fixes.MX.length}, CO ${fixes.CO.length}, PE ${fixes.PE.length}, CP ${(fixes.CP || []).length}`}`;
-        msg.textContent = `${statusIcon} ${[detailStatus, formStr, fixStr, dotStr].filter(Boolean).join(" · ")} · ${now}.${hint}`;
+        msg.textContent = `${statusIcon} ${[detailStatus, formStr, fixStr, dotStr, cpStr].filter(Boolean).join(" · ")} · ${now}.${hint}`;
 
       } catch (error) {
         msg.textContent = `Error al conectar con Google Sheets: ${error.message}`;
@@ -5365,6 +6468,9 @@
     });
 
     loadSavedSync();
+    applyPrevQTransition();  // aplica transición Q anterior → Q actual con datos restaurados
+    buildQ3MX();             // MX sobre el Q3 (usa el Q2 guardado localmente como comparativo)
+    reconcileMXKitchens();
     render();
 
     // Auto-sync al cargar: si los datos tienen más de 1 hora o no hay sync guardado,
