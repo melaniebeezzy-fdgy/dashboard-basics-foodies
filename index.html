@@ -4388,24 +4388,29 @@
         if (last && last.name === p.monthName) { last.endPx = p.endPx; }
         else monthGroups.push({ name: p.monthName, month: p.month, startPx: p.startPx, endPx: p.endPx });
       });
-      // Conteo de planes por mes (por fecha de cierre/compromiso, sin despriorizados).
-      const monthPlanCount = {};
+      // Por mes (fecha de cierre/compromiso, sin despriorizados): conteo, budget y % completado.
+      const monthAgg = {};
       rawFixes.forEach(f => {
         if (projStatusIsDepri(f)) return;
         const dt = ganttEndDate(f) || ganttStartDate(f);
         if (!dt) return;
         const mo = dt.getMonth();
-        monthPlanCount[mo] = (monthPlanCount[mo] || 0) + 1;
+        const a = monthAgg[mo] = monthAgg[mo] || { n: 0, budget: 0, done: 0 };
+        a.n += 1;
+        a.budget += fixBudgetAmount(f);
+        if (ganttFixStatus(f) === "done") a.done += 1;
       });
       const headerTop = monthGroups.map(g => {
         const isExp = state.ganttExpandedMonths?.has(g.month);
-        const nPlanes = monthPlanCount[g.month] || 0;
+        const a = monthAgg[g.month] || { n: 0, budget: 0, done: 0 };
+        const pct = a.n ? Math.round(a.done / a.n * 100) : 0;
+        const meta = a.n ? `· ${a.n} plan${a.n !== 1 ? "es" : ""}${a.budget > 0 ? ` · ${formatMoney(a.budget)}` : ""} · ${pct}% compl.` : "· 0 planes";
         return `
         <div data-gantt-month="${g.month}" title="${isExp ? "Colapsar" : "Expandir"} ${g.name}" style="position:absolute;left:${g.startPx}px;width:${g.endPx-g.startPx}px;height:100%;
              border-right:1px solid var(--border);display:flex;align-items:center;gap:5px;padding:0 8px;overflow:hidden;cursor:pointer">
           <span style="font-size:9px;color:var(--slate);flex-shrink:0">${isExp ? "&#9662;" : "&#9656;"}</span>
           <span style="font-size:11px;font-weight:650;color:var(--slate);text-transform:capitalize;white-space:nowrap">${g.name}</span>
-          <span style="font-size:10px;color:var(--text-muted);flex-shrink:0">· ${nPlanes} plan${nPlanes !== 1 ? "es" : ""}</span>
+          <span style="font-size:10px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${meta}</span>
         </div>`;
       }).join("");
 
