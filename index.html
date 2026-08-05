@@ -1915,7 +1915,8 @@
 
     const renderDashboard = () => {
       const rows = withData();
-      const kFixesOf = (k) => fixesForKitchen(k).filter(fix => fixMatchesKitchen(fix, k, state.country));
+      // Planes activos de una cocina (excluye despriorizados) para conteos y budget.
+      const kFixesOf = (k) => fixesForKitchen(k).filter(fix => fixMatchesKitchen(fix, k, state.country) && !projStatusIsDepri(fix));
       const avg = rows.length ? rows.reduce((sum, kitchen) => sum + kitchenScore(kitchen), 0) / rows.length : 0;
       const scoreTarget = state.country === "CO" ? 80 : state.country === "MX" ? 90 : 75;
       const green = rows.filter(k => kitchenScore(k) >= scoreTarget).length;
@@ -4435,7 +4436,8 @@
               else                                          kOpen++;
             });
             const kTotal = kitchenMap.size;
-            groups.push({ label: area, sublabel: `${fixes.length} plan${fixes.length !== 1 ? "es" : ""}`, fixes, kDone, kOverdue, kOpen, kTotal });
+            const nAct = fixes.filter(f => !projStatusIsDepri(f)).length;
+            groups.push({ label: area, sublabel: `${nAct} plan${nAct !== 1 ? "es" : ""}`, fixes, kDone, kOverdue, kOpen, kTotal });
           });
       } else {
         const usedFixes = new Set();
@@ -4535,8 +4537,9 @@
         const projDone = group.kitchen ? ganttProjected(group.kitchen, "done") : null;
         const curScore = group.kitchen ? kitchenScore(group.kitchen) : (state.ganttGroupBy === "area" ? areaBasicScore(group.label) : null);
         const curBadge = curScore != null ? `<span style="font-size:12px;font-weight:700;color:${getStatus(curScore).color}">${Math.round(curScore)}%</span>` : "";
-        const nFixes = group.fixes.length;
-        const gBudget = group.fixes.reduce((s, fix) => s + (group.kitchen ? fixBudgetForKitchen(fix, group.kitchen) : fixBudgetAmount(fix)), 0);
+        const activeFixes = group.fixes.filter(f => !projStatusIsDepri(f));  // conteo/budget sin despriorizados
+        const nFixes = activeFixes.length;
+        const gBudget = activeFixes.reduce((s, fix) => s + (group.kitchen ? fixBudgetForKitchen(fix, group.kitchen) : fixBudgetAmount(fix)), 0);
         const groupRow = `
           <div class="gantt-row gantt-group-row">
             <div class="gantt-left-col" style="background:var(--soft);border-right:2px solid var(--border)">
