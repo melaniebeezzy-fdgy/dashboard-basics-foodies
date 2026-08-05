@@ -1097,12 +1097,15 @@
       primary: "#090E3E",
     };
 
+    // Borde entre Intermedio (crema) y Crítico (rosado): MX = 75%, CO y PE = 50%.
+    const midThreshold = () => state.country === "MX" ? 75 : 50;
     const getStatus = (v, threshold) => {
       const t = threshold ?? (state.country === "CO" ? 80 : state.country === "MX" ? 90 : 75);
+      const mid = midThreshold();
       if (v == null) return { color: PALETTE.slate, bg: PALETTE.lightGray, label: "Pendiente" };
       if (v >= t) return { color: PALETTE.cyanDark, bg: "#E7F6FC", label: "Cumple" };
-      if (v >= 75) return { color: PALETTE.neutralText, bg: "#F8F0E2", bar: PALETTE.neutral, label: "Intermedio" };  // crema
-      return { color: PALETTE.mauve, bg: "#F4EAF0", bar: PALETTE.mauveLight, label: "Crítico" };                    // rosado (<75%)
+      if (v >= mid) return { color: PALETTE.neutralText, bg: "#F8F0E2", bar: PALETTE.neutral, label: "Intermedio" };  // crema
+      return { color: PALETTE.mauve, bg: "#F4EAF0", bar: PALETTE.mauveLight, label: "Crítico" };                      // rosado
     };
 
     const BASICS_NAMES = [
@@ -1835,7 +1838,7 @@
       const avg = rows.length ? rows.reduce((sum, kitchen) => sum + kitchenScore(kitchen), 0) / rows.length : 0;
       const scoreTarget = state.country === "CO" ? 80 : state.country === "MX" ? 90 : 75;
       const green = rows.filter(k => kitchenScore(k) >= scoreTarget).length;
-      const midMin = Math.min(75, scoreTarget);
+      const midMin = Math.min(midThreshold(), scoreTarget);
       const yellow = rows.filter(k => kitchenScore(k) >= midMin && kitchenScore(k) < scoreTarget).length;
       const red = rows.filter(k => kitchenScore(k) != null && kitchenScore(k) < midMin).length;
       const total = rows.length || 1;
@@ -1860,7 +1863,7 @@
       const kpis = [
         { label: "% Básicos", value: fmt(avg), status: avg, sub: (mxDelta && q2avg != null) ? `${cq3DeltaBadge(avg, q2avg)} vs Q2` : "" },
         { label: `Cocinas ≥${scoreTarget}%`, value: green,  sub: `${greenPct}% del total`,  status: 100 },
-        { label: `Cocinas ${midMin}-${scoreTarget}%`, value: yellow, sub: `${yellowPct}% del total`, status: 80 },
+        { label: `Cocinas ${midMin}-${scoreTarget}%`, value: yellow, sub: `${yellowPct}% del total`, status: midMin },
         { label: `Cocinas <${midMin}%`,         value: red,    sub: `${redPct}% del total`,    status: 30 },
       ];
 
