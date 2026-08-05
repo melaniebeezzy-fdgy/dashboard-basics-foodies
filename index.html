@@ -1341,6 +1341,8 @@
       kitchenBlock: null,
       kitchenTheme: null,
       dashboardRankOrder: "desc",
+      rankSortKey: "basic",   // cocina | delta | basic | proj | planes | budget
+      rankSortDir: "desc",
       impactKitchenId: null,
       impactPeriodKey: null,
       impactAreaDetail: null,
@@ -1913,6 +1915,7 @@
 
     const renderDashboard = () => {
       const rows = withData();
+      const kFixesOf = (k) => fixesForKitchen(k).filter(fix => fixMatchesKitchen(fix, k, state.country));
       const avg = rows.length ? rows.reduce((sum, kitchen) => sum + kitchenScore(kitchen), 0) / rows.length : 0;
       const scoreTarget = state.country === "CO" ? 80 : state.country === "MX" ? 90 : 75;
       const green = rows.filter(k => kitchenScore(k) >= scoreTarget).length;
@@ -1966,61 +1969,87 @@
         });
         return Object.fromEntries(Object.entries(acc).map(([c, { sum, n }]) => [c, sum / n]));
       })();
+      // Agregados por ciudad: proyectado, planes y budget.
+      const cityAgg = (() => {
+        const acc = {};
+        filtered().forEach(k => {
+          if (!k.city) return;
+          const a = acc[k.city] = acc[k.city] || { projSum: 0, projN: 0, planes: 0, budget: 0 };
+          const p = projectedScore(k, "all"); if (p != null) { a.projSum += p; a.projN += 1; }
+          const fx = kFixesOf(k);
+          a.planes += fx.length;
+          a.budget += fx.reduce((s, fix) => s + fixBudgetForKitchen(fix, k), 0);
+        });
+        return acc;
+      })();
       const cityBars = Object.entries(computedCityScores()).map(([city, score]) => {
         const prevCity = prevCityScores[city] ?? null;
         const trendStr = trendBadgeHtml(score, prevCity);
         const mxCityDelta = (mxDelta && q2CityScores[city] != null)
-          ? `<div style="text-align:right;margin-top:-8px;margin-bottom:6px;font-size:11px">${cq3DeltaBadge(score, q2CityScores[city])} <span style="color:#718096">vs Q2</span></div>`
+          ? `<div style="text-align:right;margin-top:-8px;margin-bottom:2px;font-size:11px">${cq3DeltaBadge(score, q2CityScores[city])} <span style="color:#718096">vs Q2</span></div>`
           : "";
-        return scoreBar(score, city) + (trendStr ? `<div style="text-align:right;margin-top:-8px;margin-bottom:4px;font-size:11px;color:#718096">${trendStr} Q1: ${prevCity.toFixed(1)}%</div>` : "") + mxCityDelta;
+        const a = cityAgg[city];
+        const projStr = (a && a.projN) ? `Proy. ${Math.round(a.projSum / a.projN)}%` : "";
+        const cityExtra = a ? `<div style="text-align:right;margin-bottom:8px;font-size:11px;color:var(--text-muted)">${[projStr, `${a.planes} plan${a.planes !== 1 ? "es" : ""}`, a.budget > 0 ? formatMoney(a.budget) : ""].filter(Boolean).join(" · ")}</div>` : "";
+        return scoreBar(score, city) + (trendStr ? `<div style="text-align:right;margin-top:-8px;margin-bottom:4px;font-size:11px;color:#718096">${trendStr} Q1: ${prevCity.toFixed(1)}%</div>` : "") + mxCityDelta + cityExtra;
       }).join("");
-      const rankQuestions = dashboardRankingQuestions();
-      const rankingModeLabel = state.dashboardTheme
-        ? `Ranking por tema · ${state.dashboardTheme}`
-        : state.dashboardBlock
-          ? `Ranking por bloque · ${state.dashboardBlock}`
-          : `${state.typeFilter === "cp" ? "CP" : state.typeFilter === "kitchen" ? "Cocinas" : "Cocinas y CP"} · ${state.cityFilter === "Todas" ? "Todas las ciudades" : state.cityFilter}`;
-      const rankingRows = [...rows]
-        .map(kitchen => ({
-          ...kitchen,
-          rankValue: (() => {
-            if (!rankQuestions.length) return kitchenScore(kitchen);
-            const fsRank = (window.FORM_SCORES || {})[state.country];
-            const normId = normalizeText(kitchen.id);
-            // Prefer FORM_SCORES: tema → bloque → per-question average → SHEET_DETAIL fallback
-            if (state.dashboardTheme && fsRank?.byKitchenTema?.[normId]?.[state.dashboardTheme] != null)
-              return fsRank.byKitchenTema[normId][state.dashboardTheme];
-            if (state.dashboardBlock && fsRank?.byKitchenBloque?.[normId]?.[state.dashboardBlock] != null)
-              return fsRank.byKitchenBloque[normId][state.dashboardBlock];
-            if (fsRank?.byKitchenQuestion?.[normId]) {
-              const vals = rankQuestions.map(q => fsRank.byKitchenQuestion[normId][q.no] ?? null).filter(v => v !== null);
-              if (vals.length) return vals.reduce((a, b) => a + b, 0) / vals.length;
-            }
-            return kitchenAverageForQuestions(kitchen, rankQuestions);
-          })(),
-        }))
-        .sort((a, b) => {
-          if (a.rankValue == null && b.rankValue == null) return 0;
-          if (a.rankValue == null) return 1;
-          if (b.rankValue == null) return -1;
-          return state.dashboardRankOrder === "asc" ? a.rankValue - b.rankValue : b.rankValue - a.rankValue;
-        });
-      const ranking = rankingRows.map((k, index) => {
-        const ps = prevKitchenScore(k);
-        return `
-          <div class="rank-row">
-            <div class="rank-left">
-              <span class="rank-number">#${index + 1}</span>
-              <span class="rank-id">${k.id}</span>
-            </div>
-            <span style="display:flex;align-items:center;gap:6px">
-              ${mxDelta ? cq3DeltaBadge(k.rankValue, q2ForRank(k)) : ""}
-              ${trendBadgeHtml(k.rankValue, ps)}
-              ${badge(k.rankValue)}
-            </span>
-          </div>
-        `;
-      }).join("");
+      const rankingModeLabel = `${state.typeFilter === "cp" ? "CP" : "Cocinas"} · ${state.cityFilter === "Todas" ? "Todas las ciudades" : state.cityFilter}`;
+      // Datos por cocina para la tabla ordenable.
+      const rankData = rows.map(k => {
+        const fx = kFixesOf(k);
+        const basic = kitchenScore(k);
+        const prev = prevKitchenBasic(k);
+        return {
+          id: k.id,
+          basic,
+          delta: (basic != null && prev != null) ? basic - prev : null,
+          proj: projectedScore(k, "all"),
+          planes: fx.length,
+          budget: fx.reduce((s, fix) => s + fixBudgetForKitchen(fix, k), 0),
+        };
+      });
+      const sortKey = state.rankSortKey || "basic";
+      const sortDir = state.rankSortDir === "asc" ? 1 : -1;
+      rankData.sort((a, b) => {
+        if (sortKey === "cocina") return sortDir * String(a.id).localeCompare(String(b.id), "es", { numeric: true });
+        const av = a[sortKey], bv = b[sortKey];
+        if (av == null && bv == null) return 0;
+        if (av == null) return 1;
+        if (bv == null) return -1;
+        return sortDir * (av - bv);
+      });
+      const sortArrow = (key) => sortKey === key ? (state.rankSortDir === "asc" ? " &#9650;" : " &#9660;") : "";
+      const th = (key, label, align) => `<th data-rank-sort="${key}" style="text-align:${align || "center"};padding:7px 8px;cursor:pointer;font-size:11px;color:${sortKey === key ? "var(--dark-blue)" : "var(--text-muted)"};white-space:nowrap;user-select:none">${label}${sortArrow(key)}</th>`;
+      const deltaCell = (d) => {
+        if (d == null) return `<span style="color:var(--text-muted)">—</span>`;
+        const up = d > 1, down = d < -1;
+        const color = up ? "#276749" : down ? "#9b2c2c" : PALETTE.slate;
+        const arrow = up ? "&#9650;" : down ? "&#9660;" : "&#9644;";
+        return `<span style="color:${color};font-weight:600;white-space:nowrap">${arrow} ${Math.abs(Math.round(d))} pp</span>`;
+      };
+      const pctCell = (v) => v == null ? `<span style="color:var(--text-muted)">—</span>` : `<span style="font-weight:650;color:${getStatus(v).color}">${Math.round(v)}%</span>`;
+      const rankingTable = `
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead><tr style="border-bottom:2px solid var(--border)">
+            ${th("cocina", "Cocina", "left")}
+            ${th("delta", "Δ vs Q2")}
+            ${th("basic", "Basic")}
+            ${th("proj", "Basic proy.")}
+            ${th("planes", "Planes")}
+            ${th("budget", "Budget")}
+          </tr></thead>
+          <tbody>
+            ${rankData.map(r => `
+              <tr style="border-bottom:1px solid var(--border)">
+                <td style="padding:7px 8px;font-weight:600;white-space:nowrap">${r.id}</td>
+                <td style="text-align:center;padding:7px 8px">${deltaCell(r.delta)}</td>
+                <td style="text-align:center;padding:7px 8px">${pctCell(r.basic)}</td>
+                <td style="text-align:center;padding:7px 8px">${pctCell(r.proj)}</td>
+                <td style="text-align:center;padding:7px 8px">${r.planes || 0}</td>
+                <td style="text-align:right;padding:7px 8px;white-space:nowrap">${r.budget > 0 ? formatMoney(r.budget) : "—"}</td>
+              </tr>`).join("")}
+          </tbody>
+        </table>`;
 
       byId("dashboard").innerHTML = `
         <div class="kpis">
@@ -2036,15 +2065,9 @@
             ${renderDashboardDrilldown()}
           </article>
           <article class="panel dashboard-ranking-panel">
-            <div class="panel-title" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
-              <span>&#x2605; Ranking de cocinas</span>
-              <select id="dashboardRankOrder" style="min-width:150px;font-size:12px;padding:4px 8px">
-                <option value="desc" ${state.dashboardRankOrder === "desc" ? "selected" : ""}>Mayor a menor</option>
-                <option value="asc" ${state.dashboardRankOrder === "asc" ? "selected" : ""}>Menor a mayor</option>
-              </select>
-            </div>
-            <div class="small-title">${rankingModeLabel}</div>
-            <div class="ranking">${ranking}</div>
+            <div class="panel-title"><span>&#x2605; Ranking de cocinas</span></div>
+            <div class="small-title">${rankingModeLabel} · clic en un título para ordenar</div>
+            <div style="overflow-x:auto">${rankingTable}</div>
           </article>
         </div>
       `;
@@ -5264,6 +5287,15 @@
       if (ganttGroupBtn) {
         state.ganttGroupBy = ganttGroupBtn.dataset.ganttGroupby;
         renderGantt();
+        return;
+      }
+
+      const rankTh = event.target.closest("[data-rank-sort]");
+      if (rankTh) {
+        const key = rankTh.dataset.rankSort;
+        if (state.rankSortKey === key) state.rankSortDir = state.rankSortDir === "asc" ? "desc" : "asc";
+        else { state.rankSortKey = key; state.rankSortDir = key === "cocina" ? "asc" : "desc"; }
+        renderDashboard();
         return;
       }
 
