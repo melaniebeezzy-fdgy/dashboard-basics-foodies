@@ -4686,6 +4686,7 @@
                   ` : barInnerText ? `<span style="position:absolute;left:5px;top:50%;transform:translateY(-50%);color:rgba(255,255,255,0.95);font-size:9px;font-weight:650;white-space:nowrap;overflow:hidden;max-width:${barW-10}px">${barInnerText}</span>` : ""}
                 </div>
               </div>
+              <div class="gantt-proj-col">${!isBasicRow && rep.basic ? `<span title="${(rep.basic || "").replace(/"/g, "'")}" style="font-size:10px;color:var(--text-muted);line-height:1.25;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden">${rep.basic}</span>` : ""}</div>
             </div>`;
         }).join("");
 
