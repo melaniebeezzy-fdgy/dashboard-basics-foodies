@@ -4426,11 +4426,12 @@
         const curScore = group.kitchen ? kitchenScore(group.kitchen) : null;
         const curBadge = curScore != null ? `<span style="font-size:12px;font-weight:700;color:${getStatus(curScore).color}">${Math.round(curScore)}%</span>` : "";
         const nFixes = group.fixes.length;
+        const gBudget = group.fixes.reduce((s, fix) => s + (group.kitchen ? fixBudgetForKitchen(fix, group.kitchen) : fixBudgetAmount(fix)), 0);
         const groupRow = `
           <div class="gantt-row gantt-group-row">
             <div class="gantt-left-col" style="background:var(--soft);border-right:2px solid var(--border)">
               <div style="font-weight:650;color:var(--dark-blue);font-size:12px;display:flex;align-items:center;flex-wrap:wrap;gap:6px">${group.label}${curBadge}${groupStatusBadge}</div>
-              <div style="font-size:11px;color:var(--text-muted)">${group.sublabel}${group.kitchen ? ` · ${nFixes} plan${nFixes !== 1 ? "es" : ""}` : ""}</div>
+              <div style="font-size:11px;color:var(--text-muted)">${group.sublabel}${group.kitchen ? ` · ${nFixes} plan${nFixes !== 1 ? "es" : ""}` : ""}${gBudget > 0 ? ` · ${formatMoney(gBudget)}` : ""}</div>
             </div>
             <div class="gantt-right-col" style="width:${TOTAL_W}px;background:var(--soft)">${weekBg}${gridLines}${todayLine}</div>
             ${group.kitchen ? `<div class="gantt-proj-col">${projFull != null ? ganttProjBadge(projFull, "Proyectado") : ""}${projDone != null ? ganttProjBadge(projDone, "Con completados") : ""}</div>` : ""}
@@ -4619,7 +4620,7 @@
             <article class="kpi" style="background:#eef1f8;border-color:#090e3e40">
               <div class="kpi-label">Total planes</div>
               <div class="kpi-value" style="color:#090e3e">${total}</div>
-              <div class="kpi-sub">${undatedFixes.length ? `${undatedFixes.length} sin fecha` : "todos con fecha"}</div>
+              <div class="kpi-sub">${undatedFixes.length ? `${undatedFixes.length} sin fecha` : "todos con fecha"} · ${formatMoney(rawFixes.reduce((s, fix) => s + fixBudgetAmount(fix), 0))}</div>
             </article>
             <article class="kpi" style="background:#e7f6fc;border-color:#0b769f40">
               <div class="kpi-label">A tiempo</div>
@@ -5576,7 +5577,7 @@
       const FALLBACK_COLS = {
         MX: { subcategoria:2, area:3, ciudad:4, cocina:5, basic:6, iniciativa:7, compromiso:8, cierre:9, abril:10, mayo:11, junio:12, totalQ:13, responsable:14, status:15, prioridad:16, revisado:17, evidencia:18, presupuesto:19 },
         CO: { subcategoria:2, cocina:3, basic:4, ciudad:5, iniciativa:6, compromiso:7, cierre:8, cotizacion:9, totalQ:9, area:10, responsable:10, status:11, prioridad:12 },
-        PE: { subcategoria:2, cocina:3, iniciativa:4, compromiso:5, cierre:6, mensual:7, cotizacion:8, totalQ:8, ejecutado:9, responsable:10, prioridad:11, status:12 },
+        PE: { subcategoria:2, cocina:3, iniciativa:4, basic:5, compromiso:6, cierre:7, cotizacion:9, totalQ:9, status:10, responsable:11, prioridad:12 },
         CP: { subcategoria:2, ciudad:3, cocina:4, basic:5, iniciativa:6, compromiso:7, cierre:8, cotizacion:9, totalQ:9, responsable:10, status:11, prioridad:12, area:13 },
       };
 
@@ -5672,7 +5673,7 @@
       for (const config of [
         { key: "MX", sheet: "Fixes MX", customSheetId: MX_Q3_FIX_SHEET_ID, gid: MX_Q3_FIX_GID },
         { key: "CO", sheet: "Fixes CO", customSheetId: MX_Q3_FIX_SHEET_ID },
-        { key: "PE", sheet: "Fixes PE" },
+        { key: "PE", sheet: "Fixes PE", customSheetId: MX_Q3_FIX_SHEET_ID },
         { key: "CP", sheet: "Fixes CPs", customSheetId: MX_Q3_FIX_SHEET_ID },
       ]) {
         try {
