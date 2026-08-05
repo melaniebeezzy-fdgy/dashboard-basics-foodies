@@ -1033,7 +1033,6 @@
       <div class="city-control">
         <label for="typeSelect">Tipo</label>
         <select id="typeSelect">
-          <option value="all">Todos</option>
           <option value="kitchen">Cocinas</option>
           <option value="cp">CP</option>
         </select>
@@ -1326,7 +1325,7 @@
     const state = {
       country: "MX",
       view: "dashboard",
-      typeFilter: "all",
+      typeFilter: "kitchen",
       cityFilter: "Todas",
       diagFilter: "all",   // all | real | projected  (transición Q anterior → Q actual)
       cq3Kitchen: null,    // cocina expandida en Comparativo Q3
@@ -5064,7 +5063,7 @@
       if (countryButton) {
         state.country = countryButton.dataset.country;
         state.cityFilter = "Todas";
-        state.typeFilter = "all";
+        state.typeFilter = "kitchen";
         state.diagFilter = "all";
         state.selectedKitchen = null;
         state.detailKitchenId = null;
