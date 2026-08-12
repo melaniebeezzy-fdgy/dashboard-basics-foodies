@@ -4257,6 +4257,28 @@
       document.body.appendChild(modal);
     };
 
+    // Popup "ver todos": lista completa de atrasados o de esta semana.
+    const showGanttMoreList = (key) => {
+      const existing = document.getElementById("ganttDetailModal");
+      if (existing) existing.remove();
+      const d = (window.__ganttMoreList || {})[key];
+      if (!d) return;
+      const modal = document.createElement("div");
+      modal.id = "ganttDetailModal";
+      modal.style.cssText = "position:fixed;inset:0;background:rgba(15,23,42,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px";
+      modal.innerHTML = `
+        <div style="background:#fff;border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,0.22);width:min(620px,92vw);max-height:82vh;display:flex;flex-direction:column;overflow:hidden;font-family:inherit">
+          <div style="padding:18px 20px 14px;border-bottom:1px solid #e8edf2;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-shrink:0">
+            <div style="font-weight:700;font-size:14px;color:#1e293b">${d.title}</div>
+            <button data-close-gantt-modal type="button" style="border:0;background:#f1f5f9;border-radius:6px;font-size:14px;cursor:pointer;color:#64748b;padding:4px 8px;line-height:1;flex-shrink:0">&#x2715;</button>
+          </div>
+          <div style="overflow-y:auto;padding:4px 20px 12px">${d.html}</div>
+        </div>`;
+      modal.addEventListener("click", e => { if (e.target === modal) modal.remove(); });
+      document.addEventListener("keydown", function esc(e) { if (e.key === "Escape") { modal.remove(); document.removeEventListener("keydown", esc); } });
+      document.body.appendChild(modal);
+    };
+
     // Popup del detalle de una semana del resumen ejecutivo (plan · área · básico · presupuesto).
     const showGanttWeekDetail = (tsKey) => {
       const existing = document.getElementById("ganttDetailModal");
@@ -4525,6 +4547,35 @@
       }).sort((a, b) => ((a.sd || a.ed) - (b.sd || b.ed)));
       const exWeekShown = exWeekAll.slice(0, 8);
 
+      // Filas reutilizables (para las listas cortas y para el popup "ver todos").
+      const _lateRow = ({ rep, n, ed }) => `
+        <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--light-gray)">
+          <div style="font-size:11px;font-weight:700;color:#96607d;white-space:nowrap;min-width:56px">${ed ? _weekOf(ed) : "Sin fecha"}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12px;color:var(--navy);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${rep.iniciativa || rep.subcategoria || rep.basic || "—"}</div>
+            <div style="font-size:10px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(rep.area || "")}${n > 1 ? ` · ${n} cocinas` : (rep.cocina ? ` · ${rep.cocina}` : "")}${_basicSummary(rep) ? ` · ${_basicSummary(rep)}` : ""}${ed ? ` · venció ${_fmtD(ed)}` : ""}</div>
+          </div>
+        </div>`;
+      const _weekRow = ({ rep, n, sd, ed, enEjec }) => {
+        const arranca = sd && sd >= _wkStart && sd <= _wkEnd;
+        const tag = arranca ? { t: "Arranca", c: "#0b769f", b: "#e7f6fc" } : enEjec ? { t: "En ejecución", c: "#0b769f", b: "#e7f6fc" } : { t: "Programado", c: "#345964", b: "#eef1f8" };
+        const showD = arranca ? sd : (ed || sd);
+        return `
+        <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--light-gray)">
+          <div style="font-size:11px;font-weight:700;color:${tag.c};white-space:nowrap;min-width:52px">${showD ? _fmtD(showD) : "—"}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12px;color:var(--navy);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${rep.iniciativa || rep.subcategoria || rep.basic || "—"}</div>
+            <div style="font-size:10px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(rep.area || "")}${n > 1 ? ` · ${n} cocinas` : (rep.cocina ? ` · ${rep.cocina}` : "")}${_basicSummary(rep) ? ` · ${_basicSummary(rep)}` : ""}</div>
+          </div>
+          <span style="font-size:10px;font-weight:650;color:${tag.c};background:${tag.b};padding:1px 7px;border-radius:999px;white-space:nowrap">${tag.t}</span>
+        </div>`;
+      };
+      // Guarda las listas completas para el popup "ver todos".
+      window.__ganttMoreList = {
+        late: { title: `Atrasados · ${exLateAll.length} planes`, html: exLateAll.map(_lateRow).join("") },
+        week: { title: `Esta semana · ${exWeekAll.length} planes`, html: exWeekAll.map(_weekRow).join("") },
+      };
+
       // Presupuesto semana a semana y por mes: comprometido (todos los activos con
       // fecha) vs gastado (planes completados). Se atribuye a la fecha de cierre.
       const _monday    = (d) => { const s = new Date(d); s.setHours(0, 0, 0, 0); s.setDate(s.getDate() - ((s.getDay() + 6) % 7)); return s; };
@@ -4741,35 +4792,22 @@
           ${exBudgetHtml}
           <div style="display:flex;gap:22px;flex-wrap:wrap">
             <div style="flex:1;min-width:280px">
-              <div style="font-size:12px;font-weight:700;color:var(--dark-blue);margin-bottom:4px">Atrasados <span style="font-weight:400;color:var(--text-muted)">· semana en que debieron cerrar</span></div>
-              ${exLateShown.length ? exLateShown.map(({ rep, n, ed }) => `
-                <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--light-gray)">
-                  <div style="font-size:11px;font-weight:700;color:#96607d;white-space:nowrap;min-width:56px">${ed ? _weekOf(ed) : "Sin fecha"}</div>
-                  <div style="flex:1;min-width:0">
-                    <div style="font-size:12px;color:var(--navy);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${rep.iniciativa || rep.subcategoria || rep.basic || "—"}</div>
-                    <div style="font-size:10px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(rep.area || "")}${n > 1 ? ` · ${n} cocinas` : (rep.cocina ? ` · ${rep.cocina}` : "")}${_basicSummary(rep) ? ` · ${_basicSummary(rep)}` : ""}${ed ? ` · venció ${_fmtD(ed)}` : ""}</div>
-                  </div>
-                </div>`).join("")
+              <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:4px">
+                <div style="font-size:12px;font-weight:700;color:var(--dark-blue)">Atrasados <span style="font-weight:400;color:var(--text-muted)">· semana en que debieron cerrar</span></div>
+                ${exLateAll.length ? `<span data-gantt-more="late" style="font-size:11px;font-weight:650;color:#0b769f;cursor:pointer;white-space:nowrap">ver todos (${exLateAll.length})</span>` : ""}
+              </div>
+              ${exLateShown.length ? exLateShown.map(_lateRow).join("")
                 : `<div style="font-size:12px;color:#4a9070;padding:10px 0">✓ Sin planes atrasados. El cronograma está al día.</div>`}
-              ${exLateAll.length > exLateShown.length ? `<div style="font-size:11px;color:var(--text-muted);padding-top:6px">+ ${exLateAll.length - exLateShown.length} planes atrasados más</div>` : ""}
+              ${exLateAll.length > exLateShown.length ? `<div data-gantt-more="late" style="font-size:11px;font-weight:650;color:#0b769f;padding-top:8px;cursor:pointer">+ ${exLateAll.length - exLateShown.length} planes atrasados más · ver todos</div>` : ""}
             </div>
             <div style="flex:1;min-width:280px">
-              <div style="font-size:12px;font-weight:700;color:var(--dark-blue);margin-bottom:4px">Esta semana · Sem ${_curWeek} <span style="font-weight:400;color:var(--text-muted)">· arranques y en ejecución · ${_fmtD(_wkStart)} – ${_fmtD(_wkEnd)}</span></div>
-              ${exWeekShown.length ? exWeekShown.map(({ rep, n, sd, ed, enEjec }) => {
-                const arranca = sd && sd >= _wkStart && sd <= _wkEnd;
-                const tag = arranca ? { t: "Arranca", c: "#0b769f", b: "#e7f6fc" } : enEjec ? { t: "En ejecución", c: "#0b769f", b: "#e7f6fc" } : { t: "Programado", c: "#345964", b: "#eef1f8" };
-                const showD = arranca ? sd : (ed || sd);
-                return `
-                <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--light-gray)">
-                  <div style="font-size:11px;font-weight:700;color:${tag.c};white-space:nowrap;min-width:52px">${showD ? _fmtD(showD) : "—"}</div>
-                  <div style="flex:1;min-width:0">
-                    <div style="font-size:12px;color:var(--navy);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${rep.iniciativa || rep.subcategoria || rep.basic || "—"}</div>
-                    <div style="font-size:10px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(rep.area || "")}${n > 1 ? ` · ${n} cocinas` : (rep.cocina ? ` · ${rep.cocina}` : "")}${_basicSummary(rep) ? ` · ${_basicSummary(rep)}` : ""}</div>
-                  </div>
-                  <span style="font-size:10px;font-weight:650;color:${tag.c};background:${tag.b};padding:1px 7px;border-radius:999px;white-space:nowrap">${tag.t}</span>
-                </div>`; }).join("")
+              <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:4px">
+                <div style="font-size:12px;font-weight:700;color:var(--dark-blue)">Esta semana · Sem ${_curWeek} <span style="font-weight:400;color:var(--text-muted)">· arranques y en ejecución · ${_fmtD(_wkStart)} – ${_fmtD(_wkEnd)}</span></div>
+                ${exWeekAll.length ? `<span data-gantt-more="week" style="font-size:11px;font-weight:650;color:#0b769f;cursor:pointer;white-space:nowrap">ver todos (${exWeekAll.length})</span>` : ""}
+              </div>
+              ${exWeekShown.length ? exWeekShown.map(_weekRow).join("")
                 : `<div style="font-size:12px;color:var(--text-muted);padding:10px 0">No hay arranques ni ejecuciones para esta semana.</div>`}
-              ${exWeekAll.length > exWeekShown.length ? `<div style="font-size:11px;color:var(--text-muted);padding-top:6px">+ ${exWeekAll.length - exWeekShown.length} planes más esta semana</div>` : ""}
+              ${exWeekAll.length > exWeekShown.length ? `<div data-gantt-more="week" style="font-size:11px;font-weight:650;color:#0b769f;padding-top:8px;cursor:pointer">+ ${exWeekAll.length - exWeekShown.length} planes más esta semana · ver todos</div>` : ""}
             </div>
           </div>
         </section>`;
@@ -5756,6 +5794,12 @@
         if (state.rankSortKey === key) state.rankSortDir = state.rankSortDir === "asc" ? "desc" : "asc";
         else { state.rankSortKey = key; state.rankSortDir = key === "cocina" ? "asc" : "desc"; }
         renderDashboard();
+        return;
+      }
+
+      const ganttMoreBtn = event.target.closest("[data-gantt-more]");
+      if (ganttMoreBtn) {
+        showGanttMoreList(ganttMoreBtn.dataset.ganttMore);
         return;
       }
 
