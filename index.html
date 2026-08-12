@@ -4257,6 +4257,42 @@
       document.body.appendChild(modal);
     };
 
+    // Popup del detalle de una semana del resumen ejecutivo (plan · área · básico · presupuesto).
+    const showGanttWeekDetail = (tsKey) => {
+      const existing = document.getElementById("ganttDetailModal");
+      if (existing) existing.remove();
+      const d = (window.__ganttWeekDetail || {})[tsKey];
+      if (!d) return;
+      const rows = d.groups.length ? d.groups.map((g, i) => `
+        <div style="padding:11px 20px;border-bottom:1px solid #eef2f6;background:${i % 2 ? "#fff" : "#fafbfc"}">
+          <div style="font-size:13px;color:#1e293b;font-weight:600;line-height:1.35">${g.plan}</div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:4px">
+            ${g.area ? `<span style="font-size:11px;font-weight:650;color:#0b769f;background:#e7f6fc;padding:1px 8px;border-radius:999px">${g.area}</span>` : ""}
+            ${g.basic ? `<span style="font-size:11px;color:#64748b">${g.basic}</span>` : ""}
+            <span style="font-size:11px;color:#64748b">${g.kitchens} cocina${g.kitchens !== 1 ? "s" : ""}</span>
+            <span style="font-size:11px;color:#64748b">${g.done}/${g.total} completados</span>
+            ${g.budget > 0 ? `<span style="font-size:12px;font-weight:700;color:#1e293b;margin-left:auto">${formatMoney(g.budget)}</span>` : ""}
+          </div>
+        </div>`).join("") : `<div style="padding:22px 20px;font-size:13px;color:#64748b;text-align:center">Sin planes en esta semana.</div>`;
+      const modal = document.createElement("div");
+      modal.id = "ganttDetailModal";
+      modal.style.cssText = "position:fixed;inset:0;background:rgba(15,23,42,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px";
+      modal.innerHTML = `
+        <div style="background:#fff;border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,0.22);width:min(580px,92vw);max-height:80vh;display:flex;flex-direction:column;overflow:hidden;font-family:inherit">
+          <div style="padding:18px 20px 14px;border-bottom:1px solid #e8edf2;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-shrink:0">
+            <div>
+              <div style="font-weight:700;font-size:14px;color:#1e293b">Semana ${d.wk}</div>
+              <div style="font-size:12px;color:#64748b;margin-top:3px">${d.n} plan${d.n !== 1 ? "es" : ""} · comprometido ${formatMoney(d.planned)} · gastado ${formatMoney(d.spent)} · ${d.doneN} completado${d.doneN !== 1 ? "s" : ""}</div>
+            </div>
+            <button data-close-gantt-modal type="button" style="border:0;background:#f1f5f9;border-radius:6px;font-size:14px;cursor:pointer;color:#64748b;padding:4px 8px;line-height:1;flex-shrink:0">&#x2715;</button>
+          </div>
+          <div style="overflow-y:auto">${rows}</div>
+        </div>`;
+      modal.addEventListener("click", e => { if (e.target === modal) modal.remove(); });
+      document.addEventListener("keydown", function esc(e) { if (e.key === "Escape") { modal.remove(); document.removeEventListener("keydown", esc); } });
+      document.body.appendChild(modal);
+    };
+
     const renderGantt = () => {
       const today = new Date(); today.setHours(0,0,0,0);
 
@@ -4303,6 +4339,440 @@
 
       const datedFixes   = rawFixes.filter(fix => ganttStartDate(fix) || ganttEndDate(fix));
       const undatedFixes = rawFixes.filter(fix => !ganttStartDate(fix) && !ganttEndDate(fix));
+
+      // ═══ Resumen ejecutivo (country manager / CEO) ═════════════════════════
+      // Foto completa del país/tipo (ignora el filtro de estado para no sesgar
+      // el veredicto). Clasifica los planes vigentes en 4 estados del cronograma.
+      const execFixes = _allGanttFixes.filter(fix => {
+        if (state.cityFilter !== "Todas" && normalizeText(fix.ciudad) !== normalizeText(state.cityFilter)) return false;
+        if (state.ganttArea !== "all" && normalizeText(fix.area) !== normalizeText(state.ganttArea)) return false;
+        if (state.ganttPriority !== "all" && normalizeText(fix.prioridad) !== normalizeText(state.ganttPriority)) return false;
+        return true;
+      });
+      const exBudOf   = (arr) => arr.reduce((s, f) => s + fixBudgetAmount(f), 0);
+      const exActive  = execFixes.filter(f => ganttFixStatus(f) !== "depriorizado");
+      const exDepri   = execFixes.length - exActive.length;
+      const exDone    = exActive.filter(f => ganttFixStatus(f) === "done");
+      const exOverdue = exActive.filter(f => ganttFixStatus(f) === "overdue");
+      const exEjec    = exActive.filter(f => {
+        const st = ganttFixStatus(f);
+        if (st === "done" || st === "overdue") return false;
+        const sd = ganttStartDate(f);
+        return normalizeText(f.status) === "EN PROCESO" || (sd && sd <= today);   // ya arrancó
+      });
+      const exEjecSet = new Set(exEjec);
+      const exPend    = exActive.filter(f => {
+        const st = ganttFixStatus(f);
+        return st !== "done" && st !== "overdue" && !exEjecSet.has(f);            // por iniciar
+      });
+      const exN       = exActive.length;
+      const exDonePct = exN ? Math.round(exDone.length / exN * 100) : 0;
+      const exOverPct = exN ? exOverdue.length / exN : 0;
+
+      // Ritmo vs cronograma del trimestre (avance % vs tiempo transcurrido %).
+      const _exQ0    = (reportQuarter() - 1) * 3;
+      const _exQS    = new Date(REPORT_YEAR, _exQ0, 1);
+      const _exQE    = new Date(REPORT_YEAR, _exQ0 + 3, 0);
+      const exElapsed = Math.max(0, Math.min(100, Math.round((today - _exQS) / Math.max(1, _exQE - _exQS) * 100)));
+
+      // Veredicto para la reunión semanal.
+      let exVerdict;
+      if (exN === 0) {
+        exVerdict = { label: "Sin planes", color: "#345964", bg: "#eef1f8", msg: "No hay planes de acción cargados para este filtro." };
+      } else if (exOverdue.length === 0 && exDonePct >= exElapsed) {
+        exVerdict = { label: "En camino", color: "#4a9070", bg: "#e8f3ec", msg: `Sin planes atrasados y avance (${exDonePct}%) al día frente al ${exElapsed}% del trimestre transcurrido. Se puede continuar según lo planeado.` };
+      } else if (exOverPct <= 0.10 && exDonePct >= exElapsed - 10) {
+        exVerdict = { label: "Avance con vigilancia", color: "#8a6a35", bg: "#f8f0e2", msg: `${exOverdue.length} plan${exOverdue.length !== 1 ? "es" : ""} atrasado${exOverdue.length !== 1 ? "s" : ""} (${Math.round(exOverPct * 100)}%). Avance ${exDonePct}% vs ${exElapsed}% del trimestre: ritmo saludable, atender los atrasos puntuales.` };
+      } else {
+        exVerdict = { label: "Requiere foco", color: "#96607d", bg: "#f4eaf0", msg: `${exOverdue.length} planes atrasados (${Math.round(exOverPct * 100)}%) y avance ${exDonePct}% vs ${exElapsed}% del trimestre. Priorizar los retrasos antes de abrir nuevos frentes.` };
+      }
+
+      // Semana en curso (lunes–domingo) que contiene "hoy".
+      const _wkStart = new Date(today); _wkStart.setDate(_wkStart.getDate() - ((today.getDay() + 6) % 7));
+      const _wkEnd   = new Date(_wkStart); _wkEnd.setDate(_wkEnd.getDate() + 6); _wkEnd.setHours(23, 59, 59, 999);
+      const _fmtD    = (d) => d.toLocaleDateString("es-CO", { day: "2-digit", month: "short" });
+      // Número de semana ISO-8601 (misma numeración del negocio: Jul 14–20 2025 = Sem 29).
+      const _isoWeek = (d) => { const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())); const day = t.getUTCDay() || 7; t.setUTCDate(t.getUTCDate() + 4 - day); const ys = new Date(Date.UTC(t.getUTCFullYear(), 0, 1)); return Math.ceil((((t - ys) / 86400000) + 1) / 7); };
+      const _weekOf  = (d) => `Sem ${_isoWeek(d)}`;
+      const _curWeek = _isoWeek(today);
+      // Resumen del básico como frase corta con sentido (no un recorte). Reglas por
+      // palabra clave; la primera que coincide gana. Orden: lo específico primero.
+      const _BASIC_RULES = [
+        [/signos de plagas|plagas \(insectos|indicios de plaga/i, "presenta plagas"],
+        [/puntos de ingreso o anidaci/i, "puntos de ingreso/anidación"],
+        [/plan de fumigaci/i, "plan de fumigación"],
+        [/cebaderos para roedores/i, "cebaderos para roedores"],
+        [/prevenci[oó]n de plagas/i, "capacitación en plagas"],
+        [/puertas y ventanas|entrada de fauna/i, "protección contra fauna"],
+        [/filtros de agua/i, "filtros de agua"],
+        [/cloro residual/i, "registro de cloro"],
+        [/dep[oó]sitos se encuentran limpios/i, "desinfección de depósitos"],
+        [/dep[oó]sitos.*tapados|dep[oó]sitos de agua/i, "depósitos de agua tapados"],
+        [/agua potable|agua es potable|uso de agua potable/i, "agua potable"],
+        [/trampa de grasa/i, "trampa de grasa"],
+        [/coladeras/i, "coladeras"],
+        [/drenajes/i, "drenajes"],
+        [/grifos de tarjas|lavamanos funcionan/i, "grifos y lavamanos"],
+        [/reflujo de aguas residuales/i, "plan de reflujo"],
+        [/tuber[ií]as de gas/i, "tuberías de gas"],
+        [/instalaciones el[eé]ctricas y de gas.*certificaci/i, "certificación eléctrica/gas"],
+        [/cables expuestos|conexiones improvisadas/i, "cables expuestos"],
+        [/focos fundidos|luminarias/i, "focos y luminarias"],
+        [/iluminaci[oó]n.*exteriores/i, "iluminación exterior"],
+        [/iluminaci[oó]n/i, "iluminación"],
+        [/extractores|ventiladores|aires acondicionados/i, "extracción/ventilación"],
+        [/equipos est[aá]n operativos/i, "equipos operativos"],
+        [/neveras y congeladores|refrigeradores y congeladores|c[aá]maras de refrigeraci[oó]n|refrigeraci[oó]n y congelaci[oó]n/i, "refrigeración/congelación"],
+        [/temperatura de materia prima/i, "temp. materia prima"],
+        [/registros? de temperatura/i, "registros de temperatura"],
+        [/mantenimientos? preventivos?/i, "mantenimientos preventivos"],
+        [/calibraci[oó]n de equipos|b[aá]sculas y grameras/i, "calibración de equipos"],
+        [/cronograma de limpieza/i, "cronograma de limpieza"],
+        [/limpiezas profundas/i, "limpiezas profundas"],
+        [/concentraci[oó]n de desinfectante/i, "control de desinfectante"],
+        [/botes de basura rotulados|separaci[oó]n seg[uú]n categor/i, "rótulos de basura"],
+        [/botes de basura.*producci[oó]n|tapa y bolsa/i, "botes con tapa/bolsa"],
+        [/contenedores de basura asignados/i, "contenedores por residuo"],
+        [/almacenamiento de basura|[aá]rea de contenedores/i, "área de basura"],
+        [/manejo de residuos/i, "manejo de residuos"],
+        [/control de al[eé]rgenos/i, "control de alérgenos"],
+        [/losetas sueltas|baldosas sueltas|piso est[aá] sin/i, "piso sin fisuras"],
+        [/paredes est[aá]n sin grietas|humedad/i, "paredes sin grietas"],
+        [/techos est[aá]n libres de moho|filtraciones/i, "techos sin moho"],
+        [/mediaca[nñ]as/i, "mediacañas"],
+        [/soclos|z[oó]calos/i, "zócalos"],
+        [/fachada/i, "fachada en buen estado"],
+        [/ruta de evacuaci[oó]n|salidas de emergencia/i, "ruta de evacuación"],
+        [/sismos e incendios|se[nñ]alizaci[oó]n sobre qu[eé] hacer/i, "señalización de emergencias"],
+        [/botiqu[ií]n/i, "botiquín"],
+        [/EPP.*almac|personal de almac[eé]n cuenta con uniforme/i, "EPP de almacén"],
+        [/uniforme\/?EPP|guantes de nitrilo/i, "uniforme/EPP"],
+        [/accesorios, maquillaje o ropa/i, "accesorios/maquillaje"],
+        [/reglas Rocket.*recibo/i, "reglas Rocket (recibo)"],
+        [/reglas Rocket/i, "reglas Rocket"],
+        [/estaci[oó]n de lavado de manos completa/i, "lavado de manos (almacén)"],
+        [/lavado de manos/i, "lavado de manos"],
+        [/lockers/i, "lockers"],
+        [/dotaci[oó]n se reemplaza/i, "reemplazo de dotación"],
+        [/menaje/i, "menaje higiénico"],
+        [/utensilios est[aá]n en buen estado/i, "utensilios en buen estado"],
+        [/tarimas o taras|directamente sobre el suelo/i, "tarimas (no en piso)"],
+        [/correcta rotaci[oó]n del producto/i, "rotación PEPS"],
+        [/anaqueles.*ordenados/i, "anaqueles ordenados"],
+        [/bajo llave/i, "almacén bajo llave"],
+        [/almacenamiento.*se[nñ]alizadas/i, "almacén señalizado"],
+        [/separaci[oó]n f[ií]sica|separaci[oó]n clara entre [aá]rea de lavado|separaci[oó]n entre el [aá]rea de almacenamiento/i, "separación de áreas"],
+        [/porcionado de alimentos/i, "área de porcionado"],
+        [/aviso de funcionamiento/i, "aviso de funcionamiento"],
+        [/uso de suelo/i, "uso de suelo"],
+        [/[aá]reas peatonales|[aá]reas para veh[ií]culos/i, "señalización peatonal/vehicular"],
+        [/[aá]rea de recepci[oó]n/i, "señalización de recepción"],
+        [/insumos de limpieza|continuidad ante falta de insumos/i, "plan de insumos"],
+        [/desastres naturales|cierre de instalaciones/i, "plan de desastres"],
+        [/interrupci[oó]n del servicio de agua/i, "plan corte de agua"],
+        [/temperatura ambiente/i, "temperatura ambiente"],
+      ];
+      const _basicSummary = (f) => {
+        let t = (f.basic || "").toString().replace(/\s+/g, " ").trim();
+        if (!t) return "";
+        for (const [re, label] of _BASIC_RULES) if (re.test(t)) return label;
+        // Fallback: primera cláusula, sin preludio de pregunta, corte por palabra.
+        t = t.replace(/^basic\s*:?\s*[\d.,]+\s*%?\s*[·|\-]?\s*/i, "").split(/[?(.]|Marca/)[0];
+        t = t.replace(/^¿\s*/, "").replace(/^(se|la|el|los|las|hay|existen?|todas?|todos?)\s+/i, "").trim();
+        if (t.length > 40) { const cut = t.slice(0, 40); t = cut.slice(0, cut.lastIndexOf(" ")).trim() + "…"; }
+        return t;
+      };
+
+      // Agrupa planes idénticos (mismo plan general aplicado a varias cocinas) para
+      // no repetir la misma fila por cocina; se muestra el conteo de cocinas.
+      const _planKeyOf = (f) => normalizeText((f.area || "") + "|" + (f.iniciativa || f.subcategoria || f.basic || ""));
+      const _groupByPlan = (fixes) => {
+        const m = new Map();
+        fixes.forEach(f => {
+          const key = _planKeyOf(f);
+          let g = m.get(key);
+          if (!g) { g = { rep: f, fixes: [], kitchens: new Set() }; m.set(key, g); }
+          g.fixes.push(f);
+          if (f.cocina) g.kitchens.add(f.cocina);
+        });
+        return [...m.values()];
+      };
+      const _grpCount = (g) => g.kitchens.size || g.fixes.length;
+
+      // Atrasados agrupados por plan, ordenados por la fecha en que debían cerrar
+      // (el más viejo primero), mostrando la semana en que debió quedar ejecutado.
+      const exLateAll = _groupByPlan(exOverdue).map(g => {
+        const eds = g.fixes.map(f => ganttEndDate(f)).filter(Boolean);
+        const ed = eds.length ? new Date(Math.min(...eds)) : null;
+        return { rep: g.rep, n: _grpCount(g), ed };
+      }).sort((a, b) => (a.ed && b.ed ? a.ed - b.ed : a.ed ? -1 : 1));
+      const exLateShown = exLateAll.slice(0, 8);
+
+      // Esta semana: planes por iniciar o en ejecución cuyo rango cruza la semana,
+      // también agrupados por plan.
+      const _overlapsWeek = (sd, ed) => { const a = sd || ed, b = ed || sd; return a ? (a <= _wkEnd && b >= _wkStart) : false; };
+      const _weekFixes = exActive.filter(f => {
+        const st = ganttFixStatus(f);
+        if (st === "done" || st === "overdue") return false;
+        return _overlapsWeek(ganttStartDate(f), ganttEndDate(f));
+      });
+      const exWeekAll = _groupByPlan(_weekFixes).map(g => {
+        const sds = g.fixes.map(f => ganttStartDate(f)).filter(Boolean);
+        const eds = g.fixes.map(f => ganttEndDate(f)).filter(Boolean);
+        const sd = sds.length ? new Date(Math.min(...sds)) : null;
+        const ed = eds.length ? new Date(Math.min(...eds)) : null;
+        return { rep: g.rep, n: _grpCount(g), sd, ed, enEjec: g.fixes.some(f => exEjecSet.has(f)) };
+      }).sort((a, b) => ((a.sd || a.ed) - (b.sd || b.ed)));
+      const exWeekShown = exWeekAll.slice(0, 8);
+
+      // Presupuesto semana a semana y por mes: comprometido (todos los activos con
+      // fecha) vs gastado (planes completados). Se atribuye a la fecha de cierre.
+      const _monday    = (d) => { const s = new Date(d); s.setHours(0, 0, 0, 0); s.setDate(s.getDate() - ((s.getDay() + 6) % 7)); return s; };
+      const _money0    = (v) => v >= 1000 ? `$${Math.round(v / 1000)}k` : `$${Math.round(v)}`;
+      const _spendDate = (f) => ganttEndDate(f) || ganttStartDate(f);
+      const _qStartDate = new Date(REPORT_YEAR, (reportQuarter() - 1) * 3, 1);   // inicio del trimestre (jul en Q3)
+      const _qStartTs   = _monday(_qStartDate).getTime();
+      const _wkBud = new Map(), _moBud = new Map();
+      exActive.forEach(f => {
+        const d = _spendDate(f); if (!d || d.getFullYear() !== REPORT_YEAR || d < _qStartDate) return;   // sin meses previos al trimestre
+        const b = fixBudgetAmount(f); const done = ganttFixStatus(f) === "done";
+        const wkKey = _monday(d).getTime();
+        let w = _wkBud.get(wkKey); if (!w) { w = { wk: _isoWeek(d), ts: wkKey, planned: 0, spent: 0, n: 0, doneN: 0, fixes: [] }; _wkBud.set(wkKey, w); }
+        w.planned += b; w.n++; w.fixes.push(f); if (done) { w.spent += b; w.doneN++; }
+        const moKey = d.getFullYear() * 12 + d.getMonth();
+        let m = _moBud.get(moKey); if (!m) { m = { key: moKey, label: d.toLocaleDateString("es-CO", { month: "long" }), planned: 0, spent: 0, n: 0 }; _moBud.set(moKey, m); }
+        m.planned += b; m.n++; if (done) m.spent += b;
+      });
+      // Eje continuo: rellena las semanas sin datos (hasta la semana actual) para
+      // que el detalle no salte semanas y julio quede completo.
+      {
+        const _keys = [..._wkBud.keys()];
+        const minTs = _qStartTs;                               // arranca en el inicio del trimestre
+        const maxTs = Math.max(_monday(today).getTime(), _qStartTs, ..._keys);
+        for (let t = minTs; t <= maxTs; ) {
+          if (!_wkBud.has(t)) { const d = new Date(t); _wkBud.set(t, { wk: _isoWeek(d), ts: t, planned: 0, spent: 0, n: 0, doneN: 0, fixes: [] }); }
+          const nx = new Date(t); nx.setDate(nx.getDate() + 7); t = _monday(nx).getTime();
+        }
+      }
+      const exWeeksBud  = [..._wkBud.values()].sort((a, b) => a.ts - b.ts);
+      // Rellena las tarjetas de mes en todo el rango del eje (incluye julio aunque esté vacío).
+      if (exWeeksBud.length) {
+        const _mk0 = _qStartDate.getFullYear() * 12 + _qStartDate.getMonth();   // desde el mes del trimestre (jul)
+        const _lD  = new Date(exWeeksBud[exWeeksBud.length - 1].ts);
+        for (let k = _mk0; k <= _lD.getFullYear() * 12 + _lD.getMonth(); k++) {
+          if (!_moBud.has(k)) { const yr = Math.floor(k / 12), mo = ((k % 12) + 12) % 12; _moBud.set(k, { key: k, label: new Date(yr, mo, 1).toLocaleDateString("es-CO", { month: "long" }), planned: 0, spent: 0, n: 0 }); }
+        }
+      }
+      const exMonthsBud = [..._moBud.values()].sort((a, b) => a.key - b.key);
+
+      // Avance esperado (por fechas de compromiso) vs real, acumulado por semana.
+      const _totSched = exWeeksBud.reduce((s, w) => s + w.n, 0);
+      let _cumN = 0, _cumD = 0;
+      const exProg = exWeeksBud.map(w => { _cumN += w.n; _cumD += w.doneN; return { wk: w.wk, n: w.n, expPct: _totSched ? _cumN / _totSched : 0, realPct: _totSched ? _cumD / _totSched : 0 }; });
+      // Proyección puntual: % que debería estar completo HOY según sus compromisos.
+      const exExpNow = exActive.filter(f => { const d = _spendDate(f); return d && d <= today; }).length;
+      const exExpPct = exN ? Math.round(exExpNow / exN * 100) : 0;
+
+      // Detalle por semana para el popup (plan · área · básico · presupuesto).
+      window.__ganttWeekDetail = {};
+      exWeeksBud.forEach(w => {
+        const groups = _groupByPlan(w.fixes || []).map(g => ({
+          plan:     g.rep.iniciativa || g.rep.subcategoria || g.rep.basic || "—",
+          area:     g.rep.area || "",
+          basic:    _basicSummary(g.rep),
+          budget:   g.fixes.reduce((s, f) => s + fixBudgetAmount(f), 0),
+          kitchens: g.kitchens.size || g.fixes.length,
+          total:    g.fixes.length,
+          done:     g.fixes.filter(f => ganttFixStatus(f) === "done").length,
+        })).sort((a, b) => b.budget - a.budget || b.total - a.total);
+        window.__ganttWeekDetail[w.ts] = { wk: w.wk, planned: w.planned, spent: w.spent, n: w.n, doneN: w.doneN, groups };
+      });
+
+      // Detalle por ciudad: planes, presupuesto, avance real, esperado (por fechas) y Basic del Q.
+      const _cityAgg = {};
+      exActive.forEach(f => {
+        const c = (f.ciudad || "").trim() || "Sin ciudad";
+        const s = _cityAgg[c] = _cityAgg[c] || { city: c, n: 0, budget: 0, done: 0, expNow: 0 };
+        s.n++; s.budget += fixBudgetAmount(f);
+        if (ganttFixStatus(f) === "done") s.done++;
+        const dd = _spendDate(f); if (dd && dd <= today) s.expNow++;
+      });
+      const _cityBasic = {};
+      if (state.typeFilter !== "cp") {
+        const _acc = {};
+        filtered().forEach(k => { const key = normalizeText(k.city || ""); (_acc[key] = _acc[key] || []).push(kitchenScore(k)); });
+        Object.keys(_acc).forEach(key => { const a = _acc[key]; _cityBasic[key] = a.reduce((s, v) => s + v, 0) / a.length; });
+      }
+      const exCities = Object.values(_cityAgg).sort((a, b) => b.n - a.n || b.budget - a.budget);
+      const exCityTableHtml = `
+        <div style="font-size:12px;font-weight:700;color:var(--dark-blue);margin-bottom:6px">Detalle por ciudad</div>
+        <div style="overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:11px;white-space:nowrap">
+            <thead><tr style="color:var(--text-muted)">
+              <th style="text-align:left;padding:4px 6px;font-weight:600">Ciudad</th>
+              <th style="text-align:right;padding:4px 6px;font-weight:600">Planes</th>
+              <th style="text-align:right;padding:4px 6px;font-weight:600">Presup.</th>
+              <th style="text-align:right;padding:4px 6px;font-weight:600" title="Planes completados">Avance</th>
+              <th style="text-align:right;padding:4px 6px;font-weight:600" title="Debería estar listo hoy según compromisos">Esperado</th>
+              <th style="text-align:right;padding:4px 6px;font-weight:600" title="Basic del diagnóstico del Q">Basic Q</th>
+            </tr></thead>
+            <tbody>
+              ${exCities.length ? exCities.map(s => {
+                const av = s.n ? Math.round(s.done / s.n * 100) : 0;
+                const ex = s.n ? Math.round(s.expNow / s.n * 100) : 0;
+                const bq = _cityBasic[normalizeText(s.city)];
+                return `<tr style="border-top:1px solid var(--light-gray)">
+                  <td style="text-align:left;padding:5px 6px;color:var(--dark-blue);font-weight:600">${s.city}</td>
+                  <td style="text-align:right;padding:5px 6px">${s.n}</td>
+                  <td style="text-align:right;padding:5px 6px">${_money0(s.budget)}</td>
+                  <td style="text-align:right;padding:5px 6px;color:#4a9070;font-weight:650">${av}%</td>
+                  <td style="text-align:right;padding:5px 6px;color:#0b769f">${ex}%</td>
+                  <td style="text-align:right;padding:5px 6px">${bq != null ? Math.round(bq) + "%" : "—"}</td>
+                </tr>`;
+              }).join("") : `<tr><td colspan="6" style="padding:10px;color:var(--text-muted)">Sin planes.</td></tr>`}
+            </tbody>
+          </table>
+        </div>`;
+      const _maxWkP     = Math.max(1, ...exWeeksBud.map(w => w.planned));
+      const _curMonTs   = _monday(today).getTime();
+
+      const _pitch = 54, _svgW = Math.max(exWeeksBud.length * _pitch, 120), _svgH = 58, _plotH = 40, _padT = 8;
+      const _xOf = (i) => i * _pitch + 24;
+      const _yOf = (p) => _padT + (1 - Math.max(0, Math.min(1, p))) * _plotH;
+      const _expLine  = exProg.map((p, i) => `${_xOf(i)},${_yOf(p.expPct)}`).join(" ");
+      const _realLine = exProg.map((p, i) => `${_xOf(i)},${_yOf(p.realPct)}`).join(" ");
+
+      const exBudgetHtml = `
+        <div style="margin-bottom:16px">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;flex-wrap:wrap">
+            <span style="font-size:12px;font-weight:700;color:var(--dark-blue)">Presupuesto y avance semana a semana</span>
+            <span style="font-size:10px;color:var(--text-muted);display:flex;align-items:center;gap:4px"><span style="width:9px;height:9px;background:#dbe4f0;border-radius:2px;display:inline-block"></span>presupuesto comprometido</span>
+            <span style="font-size:10px;color:var(--text-muted);display:flex;align-items:center;gap:4px"><span style="width:9px;height:9px;background:#4a9070;border-radius:2px;display:inline-block"></span>gastado</span>
+            <span style="font-size:10px;color:var(--text-muted);display:flex;align-items:center;gap:4px"><span style="width:14px;height:0;border-top:2px dashed #345964;display:inline-block"></span>avance esperado</span>
+            <span style="font-size:10px;color:var(--text-muted);display:flex;align-items:center;gap:4px"><span style="width:14px;height:0;border-top:2px solid #4a9070;display:inline-block"></span>avance real</span>
+          </div>
+          <div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap">
+            <div style="flex:1 1 480px;min-width:0;overflow-x:auto;padding-bottom:4px">
+              <div style="width:${_svgW}px">
+              ${exWeeksBud.length ? `
+              <div style="display:flex;gap:6px;align-items:flex-end">
+                ${exWeeksBud.map(w => {
+                  const h  = Math.max(3, Math.round(40 * w.planned / _maxWkP));
+                  const hs = Math.round(40 * w.spent / _maxWkP);
+                  const cur = w.ts === _curMonTs;
+                  return `<div data-gantt-week="${w.ts}" style="flex:0 0 auto;width:48px;text-align:center;cursor:pointer" title="W${w.wk} · ${w.n} plan${w.n !== 1 ? "es" : ""} · comprometido ${formatMoney(w.planned)} · gastado ${formatMoney(w.spent)} · completados ${w.doneN} · clic para ver detalle">
+                    <div style="font-size:9px;color:var(--text-muted);white-space:nowrap;line-height:1.2">${_money0(w.planned)}</div>
+                    <div style="font-size:11px;font-weight:700;line-height:1.2;color:${w.n ? "var(--dark-blue)" : "#c9d3df"}" title="${w.n} planes esta semana">${w.n}</div>
+                    <div style="height:40px;display:flex;align-items:flex-end;justify-content:center;margin-top:2px">
+                      <div style="position:relative;width:22px;height:${h}px;background:#dbe4f0;border-radius:3px 3px 0 0">
+                        <div style="position:absolute;bottom:0;left:0;width:100%;height:${Math.min(h, hs)}px;background:#4a9070;border-radius:3px 3px 0 0"></div>
+                      </div>
+                    </div>
+                    <div style="font-size:10px;font-weight:${cur ? 700 : 500};color:${cur ? "#0b769f" : "var(--slate)"};margin-top:3px">W${w.wk}</div>
+                  </div>`;
+                }).join("")}
+              </div>
+              <svg width="${_svgW}" height="${_svgH}" style="display:block;margin-top:2px">
+                <line x1="0" y1="${_yOf(1)}" x2="${_svgW}" y2="${_yOf(1)}" stroke="var(--border)" stroke-dasharray="2 3"/>
+                <line x1="0" y1="${_yOf(0.5)}" x2="${_svgW}" y2="${_yOf(0.5)}" stroke="var(--border)" stroke-dasharray="2 3"/>
+                <polyline points="${_expLine}" fill="none" stroke="#345964" stroke-width="1.5" stroke-dasharray="5 3"/>
+                <polyline points="${_realLine}" fill="none" stroke="#4a9070" stroke-width="2"/>
+                ${exProg.map((p, i) => `<circle cx="${_xOf(i)}" cy="${_yOf(p.realPct)}" r="2.4" fill="#4a9070"><title>W${p.wk}: real ${Math.round(p.realPct * 100)}% · esperado ${Math.round(p.expPct * 100)}%</title></circle>`).join("")}
+              </svg>
+              <div style="font-size:10px;color:var(--text-muted);margin-top:2px">Número sobre cada barra = planes de esa semana · avance de fixes acumulado (esperado por compromisos vs real)</div>
+              ` : `<div style="font-size:12px;color:var(--text-muted);padding:8px 0">Sin planes con fecha en el trimestre.</div>`}
+              </div>
+            </div>
+            <div style="flex:1 1 320px;min-width:260px">
+              ${exCityTableHtml}
+            </div>
+          </div>
+          ${exMonthsBud.length ? `
+          <div style="font-size:12px;font-weight:700;color:var(--dark-blue);margin:14px 0 8px">Presupuesto por mes</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            ${exMonthsBud.map(m => {
+              const pct = m.planned ? Math.round(m.spent / m.planned * 100) : 0;
+              return `<div style="flex:1;min-width:150px;background:var(--soft);border:1px solid var(--border);border-radius:10px;padding:10px 12px">
+                <div style="font-size:11px;font-weight:700;color:var(--dark-blue);text-transform:capitalize">${m.label} <span style="font-weight:400;color:var(--text-muted)">· ${m.n} plan${m.n !== 1 ? "es" : ""}</span></div>
+                <div style="font-size:16px;font-weight:750;color:var(--dark-blue);line-height:1.15;margin-top:2px">${formatMoney(m.planned)}</div>
+                <div style="font-size:10px;color:var(--text-muted)">Gastado ${formatMoney(m.spent)} · ${pct}%</div>
+                <div style="height:5px;border-radius:3px;background:var(--border);margin-top:5px;overflow:hidden"><div style="height:100%;width:${pct}%;background:#4a9070"></div></div>
+              </div>`;
+            }).join("")}
+          </div>` : ""}
+        </div>`;
+
+      const exPill = (label, n, bud, color, bg) => `
+        <div style="flex:1;min-width:120px;background:${bg};border:1px solid ${color}30;border-radius:10px;padding:10px 12px">
+          <div style="font-size:10px;color:${color};font-weight:700;text-transform:uppercase;letter-spacing:.04em">${label}</div>
+          <div style="font-size:23px;font-weight:750;color:${color};line-height:1.05;margin-top:2px">${n}</div>
+          <div style="font-size:10px;color:var(--text-muted)">${bud > 0 ? formatMoney(bud) : "—"}</div>
+        </div>`;
+
+      const execSummaryHtml = `
+        <section style="border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:16px;background:var(--panel)">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+            <span style="font-size:13px;font-weight:750;color:var(--dark-blue);text-transform:uppercase;letter-spacing:.04em">Resumen ejecutivo</span>
+            <span style="font-size:11px;color:var(--text-muted)">${data().name} · ${typeLabel()}${state.cityFilter !== "Todas" ? ` · ${state.cityFilter}` : ""} · ${reportQuarterLabel()}</span>
+          </div>
+          <div style="background:${exVerdict.bg};border:1px solid ${exVerdict.color}40;border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;margin-bottom:14px">
+            <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
+              <span style="font-size:14px;font-weight:750;color:${exVerdict.color}">${exVerdict.label}</span>
+              <span style="font-size:11px;color:var(--text-muted)">${exN} plan${exN !== 1 ? "es" : ""} activos · ${formatMoney(exBudOf(exActive))}${exDepri ? ` · ${exDepri} despriorizado${exDepri !== 1 ? "s" : ""}` : ""}</span>
+            </div>
+            <div style="font-size:12px;color:var(--navy);line-height:1.45">${exVerdict.msg}</div>
+            <div>
+              <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:11px;color:var(--text-muted);margin-bottom:4px">
+                <span>Avance del trimestre</span><span><strong style="color:#4a9070">${exDonePct}%</strong> real · <strong style="color:#0b769f">${exExpPct}%</strong> esperado (compromisos) · ${exElapsed}% del tiempo</span>
+              </div>
+              <div style="position:relative;height:8px;border-radius:4px;background:var(--border);overflow:hidden">
+                <div style="height:100%;width:${exDonePct}%;background:#4a9070;border-radius:4px"></div>
+                <div style="position:absolute;top:0;bottom:0;left:calc(${exExpPct}% - 1px);width:2px;background:#0b769f" title="Esperado según fechas de compromiso"></div>
+                <div style="position:absolute;top:0;bottom:0;left:calc(${exElapsed}% - 1px);width:2px;background:var(--dark-blue)" title="Tiempo del trimestre transcurrido"></div>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+            ${exPill("Completados", exDone.length, exBudOf(exDone), "#4a9070", "#e8f3ec")}
+            ${exPill("En ejecución", exEjec.length, exBudOf(exEjec), "#0b769f", "#e7f6fc")}
+            ${exPill("Por iniciar", exPend.length, exBudOf(exPend), "#345964", "#eef1f8")}
+            ${exPill("Atrasados", exOverdue.length, exBudOf(exOverdue), "#96607d", "#f4eaf0")}
+          </div>
+          ${exBudgetHtml}
+          <div style="display:flex;gap:22px;flex-wrap:wrap">
+            <div style="flex:1;min-width:280px">
+              <div style="font-size:12px;font-weight:700;color:var(--dark-blue);margin-bottom:4px">Atrasados <span style="font-weight:400;color:var(--text-muted)">· semana en que debieron cerrar</span></div>
+              ${exLateShown.length ? exLateShown.map(({ rep, n, ed }) => `
+                <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--light-gray)">
+                  <div style="font-size:11px;font-weight:700;color:#96607d;white-space:nowrap;min-width:56px">${ed ? _weekOf(ed) : "Sin fecha"}</div>
+                  <div style="flex:1;min-width:0">
+                    <div style="font-size:12px;color:var(--navy);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${rep.iniciativa || rep.subcategoria || rep.basic || "—"}</div>
+                    <div style="font-size:10px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(rep.area || "")}${n > 1 ? ` · ${n} cocinas` : (rep.cocina ? ` · ${rep.cocina}` : "")}${_basicSummary(rep) ? ` · ${_basicSummary(rep)}` : ""}${ed ? ` · venció ${_fmtD(ed)}` : ""}</div>
+                  </div>
+                </div>`).join("")
+                : `<div style="font-size:12px;color:#4a9070;padding:10px 0">✓ Sin planes atrasados. El cronograma está al día.</div>`}
+              ${exLateAll.length > exLateShown.length ? `<div style="font-size:11px;color:var(--text-muted);padding-top:6px">+ ${exLateAll.length - exLateShown.length} planes atrasados más</div>` : ""}
+            </div>
+            <div style="flex:1;min-width:280px">
+              <div style="font-size:12px;font-weight:700;color:var(--dark-blue);margin-bottom:4px">Esta semana · Sem ${_curWeek} <span style="font-weight:400;color:var(--text-muted)">· arranques y en ejecución · ${_fmtD(_wkStart)} – ${_fmtD(_wkEnd)}</span></div>
+              ${exWeekShown.length ? exWeekShown.map(({ rep, n, sd, ed, enEjec }) => {
+                const arranca = sd && sd >= _wkStart && sd <= _wkEnd;
+                const tag = arranca ? { t: "Arranca", c: "#0b769f", b: "#e7f6fc" } : enEjec ? { t: "En ejecución", c: "#0b769f", b: "#e7f6fc" } : { t: "Programado", c: "#345964", b: "#eef1f8" };
+                const showD = arranca ? sd : (ed || sd);
+                return `
+                <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--light-gray)">
+                  <div style="font-size:11px;font-weight:700;color:${tag.c};white-space:nowrap;min-width:52px">${showD ? _fmtD(showD) : "—"}</div>
+                  <div style="flex:1;min-width:0">
+                    <div style="font-size:12px;color:var(--navy);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${rep.iniciativa || rep.subcategoria || rep.basic || "—"}</div>
+                    <div style="font-size:10px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(rep.area || "")}${n > 1 ? ` · ${n} cocinas` : (rep.cocina ? ` · ${rep.cocina}` : "")}${_basicSummary(rep) ? ` · ${_basicSummary(rep)}` : ""}</div>
+                  </div>
+                  <span style="font-size:10px;font-weight:650;color:${tag.c};background:${tag.b};padding:1px 7px;border-radius:999px;white-space:nowrap">${tag.t}</span>
+                </div>`; }).join("")
+                : `<div style="font-size:12px;color:var(--text-muted);padding:10px 0">No hay arranques ni ejecuciones para esta semana.</div>`}
+              ${exWeekAll.length > exWeekShown.length ? `<div style="font-size:11px;color:var(--text-muted);padding-top:6px">+ ${exWeekAll.length - exWeekShown.length} planes más esta semana</div>` : ""}
+            </div>
+          </div>
+        </section>`;
 
       const filterHead = `
         <div class="detail-head">
@@ -4359,7 +4829,7 @@
         </div>`;
 
       if (!datedFixes.length) {
-        byId("gantt").innerHTML = `<article class="panel">${filterHead}<div class="empty" style="padding:40px 0">No hay planes de acción con fechas para el filtro actual.<br><span style="font-size:12px;color:var(--text-muted)">Prueba cambiando los filtros o sincroniza con Google Sheets.</span></div></article>`;
+        byId("gantt").innerHTML = `<article class="panel">${filterHead}${execSummaryHtml}<div class="empty" style="padding:40px 0">No hay planes de acción con fechas para el filtro actual.<br><span style="font-size:12px;color:var(--text-muted)">Prueba cambiando los filtros o sincroniza con Google Sheets.</span></div></article>`;
         return;
       }
 
@@ -4740,45 +5210,11 @@
         return groupRow + fixRows;
       }).join("");
 
-      // ── KPIs ─────────────────────────────────────────────
-      const total        = rawFixes.length;
-      const depriorizado = rawFixes.filter(f => ganttFixStatus(f) === "depriorizado").length;
-      const open         = datedFixes.filter(f => ganttFixStatus(f) === "open").length;
-      const overdue      = datedFixes.filter(f => ganttFixStatus(f) === "overdue").length;
-      const done         = datedFixes.filter(f => ganttFixStatus(f) === "done").length;
-
       byId("gantt").innerHTML = `
         <article class="panel">
           ${filterHead}
 
-          <div class="kpis">
-            <article class="kpi" style="background:#eef1f8;border-color:#090e3e40">
-              <div class="kpi-label">Total planes</div>
-              <div class="kpi-value" style="color:#090e3e">${total}</div>
-              <div class="kpi-sub">${undatedFixes.length ? `${undatedFixes.length} sin fecha` : "todos con fecha"} · ${formatMoney(rawFixes.reduce((s, fix) => s + fixBudgetAmount(fix), 0))}</div>
-            </article>
-            <article class="kpi" style="background:#e7f6fc;border-color:#0b769f40">
-              <div class="kpi-label">A tiempo</div>
-              <div class="kpi-value" style="color:#0b769f">${open}</div>
-              <div class="kpi-sub">${total ? Math.round(open/total*100) : 0}% del total</div>
-            </article>
-            <article class="kpi" style="background:#f4eaf0;border-color:#96607d40">
-              <div class="kpi-label">Atrasados</div>
-              <div class="kpi-value" style="color:#96607d">${overdue}</div>
-              <div class="kpi-sub">Fecha cierre vencida</div>
-            </article>
-            <article class="kpi" style="background:#e8f3ec;border-color:#4a907040">
-              <div class="kpi-label">Completados</div>
-              <div class="kpi-value" style="color:#4a9070">${done}</div>
-              <div class="kpi-sub">${total ? Math.round(done/total*100) : 0}% del total</div>
-            </article>
-            ${depriorizado > 0 ? `
-            <article class="kpi" style="background:#f1f5f9;border-color:#94a3b840">
-              <div class="kpi-label">Despriorizado</div>
-              <div class="kpi-value" style="color:#94a3b8">${depriorizado}</div>
-              <div class="kpi-sub">Excluidos de fechas</div>
-            </article>` : ""}
-          </div>
+          ${execSummaryHtml}
 
           <div class="gantt-outer">
             <!-- Row 1: month names grouped -->
@@ -5320,6 +5756,12 @@
         if (state.rankSortKey === key) state.rankSortDir = state.rankSortDir === "asc" ? "desc" : "asc";
         else { state.rankSortKey = key; state.rankSortDir = key === "cocina" ? "asc" : "desc"; }
         renderDashboard();
+        return;
+      }
+
+      const ganttWeekBar = event.target.closest("[data-gantt-week]");
+      if (ganttWeekBar) {
+        showGanttWeekDetail(ganttWeekBar.dataset.ganttWeek);
         return;
       }
 
