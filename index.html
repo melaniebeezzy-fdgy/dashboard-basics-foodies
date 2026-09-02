@@ -1099,7 +1099,7 @@
     // Borde entre Intermedio (crema) y Crítico (rosado): MX = 75%, CO y PE = 50%.
     const midThreshold = () => state.country === "MX" ? 75 : 50;
     const getStatus = (v, threshold) => {
-      const t = threshold ?? (state.country === "CO" ? 80 : state.country === "MX" ? 90 : 75);
+      const t = threshold ?? (state.country === "CO" ? 95 : state.country === "MX" ? 90 : 80);
       const mid = midThreshold();
       if (v == null) return { color: PALETTE.slate, bg: PALETTE.lightGray, label: "Pendiente" };
       if (v >= t) return { color: PALETTE.cyanDark, bg: "#E7F6FC", label: "Cumple" };
@@ -1918,7 +1918,7 @@
       // Planes activos de una cocina (excluye despriorizados) para conteos y budget.
       const kFixesOf = (k) => fixesForKitchen(k).filter(fix => fixMatchesKitchen(fix, k, state.country) && !projStatusIsDepri(fix));
       const avg = rows.length ? rows.reduce((sum, kitchen) => sum + kitchenScore(kitchen), 0) / rows.length : 0;
-      const scoreTarget = state.country === "CO" ? 80 : state.country === "MX" ? 90 : 75;
+      const scoreTarget = state.country === "CO" ? 95 : state.country === "MX" ? 90 : 80;
       const green = rows.filter(k => kitchenScore(k) >= scoreTarget).length;
       const midMin = Math.min(midThreshold(), scoreTarget);
       const yellow = rows.filter(k => kitchenScore(k) >= midMin && kitchenScore(k) < scoreTarget).length;
@@ -2491,7 +2491,7 @@
     };
 
     const detailCategory = (value) => {
-      const t = state.country === "CO" ? 80 : state.country === "MX" ? 90 : 75;
+      const t = state.country === "CO" ? 95 : state.country === "MX" ? 90 : 80;
       if (value == null) return "na";
       if (value >= t) return "full";
       if (value >= 50) return "partial";
@@ -4544,7 +4544,12 @@
         const sd = sds.length ? new Date(Math.min(...sds)) : null;
         const ed = eds.length ? new Date(Math.min(...eds)) : null;
         return { rep: g.rep, n: _grpCount(g), sd, ed, enEjec: g.fixes.some(f => exEjecSet.has(f)) };
-      }).sort((a, b) => ((a.sd || a.ed) - (b.sd || b.ed)));
+      }).sort((a, b) => {
+        // Ordena por la fecha que se muestra (arranque si es esta semana, si no el cierre).
+        const da = (a.sd && a.sd >= _wkStart && a.sd <= _wkEnd) ? a.sd : (a.ed || a.sd);
+        const db = (b.sd && b.sd >= _wkStart && b.sd <= _wkEnd) ? b.sd : (b.ed || b.sd);
+        return (da ? da.getTime() : Infinity) - (db ? db.getTime() : Infinity);
+      });
       const exWeekShown = exWeekAll.slice(0, 8);
 
       // Filas reutilizables (para las listas cortas y para el popup "ver todos").
@@ -5110,7 +5115,7 @@
           });
           const kitchenScores = [...kitchenScoreMap.entries()].map(([id, score]) => ({ id, score }));
           const total = kitchenScores.length;
-          const _rankTarget = state.country === "CO" ? 80 : state.country === "MX" ? 90 : 75;
+          const _rankTarget = state.country === "CO" ? 95 : state.country === "MX" ? 90 : 80;
           const BUCKETS = [
             { label: "100%",                               min: 100,         max: Infinity, color: "#4a9070" },
             { label: `Entre ${_rankTarget}% y 99%`,        min: _rankTarget, max: 99.99,    color: "#0b769f" },
