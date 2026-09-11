@@ -1139,9 +1139,10 @@
     const TOTAL_BASICS = 36;
     // MX opera sobre el diagnóstico del Q3 (preguntas + cocinas recalculadas);
     // el resto de países usa el dataset global.
-    const sheetData = () => (state.country === "MX" && window.SHEET_DETAIL_DATA_MX_Q3)
-      ? window.SHEET_DETAIL_DATA_MX_Q3
-      : (window.SHEET_DETAIL_DATA || { questions: [], kitchens: [] });
+    const q3DetailByCountry = () => state.country === "MX" ? window.SHEET_DETAIL_DATA_MX_Q3
+                                   : state.country === "PE" ? window.SHEET_DETAIL_DATA_PE_Q3
+                                   : null;
+    const sheetData = () => q3DetailByCountry() || (window.SHEET_DETAIL_DATA || { questions: [], kitchens: [] });
     const cpData = () => window.CP_DETAIL_DATA || { questions: [], kitchens: [] };
     const fixesData = () => window.FIXES_DATA || { MX: [], CO: [], PE: [], CP: [] };
     // DOT% per MX kitchen — used for "People" area compliance instead of question values
@@ -1264,7 +1265,7 @@
         cities: { Lima: 60.0 },
         basics: [30,80,60,60,100,30,100,60,90,50,50,30,100,20,80,20,50,70,60,40,60,50,90,10,40,60],
         kitchens: [
-          {id:"01 CP LIMA",city:"Lima",basic:72.2,seg:56,hig:100,limp:75,infra:76,ppl:100},
+          {id:"08 GONZALES PRADA",city:"Lima",basic:null,seg:null,hig:null,limp:null,infra:null,ppl:null},
           {id:"01 SAN ISIDRO",city:"Lima",basic:70.8,seg:59,hig:58,limp:81,infra:81,ppl:100},
           {id:"03 LA MOLINA",city:"Lima",basic:50.0,seg:52,hig:58,limp:29,infra:60,ppl:100},
           {id:"04 LA ALBORADA",city:"Lima",basic:50.0,seg:46,hig:25,limp:57,infra:63,ppl:100},
@@ -1361,7 +1362,7 @@
     const DEFAULT_DATA_READ_AT = "2026-06-02T00:00:00-05:00";
     const REPORT_YEAR = 2026;
     // Trimestre por país: Colombia trabaja Q3 2026; México (y CPs) y Perú siguen en Q2 2026.
-    const REPORT_QUARTER_BY_COUNTRY = { MX: 3, CO: 3, PE: 2 };
+    const REPORT_QUARTER_BY_COUNTRY = { MX: 3, CO: 3, PE: 3 };
     const reportQuarter = () => REPORT_QUARTER_BY_COUNTRY[state.country] ?? 2;
     const reportReferenceDate = () => {
       const quarter = reportQuarter();
@@ -1625,7 +1626,7 @@
         return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
       };
       // Promedio de bloque en el Q anterior (cocinas MX = Q2; CP = baseline CP).
-      const mxDeltaD = state.typeFilter === "cp" ? !!window.CP_PREV : (state.country === "MX" && !!window.Q2_FORM_MX);
+      const mxDeltaD = state.typeFilter === "cp" ? !!window.CP_PREV : ((state.country === "MX" && !!window.Q2_FORM_MX) || (state.country === "PE" && !!window.Q2_FORM_PE));
       const formBloqueAvgQ2 = (block) => {
         const kitchens = filtered().filter(k => state.typeFilter === "cp" ? isCPKitchen(k) : !isCPKitchen(k));
         const vals = kitchens.map(k => prevKitchenBloque(k, block)).filter(v => v != null);
@@ -2311,7 +2312,7 @@
       }
       // MX en Q3: una cocina que no está en el diagnóstico Q3 es "pendiente" (sin dato),
       // no mostramos el valor semilla antiguo.
-      if (state.country === "MX" && window.SHEET_DETAIL_DATA_MX_Q3 && !isCPKitchen(kitchen)) return null;
+      if (((state.country === "MX" && window.SHEET_DETAIL_DATA_MX_Q3) || (state.country === "PE" && window.SHEET_DETAIL_DATA_PE_Q3)) && !isCPKitchen(kitchen)) return null;
       // 2. Fall back to SHEET_DETAIL_DATA values lookup
       const sheetKitchen = sheetKitchenFor(kitchen);
       if (sheetKitchen?.values?.some(v => v != null)) return scoreFromValues(sheetKitchen.values);
@@ -5302,9 +5303,19 @@
     // congeladas (window.Q3_DATA) usando el mapeo validado (window.Q3_SCHEMA).
     // El "anterior" (Q2) sale de FORM_SCORES (los mismos datos Q2 del dashboard).
     // ═══════════════════════════════════════════════════════════════════════
-    const cq3Ready = () => !!(window.Q3_SCHEMA && window.Q3_DATA && window.Q3_DATA.answered);
     // El comparativo respeta el filtro de Tipo: "cp" → Centros de Producción.
     const cq3IsCP = () => state.typeFilter === "cp";
+    // Accesores por país (MX y PE operan sobre el Q3).
+    const cq3FS = () => (window.FORM_SCORES || {})[state.country];
+    const cq3Q2 = () => window["Q2_FORM_" + state.country] || (window.FORM_SCORES || {})[state.country];
+    const cq3DetailQ3 = () => state.country === "PE" ? window.SHEET_DETAIL_DATA_PE_Q3 : window.SHEET_DETAIL_DATA_MX_Q3;
+    const cq3Ready = () => {
+      if (cq3IsCP()) return !!(window.CP_DETAIL_DATA?.questions?.length);
+      const fs = cq3FS();
+      if (fs && fs._isQ3 && fs.byName && Object.keys(fs.byName).length) return true;
+      if (state.country === "MX") return !!(window.Q3_SCHEMA && window.Q3_DATA && window.Q3_DATA.answered);
+      return false;
+    };
     // Esquema (bloques/sub-áreas/preguntas) según el tipo seleccionado.
     const cq3Schema = () => {
       if (cq3IsCP() && window.CP_DETAIL_DATA?.questions?.length) {
@@ -5317,9 +5328,9 @@
           questions: qs.map(q => ({ no: q.no, subarea: q.tema || "Sin tema", block: cpBlockForTema(q.tema || "Sin tema"), text: (state.country === "MX" ? q.mex : (q.colper || q.mex)) || "", inverted: false })),
         };
       }
-      // Cocinas: usar la estructura del diagnóstico MX vigente (bloque/tema reales
-      // de la pestaña "Preguntas"), para que dashboard y comparativo coincidan.
-      const fsq = (window.FORM_SCORES || {}).MX;
+      // Cocinas: usar la estructura del diagnóstico vigente del país (bloque/tema
+      // reales de la pestaña "Preguntas"), para que dashboard y comparativo coincidan.
+      const fsq = cq3FS();
       if (fsq && fsq._isQ3 && fsq._questions && fsq._questions.length && fsq._questions[0].tema) {
         const qs = fsq._questions;
         const blocks = []; qs.forEach(q => { if (q.bloque && !blocks.includes(q.bloque)) blocks.push(q.bloque); });
@@ -5327,7 +5338,7 @@
         return {
           blocks,
           subareas: temas.map(t => ({ name: t, block: (qs.find(q => q.tema === t) || {}).bloque || "", questionNos: qs.filter(q => q.tema === t).map(q => q.no) })),
-          questions: qs.map(q => ({ no: q.no, subarea: q.tema, block: q.bloque, text: q.mex, inverted: !!q.inverted })),
+          questions: qs.map(q => ({ no: q.no, subarea: q.tema, block: q.bloque, text: (state.country === "MX" ? q.mex : (q.colper || q.mex)), inverted: !!q.inverted })),
         };
       }
       return window.Q3_SCHEMA;
@@ -5365,7 +5376,7 @@
         const vals = Object.keys(bt).filter(t => cq3PunctNorm(cpBlockForTema(t)) === target).map(t => bt[t]).filter(v => v != null);
         return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
       }
-      const fs = window.Q2_FORM_MX || (window.FORM_SCORES || {}).MX;
+      const fs = cq3Q2();
       const bk = fs?.byKitchenBloque?.[norm];
       if (!bk) return null;
       const target = cq3PunctNorm(blockName);
@@ -5373,7 +5384,7 @@
       return hit ? bk[hit] : null;
     };
     const cq3Q2Sub = (norm, subName) => {
-      const tk = cq3IsCP() ? (window.CP_PREV?.[norm]?.byTema) : (window.Q2_FORM_MX || (window.FORM_SCORES || {}).MX)?.byKitchenTema?.[norm];
+      const tk = cq3IsCP() ? (window.CP_PREV?.[norm]?.byTema) : cq3Q2()?.byKitchenTema?.[norm];
       if (!tk) return null;
       // En cocinas, la sub-área del Q3 se traduce a su tema equivalente del Q2.
       const lookupName = cq3IsCP() ? subName : (Q3_SUB_TO_Q2_TEMA[subName] || subName);
@@ -5383,27 +5394,28 @@
     };
     const cq3Q2Basic = (norm) => cq3IsCP()
       ? (window.CP_PREV?.[norm]?.basic ?? null)
-      : ((window.Q2_FORM_MX || (window.FORM_SCORES || {}).MX)?.byName?.[norm] ?? null);
+      : (cq3Q2()?.byName?.[norm] ?? null);
 
     // Score del Q ANTERIOR para una cocina, según su tipo:
     //  · CP  → baseline de "Cp preguntas" histórico (window.CP_PREV)
     //  · MX  → Q2 de cocinas (Q2_FORM_MX)
+    const prevHasQ2 = () => state.country === "MX" ? !!window.Q2_FORM_MX : state.country === "PE" ? !!window.Q2_FORM_PE : false;
     const prevKitchenBasic = (k) => {
       const norm = normalizeText(k.id);
       if (isCPKitchen(k)) return window.CP_PREV?.[norm]?.basic ?? null;
-      if (state.country === "MX") return cq3Q2Basic(norm);
+      if (prevHasQ2()) return cq3Q2Basic(norm);
       return null;
     };
     const prevKitchenTema = (k, tema) => {
       const norm = normalizeText(k.id);
       if (isCPKitchen(k)) return window.CP_PREV?.[norm]?.byTema?.[tema] ?? null;
-      if (state.country === "MX") return cq3Q2Sub(norm, tema);
+      if (prevHasQ2()) return cq3Q2Sub(norm, tema);
       return null;
     };
     const prevKitchenBloque = (k, block) => {
       const norm = normalizeText(k.id);
       if (isCPKitchen(k)) return window.CP_PREV?.[norm]?.basic ?? null; // CP: un solo bloque = Basic
-      if (state.country === "MX") return cq3Q2Block(norm, block);
+      if (prevHasQ2()) return cq3Q2Block(norm, block);
       return null;
     };
     // Flecha mejora / desmejora (umbral 1 pp).
@@ -5452,13 +5464,13 @@
           return { name: k.name, city: k.city || "", tipo: "CP", blk, sub, basic, byQuestion, obs: {} };
         }).sort((a, b) => (a.basic ?? 999) - (b.basic ?? 999));
       }
-      // Cocinas: usar el diagnóstico MX vigente (FORM_SCORES.MX, de la pestaña
-      // "Preguntas"). Observaciones del crudo congelado donde existan.
-      const fs = (window.FORM_SCORES || {}).MX;
+      // Cocinas: usar el diagnóstico vigente del país (FORM_SCORES[país], de la
+      // pestaña "Preguntas"). Observaciones del crudo congelado (solo MX) donde existan.
+      const fs = cq3FS();
       if (fs && fs._isQ3 && fs.byName && Object.keys(fs.byName).length) {
         const metaByNorm = {};
-        ((window.SHEET_DETAIL_DATA_MX_Q3 || {}).kitchens || []).forEach(k => { metaByNorm[normalizeText(k.name)] = k; });
-        const ans = window.Q3_DATA.answered || {};
+        ((cq3DetailQ3() || {}).kitchens || []).forEach(k => { metaByNorm[normalizeText(k.name)] = k; });
+        const ans = (state.country === "MX" && window.Q3_DATA?.answered) || {};
         const obsByNorm = {}; Object.keys(ans).forEach(n => { obsByNorm[normalizeText(n)] = ans[n].obs || {}; });
         return Object.keys(fs.byName).map(nm => {
           const meta = metaByNorm[nm] || {};
@@ -5472,40 +5484,41 @@
       }
       const R = window.Q3_RESULTS_MX;
       if (R && Object.keys(R).length) {
-        const ans = window.Q3_DATA.answered || {};
+        const ans = window.Q3_DATA?.answered || {};
         const rawByNorm = {}; Object.keys(ans).forEach(n => { rawByNorm[normalizeText(n)] = ans[n]; });
         return Object.keys(R).map(nm => R[nm]).filter(r => r.basic != null).map(r => {
           const raw = rawByNorm[normalizeText(r.name)];
           return { name: r.name, city: r.city, tipo: r.tipo, blk: r.blocks, sub: r.subareas, basic: r.basic, byQuestion: raw ? raw.byQuestion : null, obs: raw ? (raw.obs || {}) : {} };
         }).sort((a, b) => (a.basic ?? 999) - (b.basic ?? 999));
       }
-      return Object.keys(window.Q3_DATA.answered).map(cq3Calc).sort((a, b) => (a.basic ?? 999) - (b.basic ?? 999));
+      return Object.keys(window.Q3_DATA?.answered || {}).map(cq3Calc).sort((a, b) => (a.basic ?? 999) - (b.basic ?? 999));
     };
     const cq3Pending = () => {
       if (cq3IsCP()) return [];
+      if (state.country === "PE") return Object.values(window.Q3_PENDING_PE || {}).sort();
       if (window.Q3_PREGUNTAS_MX?.pending) return window.Q3_PREGUNTAS_MX.pending.slice().sort();
       const R = window.Q3_RESULTS_MX;
       if (R && Object.keys(R).length) {
         return Object.keys(R).filter(nm => R[nm].basic == null).map(nm => R[nm].name).sort();
       }
-      return window.Q3_DATA.pending || [];
+      return window.Q3_DATA?.pending || [];
     };
 
     const renderComparativoQ3 = () => {
       const host = byId("comparativo-q3");
-      if (!cq3Ready()) { host.innerHTML = `<div class="empty">No se cargaron los datos del Q3 (q3-data.js / q3-mapping.js).</div>`; return; }
+      if (!cq3Ready()) { host.innerHTML = `<div class="empty">Aún no hay diagnóstico del Q cargado para ${data().name}. Dale a <strong>Sincronizar Sheets</strong> para traerlo.</div>`; return; }
       const S = cq3Schema();
       const isCP = cq3IsCP();
       const unit = isCP ? "CP" : "Cocinas";
       const rows = cq3Rows();
       const pending = cq3Pending();
-      const qLabel = window.Q3_DATA.quarterLabel || "Q3";
+      const qLabel = window.Q3_DATA?.quarterLabel || "Q3 2026";
       const avgBasic = cq3Mean(rows.map(r => r.basic));
       const deltas = rows.map(r => cq3Delta(r.basic, cq3Q2Basic(normalizeText(r.name)))).filter(x => x != null);
       const avgDelta = cq3Mean(deltas);
       const hasQ2 = isCP
         ? !!(window.CP_PREV && Object.keys(window.CP_PREV).length)
-        : !!((window.FORM_SCORES || {}).MX?.byName && Object.keys((window.FORM_SCORES || {}).MX.byName).length);
+        : !!(cq3Q2()?.byName && Object.keys(cq3Q2().byName).length);
 
       const kpi = (label, value, color) =>
         `<div style="flex:1;min-width:150px;background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px">
@@ -5542,7 +5555,7 @@
 
       host.innerHTML = `
         <div class="panel" style="margin-bottom:14px">
-          <div class="detail-title">Comparativo ${qLabel} vs Q2 2026 · México${isCP ? " · Centros de Producción" : ""}</div>
+          <div class="detail-title">Comparativo ${qLabel} vs Q2 2026 · ${data().name}${isCP ? " · Centros de Producción" : ""}</div>
           <div class="detail-sub">Recalculado desde el diagnóstico del ${qLabel}. Clic en ${isCP ? "un CP" : "una cocina"} para desglosar por ${isCP ? "tema" : "sub-área"}; clic en el detalle para ver cada pregunta y su respuesta.</div>
           <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
             ${kpi(`${unit} con ${qLabel}`, rows.length)}
@@ -5575,7 +5588,7 @@
     const cq3SubareaPanel = (r) => {
       const S = cq3Schema();
       const norm = normalizeText(r.name);
-      const hasQ2 = cq3IsCP() ? !!window.CP_PREV : !!((window.FORM_SCORES || {}).MX?.byName);
+      const hasQ2 = cq3IsCP() ? !!window.CP_PREV : !!(cq3Q2()?.byName);
       const blocks = S.blocks.map(b => {
         const subs = S.subareas.filter(sa => sa.block === b);
         const subRows = subs.map(sa => {
@@ -7053,6 +7066,66 @@
       return parsed;
     };
 
+    // ── Perú en el Q3 ──────────────────────────────────────────────────────
+    // FORM_SCORES.PE ya se llena desde la pestaña "Preguntas" (parsePreguntasScores);
+    // aquí lo marcamos como Q3, adjuntamos el detalle por pregunta, armamos el
+    // detalle para "Por básico" y guardamos el Q2 (baseline congelado por pregunta).
+    const buildQ2FormPEFromDetail = () => {
+      const D = window.SHEET_DETAIL_DATA;
+      if (!D || !D.questions || !D.kitchens) return null;
+      const qs = D.questions;
+      const mean = (a) => a.length ? a.reduce((s, x) => s + x, 0) / a.length : null;
+      const byName = {}, byNum = {}, byKitchenBloque = {}, byKitchenTema = {}, byKitchenQuestion = {};
+      D.kitchens.filter(k => normalizeText(k.country) === normalizeText("Perú")).forEach(k => {
+        const norm = normalizeText(k.name), num = kitchenNumber(k.name);
+        const vals = k.values || [];
+        const all = [], blk = {}, tema = {}, qMap = {};
+        qs.forEach((q, i) => {
+          const v = vals[i];
+          if (v == null) return;
+          all.push(v);
+          if (q.bloque) (blk[q.bloque] = blk[q.bloque] || []).push(v);
+          if (q.tema)   (tema[q.tema] = tema[q.tema] || []).push(v);
+          if (q.no != null) qMap[q.no] = v;
+        });
+        if (!all.length) return;
+        byName[norm] = mean(all); if (num) byNum[num] = mean(all);
+        const bl = {}; Object.keys(blk).forEach(b => bl[b] = mean(blk[b])); byKitchenBloque[norm] = bl;
+        const te = {}; Object.keys(tema).forEach(t => te[t] = mean(tema[t])); byKitchenTema[norm] = te;
+        byKitchenQuestion[norm] = qMap;
+      });
+      if (!Object.keys(byName).length) return null;
+      return { byName, byNum, byKitchenBloque, byKitchenTema, byKitchenQuestion, _meta: { quarter: "Q2 2026" } };
+    };
+    const finalizeQ3PE = () => {
+      if (!window.Q2_FORM_PE) { const q2 = buildQ2FormPEFromDetail(); if (q2) window.Q2_FORM_PE = q2; }
+      const fs = (window.FORM_SCORES || {}).PE;
+      if (!fs || !fs.byName || !Object.keys(fs.byName).length) return;
+      const qm = (window.FORM_SCORES._questions || []).map(q => ({
+        no: q.no, bloque: q.bloque, tema: q.tema, area: q.area || "City",
+        mex: q.mex, colper: q.colper || q.mex, inverted: false,
+      }));
+      if (qm.length) fs._questions = qm;
+      fs._isQ3 = true;
+      fs._meta = fs._meta || { quarter: "Q3 2026" };
+      fs.__realNorms = Object.keys(fs.byName);
+      // Metadatos de cocina (nombre/ciudad) desde el sheet + roster.
+      const meta = {};
+      ((window.FORM_SCORES._meta || {}).PE || []).forEach(k => { meta[normalizeText(k.id)] = { name: k.id, city: k.city || "Lima" }; });
+      (COUNTRIES.PE.kitchens || []).forEach(k => { const n = normalizeText(k.id); if (!meta[n]) meta[n] = { name: k.id, city: k.city || "Lima" }; });
+      const kitchens = Object.keys(fs.byName).map(nm => {
+        const m = meta[nm] || { name: nm, city: "Lima" };
+        const bq = (fs.byKitchenQuestion || {})[nm] || {};
+        return { country: "Perú", name: m.name, city: m.city, values: qm.map(q => bq[q.no] != null ? bq[q.no] : null) };
+      });
+      window.SHEET_DETAIL_DATA_PE_Q3 = { questions: qm, kitchens };
+      window.Q3_PENDING_PE = {};
+      (COUNTRIES.PE.kitchens || []).forEach(k => {
+        const n = normalizeText(k.id);
+        if (!isCPKitchen(k) && fs.byName[n] == null) window.Q3_PENDING_PE[n] = k.id;
+      });
+    };
+
     byId("syncBtn").addEventListener("click", async () => {
       const button = byId("syncBtn");
       const msg = byId("apiMsg");
@@ -7079,6 +7152,7 @@
         try { const cp = await syncCpFromSheet(); if (cp) cpStr = `CP: ${cp.kitchens} centros · ${cp.questions} preguntas`; } catch (e) { /* se usa CP estático/guardado */ }
         try { await syncCpPrevFromSheet(); } catch (e) { /* sin baseline de CP → sin variación */ }
         buildQ3MX();             // MX opera sobre el Q3 (preserva el Q2 recién sincronizado para el comparativo)
+        finalizeQ3PE();          // PE opera sobre el Q3 (desde la pestaña Preguntas) + Q2 baseline
         reconcileMXKitchens();   // alinea nombres al Q3 y elimina duplicados por número
         const syncAt = new Date().toISOString();
         saveSyncData({ lastSyncAt: syncAt });
@@ -7109,6 +7183,7 @@
     loadSavedSync();
     applyPrevQTransition();  // aplica transición Q anterior → Q actual con datos restaurados
     buildQ3MX();             // MX sobre el Q3 (usa el Q2 guardado localmente como comparativo)
+    finalizeQ3PE();          // PE sobre el Q3 (+ Q2 baseline congelado)
     reconcileMXKitchens();
     render();
 
