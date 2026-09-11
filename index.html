@@ -1437,7 +1437,9 @@
       if (saved.cpPrev) window.CP_PREV = saved.cpPrev;   // baseline Q anterior de CP
       if (saved.q3ResultsMx) window.Q3_RESULTS_MX = saved.q3ResultsMx;   // diagnóstico Q3 MX (todas las cocinas)
       if (saved.q3PreguntasMx) window.Q3_PREGUNTAS_MX = saved.q3PreguntasMx;  // diagnóstico Q3 MX por pregunta (autoritativo)
+      if (saved.q3PreguntasPe) window.Q3_PREGUNTAS_PE = saved.q3PreguntasPe;  // diagnóstico Q3 PE por pregunta (autoritativo)
       if (saved.q2FormMx) window.Q2_FORM_MX = saved.q2FormMx;            // Q2 MX para el comparativo
+      if (saved.q2FormPe) window.Q2_FORM_PE = saved.q2FormPe;            // Q2 PE para el comparativo
       if (saved.lastSyncAt) window.LAST_SYNC_AT = saved.lastSyncAt;
       if (saved.fixStatus) window.LAST_FIX_SYNC_STATUS = saved.fixStatus;
       // Purgar puntos físicos que pudieran haberse colado en localStorage
@@ -1453,7 +1455,9 @@
         prevCoScores: window.PREV_CO_SCORES || null,
         q3ResultsMx: window.Q3_RESULTS_MX || null,
         q3PreguntasMx: window.Q3_PREGUNTAS_MX || null,
+        q3PreguntasPe: window.Q3_PREGUNTAS_PE || null,
         q2FormMx: window.Q2_FORM_MX || null,
+        q2FormPe: window.Q2_FORM_PE || null,
         cpDetail: window.CP_DETAIL_DATA || null,
         cpPrev: window.CP_PREV || null,
         lastSyncAt: payload.lastSyncAt,
@@ -6434,6 +6438,55 @@
       return null;
     };
 
+    // Igual que syncQ3PreguntasMX pero para Perú: columnas "Perú …" y texto COL/PER.
+    const syncQ3PreguntasPE = async () => {
+      const table = await fetchPublicSheetTable({ sheet: "Preguntas", customSheetId: Q3_MX_RESULTS_SHEET_ID, timeoutMs: 60000, retries: 1 });
+      const cols = table.cols || [];
+      const rows = table.rows || [];
+      const hasLabels = cols.some(c => (c.label || "").trim().length > 2);
+      const labels = hasLabels ? cols.map(c => (c.label || "").trim()) : ((rows[0] || {}).c || []).map(c => displaySheetCell(c).trim());
+      const dataRows = hasLabels ? rows : rows.slice(1);
+      const findCol = (...names) => labels.findIndex(l => names.some(n => normalizeText(l) === normalizeText(n)));
+      const cBloque = findCol("Bloque"), cTema = findCol("Tema"), cArea = findCol("Área", "Area");
+      const cColper = labels.findIndex(l => { const h = normalizeText(l); return h.indexOf("PREGUNTA") >= 0 && (h.indexOf("COL") >= 0 || h.indexOf("PER") >= 0); });
+      const kcols = [];
+      labels.forEach((l, i) => {
+        if (normalizeText(l).indexOf("PERU") === 0) {
+          const parts = l.trim().split(/\s+/);
+          const name = parts.slice(2).join(" ");
+          if (!name) return;
+          kcols.push({ i, name, city: parts[1] || "Lima" });
+        }
+      });
+      if (!kcols.length) return null;
+      const questions = [];
+      const byKitchen = {}, meta = {};
+      kcols.forEach(k => { const nm = normalizeText(k.name); byKitchen[nm] = {}; meta[nm] = { name: k.name, city: k.city }; });
+      dataRows.forEach(row => {
+        const c = row.c || [];
+        const no = parseInt(displaySheetCell(c[0]), 10);
+        if (!Number.isFinite(no)) return;
+        questions.push({
+          no,
+          bloque: displaySheetCell(c[cBloque]) || "",
+          tema: displaySheetCell(c[cTema]) || "",
+          area: displaySheetCell(c[cArea]) || "City",
+          mex: (cColper >= 0 ? displaySheetCell(c[cColper]) : "") || "",
+        });
+        kcols.forEach(k => { byKitchen[normalizeText(k.name)][no] = parsePctCell(c[k.i]); });
+      });
+      const pending = [];
+      Object.keys(byKitchen).forEach(nm => {
+        const vals = questions.map(q => byKitchen[nm][q.no]).filter(v => v != null);
+        if (!vals.length) { pending.push(meta[nm].name); delete byKitchen[nm]; }
+      });
+      if (questions.length && Object.keys(byKitchen).length) {
+        window.Q3_PREGUNTAS_PE = { questions, byKitchen, meta, pending };
+        return window.Q3_PREGUNTAS_PE;
+      }
+      return null;
+    };
+
     // Sincroniza el diagnóstico de los Centros de Producción desde la hoja
     // "Cp preguntas" (matriz: filas = preguntas, columnas = CPs con % por pregunta).
     const syncCpFromSheet = async () => {
@@ -7099,6 +7152,23 @@
     };
     const finalizeQ3PE = () => {
       if (!window.Q2_FORM_PE) { const q2 = buildQ2FormPEFromDetail(); if (q2) window.Q2_FORM_PE = q2; }
+      // Ruta autoritativa: Perú desde la pestaña "Preguntas" (Q3_PREGUNTAS_PE), igual que México.
+      if (window.Q3_PREGUNTAS_PE && typeof window.buildQ3PE === "function" && window.buildQ3PE()) {
+        const fs2 = window.FORM_SCORES.PE;
+        const metaK = {};
+        (window.SHEET_DETAIL_DATA_PE_Q3.kitchens || []).forEach(k => { metaK[normalizeText(k.name)] = k; });
+        // Alinear el roster de PE al set del Q3 (agrega Gonzales Prada, saca las que ya no están).
+        const kept = (COUNTRIES.PE.kitchens || []).filter(k => fs2.byName[normalizeText(k.id)] != null);
+        const haveN = {}; kept.forEach(k => haveN[normalizeText(k.id)] = true);
+        Object.keys(fs2.byName).forEach(n => {
+          if (haveN[n]) return;
+          const m = metaK[n] || { name: n, city: "Lima" };
+          kept.push({ id: m.name, city: m.city || "Lima", basic: null, seg: null, hig: null, limp: null, infra: null, ppl: null });
+        });
+        COUNTRIES.PE.kitchens.length = 0; COUNTRIES.PE.kitchens.push(...kept);
+        return;
+      }
+      // Fallback: FORM_SCORES.PE viene de parsePreguntasScores → márcalo como Q3.
       const fs = (window.FORM_SCORES || {}).PE;
       if (!fs || !fs.byName || !Object.keys(fs.byName).length) return;
       const qm = (window.FORM_SCORES._questions || []).map(q => ({
@@ -7148,6 +7218,7 @@
         applyPrevQTransition();  // fusiona cierre proyectado Q anterior donde falte diagnóstico del Q actual
         try { await syncQ3ResultsMX(); } catch (e) { /* si falla, se usa lo congelado/guardado */ }
         try { await syncQ3PreguntasMX(); } catch (e) { /* fuente autoritativa por pregunta; si falla, se usa Resultados/crudo */ }
+        try { await syncQ3PreguntasPE(); } catch (e) { /* Perú autoritativo desde "Preguntas"; si falla, usa el parse general */ }
         let cpStr = "";
         try { const cp = await syncCpFromSheet(); if (cp) cpStr = `CP: ${cp.kitchens} centros · ${cp.questions} preguntas`; } catch (e) { /* se usa CP estático/guardado */ }
         try { await syncCpPrevFromSheet(); } catch (e) { /* sin baseline de CP → sin variación */ }
