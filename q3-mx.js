@@ -218,4 +218,54 @@
     window.CURRENT_DIAG_LABEL = D.quarterLabel || "Q3 2026";
     return true;
   };
+
+  // Perú en el Q3: construye FORM_SCORES.PE desde la pestaña "Preguntas"
+  // (window.Q3_PREGUNTAS_PE), autoritativa e idéntica en estructura a México.
+  window.buildQ3PE = function () {
+    var P = window.Q3_PREGUNTAS_PE;
+    if (!P || !P.questions || !P.questions.length || !P.byKitchen || !Object.keys(P.byKitchen).length) return false;
+    var qs = P.questions;
+    var questions = qs.map(function (q) {
+      return { no: q.no, bloque: q.bloque, tema: q.tema, area: q.area || "City", mex: q.mex, colper: q.mex };
+    });
+    var blocks = []; qs.forEach(function (q) { if (q.bloque && blocks.indexOf(q.bloque) < 0) blocks.push(q.bloque); });
+    var temasOf = {}; blocks.forEach(function (b) { temasOf[b] = []; });
+    qs.forEach(function (q) { if (q.bloque && q.tema && temasOf[q.bloque].indexOf(q.tema) < 0) temasOf[q.bloque].push(q.tema); });
+    var allTemas = []; qs.forEach(function (q) { if (q.tema && allTemas.indexOf(q.tema) < 0) allTemas.push(q.tema); });
+
+    var byName = {}, byNum = {}, byKitchenQuestion = {}, byKitchenBloque = {}, byKitchenTema = {};
+    var kitchens = [], pendingNorms = {};
+    Object.keys(P.byKitchen).forEach(function (nm) {
+      var bq = P.byKitchen[nm];
+      var meta = (P.meta && P.meta[nm]) || { name: nm, city: "Lima" };
+      var num = kitchenNum(meta.name);
+      var values = questions.map(function (q) { return bq[q.no] != null ? bq[q.no] : null; });
+      var bqOut = {}; questions.forEach(function (q) { bqOut[q.no] = bq[q.no] != null ? bq[q.no] : null; });
+      byKitchenQuestion[nm] = bqOut;
+      var teAcc = {}; questions.forEach(function (q) { var v = bq[q.no]; if (v == null || !q.tema) return; (teAcc[q.tema] = teAcc[q.tema] || []).push(v); });
+      var temaVals = {}; allTemas.forEach(function (t) { temaVals[t] = teAcc[t] ? mean(teAcc[t]) : null; });
+      byKitchenTema[nm] = temaVals;
+      var blkVals = {}; blocks.forEach(function (b) { blkVals[b] = mean(temasOf[b].map(function (t) { return temaVals[t]; })); });
+      byKitchenBloque[nm] = blkVals;
+      var basic = mean(questions.map(function (q) { return bq[q.no]; }));
+      if (basic != null) { byName[nm] = basic; if (num) byNum[num] = basic; }
+      kitchens.push({ country: "Perú", name: meta.name, city: meta.city || "Lima", values: values });
+    });
+    (P.pending || []).forEach(function (p) { pendingNorms[norm(p)] = p; });
+    var byBloque = {}, byTema = {};
+    blocks.forEach(function (b) { byBloque[b] = mean(Object.keys(byKitchenBloque).map(function (nm) { return byKitchenBloque[nm][b]; })); });
+    allTemas.forEach(function (t) { byTema[t] = mean(Object.keys(byKitchenTema).map(function (nm) { return byKitchenTema[nm][t]; })); });
+
+    window.FORM_SCORES = window.FORM_SCORES || {};
+    window.FORM_SCORES.PE = {
+      byName: byName, byNum: byNum, byKitchenQuestion: byKitchenQuestion,
+      byKitchenBloque: byKitchenBloque, byKitchenTema: byKitchenTema,
+      byBloque: byBloque, byTema: byTema,
+      _questions: questions, _meta: { quarter: "Q3 2026", source: "Preguntas" },
+      __realNorms: Object.keys(byName), _isQ3: true
+    };
+    window.SHEET_DETAIL_DATA_PE_Q3 = { questions: questions, kitchens: kitchens };
+    window.Q3_PENDING_PE = pendingNorms;
+    return true;
+  };
 })();
