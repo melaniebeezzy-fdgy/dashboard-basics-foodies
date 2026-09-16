@@ -3,7 +3,12 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Básicos para Foodies contentos · Q2 2026</title>
+  <title>Básicos para Foodies contentos</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png" />
+  <link rel="icon" href="favicon.ico" sizes="any" />
+  <link rel="apple-touch-icon" href="favicon-180.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
@@ -4392,9 +4397,26 @@
         const st = ganttFixStatus(f);
         return st !== "done" && st !== "overdue" && !exEjecSet.has(f);            // por iniciar
       });
-      const exN       = exActive.length;
-      const exDonePct = exN ? Math.round(exDone.length / exN * 100) : 0;
-      const exOverPct = exN ? exOverdue.length / exN : 0;
+      // Conteo a nivel de PLAN (agrupa el mismo plan aplicado a varias cocinas) para
+      // que las tarjetas coincidan con las listas del detalle (que van deduplicadas).
+      const _planKeyOf = (f) => normalizeText((f.area || "") + "|" + (f.iniciativa || f.subcategoria || f.basic || ""));
+      const _distinctPlans = (arr) => new Set(arr.map(_planKeyOf)).size;
+      const _planStatus = {};   // por plan: 4 atrasado > 3 en ejecución > 2 por iniciar > 1 completado
+      exActive.forEach(f => {
+        const st = ganttFixStatus(f);
+        const s = st === "overdue" ? 4 : exEjecSet.has(f) ? 3 : st === "done" ? 1 : 2;
+        const k = _planKeyOf(f);
+        _planStatus[k] = Math.max(_planStatus[k] || 0, s);
+      });
+      const _pv = Object.values(_planStatus);
+      const gActive = _pv.length;
+      const gOver = _pv.filter(v => v === 4).length;
+      const gEjec = _pv.filter(v => v === 3).length;
+      const gPend = _pv.filter(v => v === 2).length;
+      const gDone = _pv.filter(v => v === 1).length;
+      const exN       = gActive;
+      const exDonePct = gActive ? Math.round(gDone / gActive * 100) : 0;
+      const exOverPct = gActive ? gOver / gActive : 0;
 
       // Ritmo vs cronograma del trimestre (avance % vs tiempo transcurrido %).
       const _exQ0    = (reportQuarter() - 1) * 3;
@@ -4409,9 +4431,9 @@
       } else if (exOverdue.length === 0 && exDonePct >= exElapsed) {
         exVerdict = { label: "En camino", color: "#4a9070", bg: "#e8f3ec", msg: `Sin planes atrasados y avance (${exDonePct}%) al día frente al ${exElapsed}% del trimestre transcurrido. Se puede continuar según lo planeado.` };
       } else if (exOverPct <= 0.10 && exDonePct >= exElapsed - 10) {
-        exVerdict = { label: "Avance con vigilancia", color: "#8a6a35", bg: "#f8f0e2", msg: `${exOverdue.length} plan${exOverdue.length !== 1 ? "es" : ""} atrasado${exOverdue.length !== 1 ? "s" : ""} (${Math.round(exOverPct * 100)}%). Avance ${exDonePct}% vs ${exElapsed}% del trimestre: ritmo saludable, atender los atrasos puntuales.` };
+        exVerdict = { label: "Avance con vigilancia", color: "#8a6a35", bg: "#f8f0e2", msg: `${gOver} plan${gOver !== 1 ? "es" : ""} atrasado${gOver !== 1 ? "s" : ""} (${Math.round(exOverPct * 100)}%). Avance ${exDonePct}% vs ${exElapsed}% del trimestre: ritmo saludable, atender los atrasos puntuales.` };
       } else {
-        exVerdict = { label: "Requiere foco", color: "#96607d", bg: "#f4eaf0", msg: `${exOverdue.length} planes atrasados (${Math.round(exOverPct * 100)}%) y avance ${exDonePct}% vs ${exElapsed}% del trimestre. Priorizar los retrasos antes de abrir nuevos frentes.` };
+        exVerdict = { label: "Requiere foco", color: "#96607d", bg: "#f4eaf0", msg: `${gOver} planes atrasados (${Math.round(exOverPct * 100)}%) y avance ${exDonePct}% vs ${exElapsed}% del trimestre. Priorizar los retrasos antes de abrir nuevos frentes.` };
       }
 
       // Semana en curso (lunes–domingo) que contiene "hoy".
@@ -4512,7 +4534,7 @@
 
       // Agrupa planes idénticos (mismo plan general aplicado a varias cocinas) para
       // no repetir la misma fila por cocina; se muestra el conteo de cocinas.
-      const _planKeyOf = (f) => normalizeText((f.area || "") + "|" + (f.iniciativa || f.subcategoria || f.basic || ""));
+      // (_planKeyOf ya está definido arriba.)
       const _groupByPlan = (fixes) => {
         const m = new Map();
         fixes.forEach(f => {
@@ -4631,8 +4653,8 @@
       let _cumN = 0, _cumD = 0;
       const exProg = exWeeksBud.map(w => { _cumN += w.n; _cumD += w.doneN; return { wk: w.wk, n: w.n, expPct: _totSched ? _cumN / _totSched : 0, realPct: _totSched ? _cumD / _totSched : 0 }; });
       // Proyección puntual: % que debería estar completo HOY según sus compromisos.
-      const exExpNow = exActive.filter(f => { const d = _spendDate(f); return d && d <= today; }).length;
-      const exExpPct = exN ? Math.round(exExpNow / exN * 100) : 0;
+      const exExpNow = _distinctPlans(exActive.filter(f => { const d = _spendDate(f); return d && d <= today; }));
+      const exExpPct = gActive ? Math.round(exExpNow / gActive * 100) : 0;
 
       // Detalle por semana para el popup (plan · área · básico · presupuesto).
       window.__ganttWeekDetail = {};
@@ -4794,10 +4816,10 @@
             </div>
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
-            ${exPill("Completados", exDone.length, exBudOf(exDone), "#4a9070", "#e8f3ec")}
-            ${exPill("En ejecución", exEjec.length, exBudOf(exEjec), "#0b769f", "#e7f6fc")}
-            ${exPill("Por iniciar", exPend.length, exBudOf(exPend), "#345964", "#eef1f8")}
-            ${exPill("Atrasados", exOverdue.length, exBudOf(exOverdue), "#96607d", "#f4eaf0")}
+            ${exPill("Completados", gDone, exBudOf(exDone), "#4a9070", "#e8f3ec")}
+            ${exPill("En ejecución", gEjec, exBudOf(exEjec), "#0b769f", "#e7f6fc")}
+            ${exPill("Por iniciar", gPend, exBudOf(exPend), "#345964", "#eef1f8")}
+            ${exPill("Atrasados", gOver, exBudOf(exOverdue), "#96607d", "#f4eaf0")}
           </div>
           ${exBudgetHtml}
           <div style="display:flex;gap:22px;flex-wrap:wrap">
