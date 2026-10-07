@@ -1356,6 +1356,7 @@
       impactArea: "Todas",
       impactResponsible: "Todos",
       impactStatus: ["Todos"],
+      dashStatus: ["Todos"],   // filtro de status de planes en el Dashboard (Pendiente/En proceso/Ejecutado/Despriorizado)
       ganttStatuses: new Set(),
       ganttArea: "all",
       ganttPriority: "all",
@@ -1925,8 +1926,19 @@
 
     const renderDashboard = () => {
       const rows = withData();
-      // Planes activos de una cocina (excluye despriorizados) para conteos y budget.
-      const kFixesOf = (k) => fixesForKitchen(k).filter(fix => fixMatchesKitchen(fix, k, state.country) && !projStatusIsDepri(fix));
+      // Filtro de status de planes (Dashboard). "Todos" = activos (sin despriorizados).
+      const dashSel = Array.isArray(state.dashStatus) ? state.dashStatus : ["Todos"];
+      const dashAllStatus = !dashSel.length || dashSel.includes("Todos");
+      // Planes de una cocina según el filtro de status (por defecto, sin despriorizados).
+      const kFixesOf = (k) => fixesForKitchen(k).filter(fix => {
+        if (!fixMatchesKitchen(fix, k, state.country)) return false;
+        if (dashAllStatus) return !projStatusIsDepri(fix);
+        return dashSel.some(st => normalizeText(fixStatusValue(fix)) === normalizeText(st));
+      });
+      const dashStatusOptions = ["Todos", ...new Set(filtered()
+        .flatMap(k => fixesForKitchen(k).filter(fix => fixMatchesKitchen(fix, k, state.country)))
+        .map(fixStatusValue).filter(Boolean))];
+      const dashStatusLabel = dashAllStatus ? "Todos" : dashSel.join(", ");
       const avg = rows.length ? rows.reduce((sum, kitchen) => sum + kitchenScore(kitchen), 0) / rows.length : 0;
       const scoreTarget = state.country === "CO" ? 95 : state.country === "MX" ? 90 : 80;
       const green = rows.filter(k => kitchenScore(k) >= scoreTarget).length;
@@ -1969,7 +1981,7 @@
         { label: `Cocinas ≥${scoreTarget}%`, value: green,  sub: `${greenPct}% del total${hasProj ? ` · ${projTag(projGreen)}` : ""}`,  status: 100 },
         { label: `Cocinas ${midMin}-${scoreTarget}%`, value: yellow, sub: `${yellowPct}% del total${hasProj ? ` · ${projTag(projYellow)}` : ""}`, status: midMin },
         { label: `Cocinas <${midMin}%`,         value: red,    sub: `${redPct}% del total${hasProj ? ` · ${projTag(projRed)}` : ""}`,    status: 30 },
-        { label: "Planes", value: totalPlanes, sub: "activos (sin despriorizados)", color: "#090e3e", bg: "#eef1f8" },
+        { label: "Planes", value: totalPlanes, sub: dashAllStatus ? "activos (sin despriorizados)" : `status: ${dashStatusLabel}`, color: "#090e3e", bg: "#eef1f8" },
         { label: "Budget", value: formatMoney(totalBudget), sub: "planes activos", color: "#0b769f", bg: "#e7f6fc" },
       ];
 
@@ -2068,6 +2080,24 @@
         </table>`;
 
       byId("dashboard").innerHTML = `
+        <div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-bottom:10px">
+          <label style="font-size:11px;color:var(--text-muted);font-weight:500">Status planes</label>
+          <details class="check-dropdown" id="dashStatusDropdown">
+            <summary>${dashStatusLabel}</summary>
+            <div class="check-menu">
+              ${dashStatusOptions.map(status => `
+                <label class="check-option">
+                  <input type="checkbox" data-dash-status-option value="${status}" ${dashSel.includes(status) ? "checked" : ""}>
+                  <span>${status}</span>
+                </label>
+              `).join("")}
+              <div class="check-actions">
+                <button type="button" data-dash-status-clear>Limpiar</button>
+                <button type="button" data-dash-status-apply>Aplicar</button>
+              </div>
+            </div>
+          </details>
+        </div>
         <div class="kpis">
           ${kpis.map(k => {
             const s = k.color ? { color: k.color, bg: k.bg } : getStatus(k.status);
@@ -4680,11 +4710,16 @@
         if (ganttFixStatus(f) === "done") s.done++;
         const dd = _spendDate(f); if (dd && dd <= today) s.expNow++;
       });
-      const _cityBasic = {};
+      const _cityBasic = {}, _cityProj = {};
       if (state.typeFilter !== "cp") {
-        const _acc = {};
-        filtered().forEach(k => { const key = normalizeText(k.city || ""); (_acc[key] = _acc[key] || []).push(kitchenScore(k)); });
+        const _acc = {}, _accP = {};
+        filtered().forEach(k => {
+          const key = normalizeText(k.city || "");
+          const sc = kitchenScore(k); if (sc != null) (_acc[key] = _acc[key] || []).push(sc);
+          const pv = projectedScore(k, "all"); if (pv != null) (_accP[key] = _accP[key] || []).push(pv);
+        });
         Object.keys(_acc).forEach(key => { const a = _acc[key]; _cityBasic[key] = a.reduce((s, v) => s + v, 0) / a.length; });
+        Object.keys(_accP).forEach(key => { const a = _accP[key]; _cityProj[key] = a.reduce((s, v) => s + v, 0) / a.length; });
       }
       const exCities = Object.values(_cityAgg).sort((a, b) => b.n - a.n || b.budget - a.budget);
       const exCityTableHtml = `
@@ -4698,12 +4733,14 @@
               <th style="text-align:right;padding:4px 6px;font-weight:600" title="Planes completados">Avance</th>
               <th style="text-align:right;padding:4px 6px;font-weight:600" title="Debería estar listo hoy según compromisos">Esperado</th>
               <th style="text-align:right;padding:4px 6px;font-weight:600" title="Basic del diagnóstico del Q">Basic Q</th>
+              <th style="text-align:right;padding:4px 6px;font-weight:600" title="Basic proyectado si se completan los planes no despriorizados">Basic proy.</th>
             </tr></thead>
             <tbody>
               ${exCities.length ? exCities.map(s => {
                 const av = s.n ? Math.round(s.done / s.n * 100) : 0;
                 const ex = s.n ? Math.round(s.expNow / s.n * 100) : 0;
                 const bq = _cityBasic[normalizeText(s.city)];
+                const bp = _cityProj[normalizeText(s.city)];
                 return `<tr style="border-top:1px solid var(--light-gray)">
                   <td style="text-align:left;padding:5px 6px;color:var(--dark-blue);font-weight:600">${s.city}</td>
                   <td style="text-align:right;padding:5px 6px">${s.n}</td>
@@ -4711,8 +4748,9 @@
                   <td style="text-align:right;padding:5px 6px;color:#4a9070;font-weight:650">${av}%</td>
                   <td style="text-align:right;padding:5px 6px;color:#0b769f">${ex}%</td>
                   <td style="text-align:right;padding:5px 6px">${bq != null ? Math.round(bq) + "%" : "—"}</td>
+                  <td style="text-align:right;padding:5px 6px">${bp != null ? `<span style="color:${getStatus(bp).color};font-weight:650">${Math.round(bp)}%</span>` : "—"}</td>
                 </tr>`;
-              }).join("") : `<tr><td colspan="6" style="padding:10px;color:var(--text-muted)">Sin planes.</td></tr>`}
+              }).join("") : `<tr><td colspan="7" style="padding:10px;color:var(--text-muted)">Sin planes.</td></tr>`}
             </tbody>
           </table>
         </div>`;
@@ -5801,6 +5839,17 @@
         state.impactPeriodKey = null;
         state.impactAreaDetail = null;
         state.impactAreaPeriodKey = null;
+        render();
+        return;
+      }
+
+      if (event.target.closest("[data-dash-status-clear]")) {
+        document.querySelectorAll("[data-dash-status-option]").forEach(option => { option.checked = option.value === "Todos"; });
+        return;
+      }
+      if (event.target.closest("[data-dash-status-apply]")) {
+        const checked = [...document.querySelectorAll("[data-dash-status-option]:checked")].map(option => option.value);
+        state.dashStatus = !checked.length || checked.includes("Todos") ? ["Todos"] : checked.filter(s => s !== "Todos");
         render();
         return;
       }
