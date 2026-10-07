@@ -1850,7 +1850,7 @@
     // mode "done" = solo los completados/ejecutados.
     const projStatusIsDone  = (fix) => ["EJECUTADO", "CERRADO", "CERRADA", "REALIZADO"].includes(normalizeText(fixStatusValue(fix)));
     const projStatusIsDepri = (fix) => normalizeText(fixStatusValue(fix)) === "DESPRIORIZADO";
-    const projectedScore = (kitchen, mode) => {
+    const projectedScore = (kitchen, mode, statusSel = null) => {
       if (!kitchen) return null;
       const fsK = (window.FORM_SCORES || {})[state.country];
       const norm = normalizeText(kitchen.id);
@@ -1859,7 +1859,9 @@
       const hasPerQ = !!formQ || !!(sheetKitchen && (sheetKitchen.values || []).some(v => v != null));
       const questions = detailDataForKitchen(kitchen).questions.map((q, i) => ({ ...q, index: i }));
       if (!questions.length) return null;
-      const isResolved = mode === "done" ? projStatusIsDone : (fix) => !projStatusIsDepri(fix);
+      const isResolved = (statusSel && statusSel.length && !statusSel.includes("Todos"))
+        ? (fix) => statusSel.some(st => normalizeText(fixStatusValue(fix)) === normalizeText(st))
+        : (mode === "done" ? projStatusIsDone : (fix) => !projStatusIsDepri(fix));
       const allFixes = fixesForKitchen(kitchen).filter(fix => fixMatchesKitchen(fix, kitchen, state.country));
       const resolvingFixes = allFixes.filter(isResolved);
       if (hasPerQ) {
@@ -1965,7 +1967,7 @@
         return prevKitchenBasic(k);
       };
       // Proyección (cierre si se completan los planes no despriorizados).
-      const projScores = rows.map(k => projectedScore(k, "all"));
+      const projScores = rows.map(k => projectedScore(k, "all", dashAllStatus ? null : dashSel));
       const projValid = projScores.filter(v => v != null);
       const projAvg = projValid.length ? projValid.reduce((a, b) => a + b, 0) / projValid.length : null;
       const hasProj = projValid.length > 0;
@@ -2003,7 +2005,7 @@
         filtered().forEach(k => {
           if (!k.city) return;
           const a = acc[k.city] = acc[k.city] || { projSum: 0, projN: 0, planes: 0, budget: 0 };
-          const p = projectedScore(k, "all"); if (p != null) { a.projSum += p; a.projN += 1; }
+          const p = projectedScore(k, "all", dashAllStatus ? null : dashSel); if (p != null) { a.projSum += p; a.projN += 1; }
           const fx = kFixesOf(k);
           a.planes += fx.length;
           a.budget += fx.reduce((s, fix) => s + fixBudgetForKitchen(fix, k), 0);
@@ -2031,7 +2033,7 @@
           id: k.id,
           basic,
           delta: (basic != null && prev != null) ? basic - prev : null,
-          proj: projectedScore(k, "all"),
+          proj: projectedScore(k, "all", dashAllStatus ? null : dashSel),
           planes: fx.length,
           budget: fx.reduce((s, fix) => s + fixBudgetForKitchen(fix, k), 0),
         };
@@ -4409,6 +4411,7 @@
         if (state.cityFilter !== "Todas" && normalizeText(fix.ciudad) !== normalizeText(state.cityFilter)) return false;
         if (state.ganttArea !== "all" && normalizeText(fix.area) !== normalizeText(state.ganttArea)) return false;
         if (state.ganttPriority !== "all" && normalizeText(fix.prioridad) !== normalizeText(state.ganttPriority)) return false;
+        if (state.ganttStatuses.size > 0 && !state.ganttStatuses.has(ganttFixStatus(fix))) return false;  // respeta el filtro de estado
         return true;
       });
       const exBudOf   = (arr) => arr.reduce((s, f) => s + fixBudgetAmount(f), 0);
