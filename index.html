@@ -1178,7 +1178,13 @@
       p:   { label: "Parcial",    short: "Parc", color: "#8a6a35", bg: "#f8f0e2" },
       no:  { label: "No cumple",  short: "No",   color: "#9b2c2c", bg: "#f7e8e8" },
     };
-    const coStateBadge = (st) => { const i = CO_STATE_INFO[st]; return i ? `<span style="font-size:10px;font-weight:650;color:${i.color};background:${i.bg};padding:1px 7px;border-radius:999px;white-space:nowrap">${i.label}</span>` : `<span style="font-size:10px;color:var(--text-muted)">—</span>`; };
+    const coStateBadge = (st, qNo) => {
+      const i = CO_STATE_INFO[st];
+      if (!i) return `<span style="font-size:10px;color:var(--text-muted)">—</span>`;
+      // "Cumple 2.0" solo en preguntas con 2º nivel; si no subió de nivel, es solo "Cumple".
+      const label = (st === "yes" && qNo != null && !(window.CO_L2 && window.CO_L2.has(Number(qNo)))) ? "Cumple" : i.label;
+      return `<span style="font-size:10px;font-weight:650;color:${i.color};background:${i.bg};padding:1px 7px;border-radius:999px;white-space:nowrap">${label}</span>`;
+    };
     const coScoreOf = (kId, version) => { const fs = version === "1.0" ? window.CO_FS_1 : window.CO_FS_2; return (fs && fs.byName && fs.byName[normalizeText(kId)] != null) ? fs.byName[normalizeText(kId)] : null; };
     const cpData = () => window.CP_DETAIL_DATA || { questions: [], kitchens: [] };
     const fixesData = () => window.FIXES_DATA || { MX: [], CO: [], PE: [], CP: [] };
@@ -2763,7 +2769,7 @@
           const qs = (window.CO_BASICS_META || []).filter(q => q.bloque === b);
           const qrows = qs.map(q => `<tr style="border-top:1px solid var(--light-gray)">
               <td style="padding:7px 8px;font-size:12px;color:var(--navy);line-height:1.35">${q.no}. ${q.text}${q.inverted ? ` <span style="font-size:9px;color:var(--text-muted)">(invertida)</span>` : ""}</td>
-              <td style="padding:7px 8px;text-align:right;white-space:nowrap">${coStateBadge(states[q.no])}</td>
+              <td style="padding:7px 8px;text-align:right;white-space:nowrap">${coStateBadge(states[q.no], q.no)}</td>
             </tr>`).join("");
           return `<div style="font-weight:700;color:var(--dark-blue);font-size:13px;margin:14px 0 2px">${b}</div>
             <table style="width:100%;border-collapse:collapse"><tbody>${qrows}</tbody></table>`;
@@ -7621,6 +7627,11 @@
       // Histórico Q3 (una sola vez) para el comparativo — no se sobrescribe.
       if (fsCO && !fsCO._isBasics && !window.CO_HIST) { window.CO_HIST = fsCO; window.Q2_FORM_CO = fsCO; }
       const _states = window.CO_BASICS_STATES, _kmeta = window.CO_BASICS_KMETA;
+      // Preguntas con 2º nivel = aquellas donde alguna cocina respondió "Parcialmente (versión 1.0)".
+      // Solo en ellas tiene sentido distinguir "Cumple 2.0"; las demás "se mantuvieron" → "Cumple".
+      window.CO_L2 = new Set();
+      (window.CO_BASICS_META || []).forEach(q => { if (q.l2) window.CO_L2.add(Number(q.no)); });   // marcadas en metadata
+      Object.values(_states || {}).forEach(st => Object.keys(st).forEach(no => { if (st[no] === "p1") window.CO_L2.add(Number(no)); }));  // + detectadas por datos
       window.CO_FS_1 = window.buildBasicsAggregates(_states, _kmeta, "1.0");
       window.CO_FS_2 = window.buildBasicsAggregates(_states, _kmeta, "2.0");
       const agg = state.basicVersion === "1.0" ? window.CO_FS_1 : window.CO_FS_2;
