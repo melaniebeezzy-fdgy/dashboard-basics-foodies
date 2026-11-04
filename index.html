@@ -2300,6 +2300,14 @@
       const _brecha = _d1.avg - _d2.avg;
       let _both = 0, _only1 = 0, _no1 = 0;
       rows.forEach(k => { const s1 = coScoreOf(k.id, "1.0"), s2 = coScoreOf(k.id, "2.0"); if (s1 == null) return; if (s1 >= scoreTarget && s2 >= scoreTarget) _both++; else if (s1 >= scoreTarget) _only1++; else _no1++; });
+      // Diagnóstico del Q anterior (Q3) para la card de Cumplimiento General.
+      const _q3fs = window["Q2_FORM_" + state.country];
+      const _q3avg = (() => {
+        if (!_q3fs || !_q3fs.byName) return null;
+        const vs = rows.map(k => _q3fs.byName[normalizeText(k.id)]).filter(v => v != null);
+        return vs.length ? vs.reduce((a, b) => a + b, 0) / vs.length : null;
+      })();
+      const _dQ3 = (_q3avg != null) ? _d1.avg - _q3avg : null;  // evolución Q3 → Basics 1.0
       const bigCard = (ver, val, accent, bg, subtitle, tag, tagBg, tagColor) => `
         <article class="kpi" style="background:${bg};border-color:${accent}55;min-height:0;padding:9px 14px;flex:1 1 200px;display:flex;flex-direction:column;justify-content:center">
           <div style="display:flex;align-items:center;gap:7px"><span style="font-size:12px;font-weight:700;color:${accent};letter-spacing:.02em">BASICS ${ver}</span><span style="font-size:9px;font-weight:650;color:${tagColor};background:${tagBg};padding:1px 7px;border-radius:999px">${tag}</span></div>
@@ -2315,6 +2323,11 @@
           <span style="font-size:10px;font-weight:650;color:#276749;background:#e8f3ec;padding:2px 9px;border-radius:999px">Nuevo diagnóstico</span>
         </div>
         <div style="display:flex;gap:10px;align-items:stretch;flex-wrap:wrap;margin-bottom:10px">
+          ${_q3avg != null ? `<article class="kpi" style="background:#f4f6f8;border-color:#cbd5e0;min-height:0;padding:9px 14px;flex:1 1 170px;display:flex;flex-direction:column;justify-content:center">
+            <div style="display:flex;align-items:center;gap:7px"><span style="font-size:12px;font-weight:700;color:#64748b;letter-spacing:.02em">DIAGNÓSTICO Q3</span><span style="font-size:9px;font-weight:650;color:#64748b;background:#e2e8f0;padding:1px 7px;border-radius:999px">Trimestre anterior</span></div>
+            <div style="font-size:26px;font-weight:750;color:#475569;line-height:1.05;margin:2px 0 1px">${fmt(_q3avg)}</div>
+            <div style="font-size:10px;color:var(--text-muted)">Q3 2026${_dQ3 != null ? ` · <span style="color:${_dQ3 >= 0 ? "#276749" : "#9b2c2c"};font-weight:650">${_dQ3 >= 0 ? "▲ +" : "▼ "}${Math.abs(_dQ3).toFixed(1)} pp</span> → 1.0` : ""}</div>
+          </article>` : ""}
           ${bigCard("1.0", _d1.avg, "#0b769f", "#eef2fa", "Estándar mínimo", "Nivel anterior", "#efe7f4", "#7c5fa8")}
           <div style="flex:0 0 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 14px;min-width:96px">
             <div style="font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em">Brecha</div>
