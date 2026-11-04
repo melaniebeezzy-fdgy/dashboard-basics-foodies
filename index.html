@@ -5966,6 +5966,13 @@
     };
     const cq3Pending = () => {
       if (cq3IsCP()) return [];
+      // Países en Basics: pendiente = cocina del roster sin respuesta en el formulario Q4.
+      if (coBasicsOn()) {
+        const levels = coLevels() || {};
+        return (COUNTRIES[state.country]?.kitchens || [])
+          .filter(k => !isCPKitchen(k) && !levels[normalizeText(k.id)])
+          .map(k => k.id).sort();
+      }
       if (state.country === "PE") return Object.values(window.Q3_PENDING_PE || {}).sort();
       if (window.Q3_PREGUNTAS_MX?.pending) return window.Q3_PREGUNTAS_MX.pending.slice().sort();
       const R = window.Q3_RESULTS_MX;
