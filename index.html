@@ -2293,20 +2293,26 @@
           </div>
           ${bigCard("2.0", _d2.avg, "#276749", "#e8f3ec", "Nuevo estándar", "Nivel actual", "#d8efe0", "#276749")}
         </div>
-        <div style="font-size:12px;font-weight:700;color:var(--dark-blue);margin-bottom:5px">Distribución de cocinas por nivel</div>
-        <table style="width:100%;border-collapse:collapse">
-          <thead><tr style="color:var(--text-muted);font-size:11px"><th style="text-align:left;padding:4px 10px;font-weight:600">Indicador</th><th style="text-align:right;padding:4px 10px;font-weight:600">Basics 1.0</th><th style="text-align:right;padding:4px 10px;font-weight:600">Basics 2.0</th></tr></thead>
-          <tbody>
-            ${distRow(`≥${scoreTarget}%`, getStatus(scoreTarget).color, _d1.g, _d2.g)}
-            ${distRow(`${midMin}–${scoreTarget}%`, getStatus(midMin).color, _d1.y, _d2.y)}
-            ${distRow(`&lt;${midMin}%`, getStatus(0).color, _d1.r, _d2.r)}
-          </tbody>
-        </table>
-        <div style="font-size:12px;font-weight:700;color:var(--dark-blue);margin:11px 0 5px">Avance hacia Basics 2.0</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          ${advCard("Cumplen ambos niveles", "#276749", _both)}
-          ${advCard("Cumplen 1.0, no 2.0", "#0b769f", _only1)}
-          ${advCard(`No cumplen 1.0 (&lt;${scoreTarget}%)`, "#9b2c2c", _no1)}
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px;align-items:start">
+          <div>
+            <div style="font-size:12px;font-weight:700;color:var(--dark-blue);margin-bottom:5px">Distribución de cocinas por nivel</div>
+            <table style="width:100%;border-collapse:collapse">
+              <thead><tr style="color:var(--text-muted);font-size:11px"><th style="text-align:left;padding:4px 10px;font-weight:600">Indicador</th><th style="text-align:right;padding:4px 10px;font-weight:600">Basics 1.0</th><th style="text-align:right;padding:4px 10px;font-weight:600">Basics 2.0</th></tr></thead>
+              <tbody>
+                ${distRow(`≥${scoreTarget}%`, getStatus(scoreTarget).color, _d1.g, _d2.g)}
+                ${distRow(`${midMin}–${scoreTarget}%`, getStatus(midMin).color, _d1.y, _d2.y)}
+                ${distRow(`&lt;${midMin}%`, getStatus(0).color, _d1.r, _d2.r)}
+              </tbody>
+            </table>
+          </div>
+          <div>
+            <div style="font-size:12px;font-weight:700;color:var(--dark-blue);margin-bottom:5px">Avance hacia Basics 2.0</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              ${advCard("Cumplen ambos niveles", "#276749", _both)}
+              ${advCard("Cumplen 1.0, no 2.0", "#0b769f", _only1)}
+              ${advCard(`No cumplen 1.0 (&lt;${scoreTarget}%)`, "#9b2c2c", _no1)}
+            </div>
+          </div>
         </div>
         <div class="kpis" style="margin-top:11px">${kpis.filter(k => k.label === "Planes" || k.label === "Budget").map(kpiCardHtml).join("")}</div>`;
 
