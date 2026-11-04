@@ -172,6 +172,38 @@
       font-weight: 650;
       border-color: var(--slate);
     }
+    /* Barra de vistas estilo pestaña (subrayado), igual que Turbology */
+    section.toolbar {
+      gap: 2px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 16px;
+      overflow-x: auto;
+      flex-wrap: nowrap;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: thin;
+    }
+    section.toolbar .view-tab {
+      border: none;
+      border-bottom: 2px solid transparent;
+      border-radius: 0;
+      margin-bottom: -1px;
+      padding: 9px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      background: transparent;
+      white-space: nowrap;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    section.toolbar .view-tab:hover {
+      color: var(--cyan-dark);
+    }
+    section.toolbar .view-tab.active {
+      background: transparent;
+      color: var(--cyan-dark);
+      border-bottom-color: var(--cyan-dark);
+      font-weight: 650;
+    }
     .city-control {
       margin-left: auto;
       display: flex;
