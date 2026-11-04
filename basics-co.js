@@ -211,6 +211,9 @@
       var num = kitchenNum(m.name);
       var byQ = {}, teAcc = {}, blAcc = {}, all = [];
       META.forEach(function (q) {
+        // Las preguntas nuevas pertenecen solo al estándar 2.0: no entran en la métrica 1.0
+        // (Basics 1.0 = estándar original, comparable con el Q anterior).
+        if (version === "1.0" && q.nuevo) return;
         var v = basicsValue(states[q.no], version);
         if (v == null) return;
         byQ[q.no] = v; all.push(v);
