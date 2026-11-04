@@ -56,7 +56,7 @@
       box-shadow: 0 1px 6px rgba(9, 14, 62, 0.25);
     }
     .brandbar-inner {
-      width: min(1720px, calc(100% - 48px));
+      width: min(1600px, calc(100% - 40px));
       margin: 0 auto;
       display: flex;
       align-items: center;
@@ -86,7 +86,7 @@
     }
     a { color: var(--cyan-dark); }
     .wrap {
-      width: min(1720px, calc(100% - 40px));
+      width: min(1600px, calc(100% - 40px));
       margin: 0 auto;
       padding: 9px 0 28px;
     }
@@ -2195,48 +2195,44 @@
       let _both = 0, _only1 = 0, _no1 = 0;
       rows.forEach(k => { const s1 = coScoreOf(k.id, "1.0"), s2 = coScoreOf(k.id, "2.0"); if (s1 == null) return; if (s1 >= scoreTarget && s2 >= scoreTarget) _both++; else if (s1 >= scoreTarget) _only1++; else _no1++; });
       const bigCard = (ver, val, accent, bg, subtitle, tag, tagBg, tagColor) => `
-        <article class="kpi" style="background:${bg};border-color:${accent}55;min-height:0;padding:14px 16px">
-          <div style="font-size:13px;font-weight:700;color:${accent};letter-spacing:.02em">BASICS ${ver}</div>
-          <div style="font-size:34px;font-weight:750;color:${accent};line-height:1.05;margin:1px 0 2px">${fmt(val)}</div>
-          <div style="font-size:11px;color:var(--text-muted)">${subtitle}</div>
-          <div style="margin-top:6px"><span style="font-size:10px;font-weight:650;color:${tagColor};background:${tagBg};padding:2px 9px;border-radius:999px">${tag}</span></div>
+        <article class="kpi" style="background:${bg};border-color:${accent}55;min-height:0;padding:9px 14px;flex:1 1 200px;display:flex;flex-direction:column;justify-content:center">
+          <div style="display:flex;align-items:center;gap:7px"><span style="font-size:12px;font-weight:700;color:${accent};letter-spacing:.02em">BASICS ${ver}</span><span style="font-size:9px;font-weight:650;color:${tagColor};background:${tagBg};padding:1px 7px;border-radius:999px">${tag}</span></div>
+          <div style="font-size:26px;font-weight:750;color:${accent};line-height:1.05;margin:2px 0 1px">${fmt(val)}</div>
+          <div style="font-size:10px;color:var(--text-muted)">${subtitle}</div>
         </article>`;
-      const distCell = (n) => `<td style="text-align:right;padding:6px 10px;font-weight:650;color:var(--navy)">${n}</td>`;
-      const distRow = (label, color, a, b) => `<tr style="border-top:1px solid var(--light-gray)"><td style="padding:6px 10px;color:${color};font-weight:650">${label}</td>${distCell(a)}${distCell(b)}</tr>`;
-      const advRow = (label, color, n) => `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;border-top:1px solid var(--light-gray)"><span style="color:${color};font-weight:650;font-size:12px">${label}</span><span style="font-weight:700;color:var(--navy)">${n}</span></div>`;
+      const distCell = (n) => `<td style="text-align:right;padding:5px 10px;font-weight:650;color:var(--navy)">${n}</td>`;
+      const distRow = (label, color, a, b) => `<tr style="border-top:1px solid var(--light-gray)"><td style="padding:5px 10px;color:${color};font-weight:650">${label}</td>${distCell(a)}${distCell(b)}</tr>`;
+      const advCard = (label, color, n) => `<div style="flex:1 1 140px;background:var(--kpi-bg,#f7f9fc);border:1px solid var(--border);border-radius:var(--radius,8px);padding:7px 11px"><div style="font-size:10px;color:${color};font-weight:650;line-height:1.2">${label}</div><div style="font-size:19px;font-weight:750;color:var(--navy);line-height:1.1">${n}</div></div>`;
       const coDualKpis = `
-        <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:10px;flex-wrap:wrap">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 7px;gap:10px;flex-wrap:wrap">
           <div style="font-size:12px;font-weight:700;color:var(--dark-blue);text-transform:uppercase;letter-spacing:.04em">Cumplimiento general</div>
           <span style="font-size:10px;font-weight:650;color:#276749;background:#e8f3ec;padding:2px 9px;border-radius:999px">Nuevo diagnóstico</span>
         </div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px">
+        <div style="display:flex;gap:10px;align-items:stretch;flex-wrap:wrap;margin-bottom:10px">
           ${bigCard("1.0", _d1.avg, "#0b769f", "#eef2fa", "Estándar mínimo", "Nivel anterior", "#efe7f4", "#7c5fa8")}
+          <div style="flex:0 0 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 14px;min-width:96px">
+            <div style="font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em">Brecha</div>
+            <div style="font-size:21px;font-weight:750;color:${_brecha > 1 ? "#9b2c2c" : "var(--navy)"};line-height:1.1;white-space:nowrap">${_brecha.toFixed(1)}<span style="font-size:11px"> pp</span></div>
+            <div style="font-size:9px;color:var(--text-muted)">1.0 vs 2.0</div>
+          </div>
           ${bigCard("2.0", _d2.avg, "#276749", "#e8f3ec", "Nuevo estándar", "Nivel actual", "#d8efe0", "#276749")}
         </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 2px;border-bottom:1px solid var(--border);margin:12px 0 10px">
-          <div><div style="font-size:13px;font-weight:700;color:var(--dark-blue)">Brecha entre estándares</div><div style="font-size:11px;color:var(--text-muted)">Diferencia entre el cumplimiento de Basics 1.0 y Basics 2.0.</div></div>
-          <div style="font-size:22px;font-weight:750;color:${_brecha > 1 ? "#9b2c2c" : "var(--navy)"};white-space:nowrap">${_brecha.toFixed(1)} pp</div>
+        <div style="font-size:12px;font-weight:700;color:var(--dark-blue);margin-bottom:5px">Distribución de cocinas por nivel</div>
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr style="color:var(--text-muted);font-size:11px"><th style="text-align:left;padding:4px 10px;font-weight:600">Indicador</th><th style="text-align:right;padding:4px 10px;font-weight:600">Basics 1.0</th><th style="text-align:right;padding:4px 10px;font-weight:600">Basics 2.0</th></tr></thead>
+          <tbody>
+            ${distRow(`≥${scoreTarget}%`, getStatus(scoreTarget).color, _d1.g, _d2.g)}
+            ${distRow(`${midMin}–${scoreTarget}%`, getStatus(midMin).color, _d1.y, _d2.y)}
+            ${distRow(`&lt;${midMin}%`, getStatus(0).color, _d1.r, _d2.r)}
+          </tbody>
+        </table>
+        <div style="font-size:12px;font-weight:700;color:var(--dark-blue);margin:11px 0 5px">Avance hacia Basics 2.0</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          ${advCard("Cumplen ambos niveles", "#276749", _both)}
+          ${advCard("Cumplen 1.0, no 2.0", "#0b769f", _only1)}
+          ${advCard(`No cumplen 1.0 (&lt;${scoreTarget}%)`, "#9b2c2c", _no1)}
         </div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;align-items:start">
-          <div>
-            <div style="font-size:12px;font-weight:700;color:var(--dark-blue);margin-bottom:6px">Distribución de cocinas por nivel</div>
-            <table style="width:100%;border-collapse:collapse">
-              <thead><tr style="color:var(--text-muted);font-size:11px"><th style="text-align:left;padding:4px 10px;font-weight:600">Indicador</th><th style="text-align:right;padding:4px 10px;font-weight:600">Basics 1.0</th><th style="text-align:right;padding:4px 10px;font-weight:600">Basics 2.0</th></tr></thead>
-              <tbody>
-                ${distRow(`≥${scoreTarget}%`, getStatus(scoreTarget).color, _d1.g, _d2.g)}
-                ${distRow(`${midMin}–${scoreTarget}%`, getStatus(midMin).color, _d1.y, _d2.y)}
-                ${distRow(`&lt;${midMin}%`, getStatus(0).color, _d1.r, _d2.r)}
-              </tbody>
-            </table>
-          </div>
-          <div>
-            <div style="font-size:12px;font-weight:700;color:var(--dark-blue);margin-bottom:6px">Avance hacia Basics 2.0</div>
-            ${advRow("Cumplen ambos niveles", "#276749", _both)}
-            ${advRow("Cumplen 1.0, no 2.0", "#0b769f", _only1)}
-            ${advRow(`No cumplen 1.0 (&lt;${scoreTarget}%)`, "#9b2c2c", _no1)}
-          </div>
-        </div>
-        <div class="kpis" style="margin-top:14px">${kpis.filter(k => k.label === "Planes" || k.label === "Budget").map(kpiCardHtml).join("")}</div>`;
+        <div class="kpis" style="margin-top:11px">${kpis.filter(k => k.label === "Planes" || k.label === "Budget").map(kpiCardHtml).join("")}</div>`;
 
       const _dot = (c) => `<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${c};margin-right:4px;vertical-align:middle"></span>`;
       const bandLegend = `
