@@ -3135,7 +3135,7 @@
             return { q, c, notYet2: c.no + c.p + c.p1 };
           })
           .sort((a, b) => b.notYet2 - a.notYet2 || a.q.no - b.q.no);
-        const cell = (n, color) => `<td style="text-align:center;padding:7px 8px;${n ? `color:${color};font-weight:650` : "color:var(--text-muted)"}">${n || 0}</td>`;
+        const cell = (n, color, qNo, stKey) => `<td style="text-align:center;padding:7px 8px">${n ? `<span class="bds-count" data-bds-q="${qNo}" data-bds-st="${stKey}" title="Ver cocinas" style="color:${color};font-weight:650;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px">${n}</span>` : `<span style="color:var(--text-muted)">0</span>`}</td>`;
         byId("basic-detail-sheet").innerHTML = `
           <article class="panel">
             <div class="detail-picker">
@@ -3157,13 +3157,13 @@
                     <td>${r.q.area || "Sin área"}</td>
                     <td>${r.q.tema || r.q.bloque}</td>
                     <td><strong>B${r.q.no}.</strong> ${r.q.text}${r.q.nuevo ? ` <span style="font-size:9px;font-weight:650;color:#0b769f;background:#e7f6fc;padding:1px 6px;border-radius:999px">Nuevo</span>` : ""}</td>
-                    ${cell(r.c.no, "#9b2c2c")}${cell(r.c.p, "#8a6a35")}${cell(r.c.p1, "#0b769f")}${cell(r.c.yes, "#276749")}
-                    <td style="text-align:center;padding:7px 8px"><strong style="color:${r.notYet2 > nK / 2 ? "#9b2c2c" : "var(--navy)"}">${r.notYet2}</strong></td>
+                    ${cell(r.c.no, "#9b2c2c", r.q.no, "no")}${cell(r.c.p, "#8a6a35", r.q.no, "p")}${cell(r.c.p1, "#0b769f", r.q.no, "p1")}${cell(r.c.yes, "#276749", r.q.no, "yes")}
+                    <td style="text-align:center;padding:7px 8px">${r.notYet2 ? `<span class="bds-count" data-bds-q="${r.q.no}" data-bds-st="gap" title="Ver cocinas" style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px;font-weight:700;color:${r.notYet2 > nK / 2 ? "#9b2c2c" : "var(--navy)"}">${r.notYet2}</span>` : `<strong style="color:var(--navy)">0</strong>`}</td>
                   </tr>`).join("")}
                 </tbody>
               </table>
             </div>
-            <div class="info">Ordenado por <strong>brecha hacia 2.0</strong> (cocinas que aún no cumplen el nuevo estándar = No + Parcial + Cumple 1.0). Así ves qué básicos frenan el salto a Basics 2.0.</div>
+            <div class="info">Ordenado por <strong>brecha hacia 2.0</strong> (cocinas que aún no cumplen el nuevo estándar = No + Parcial + Cumple 1.0). Así ves qué básicos frenan el salto a Basics 2.0. <strong>Clic en cualquier número</strong> para ver exactamente qué cocinas.</div>
           </article>`;
         return;
       }
@@ -6622,6 +6622,56 @@
       document.body.appendChild(modal);
     };
     byId("helpBtn").addEventListener("click", showGlossaryModal);
+
+    // Detalle por básico: clic en un conteo → lista de cocinas exactas en ese estado.
+    const BDS_BUCKETS = {
+      no:  { label: "No cumple",         color: "#9b2c2c" },
+      p:   { label: "Parcial",           color: "#8a6a35" },
+      p1:  { label: "Cumple 1.0",        color: "#0b769f" },
+      yes: { label: "Cumple 2.0",        color: "#276749" },
+      gap: { label: "Brecha hacia 2.0",  color: "#9b2c2c" },
+    };
+    const showBasicKitchensModal = (qNo, stKey) => {
+      const L = coLevels() || {};
+      const meta = basicsMeta().find(q => Number(q.no) === Number(qNo));
+      if (!meta) return;
+      const wanted = stKey === "gap" ? ["no", "p", "p1"] : [stKey];
+      const list = filtered()
+        .map(k => ({ k, st: (L[normalizeText(k.id)] || {})[qNo] }))
+        .filter(x => x.st && wanted.includes(x.st))
+        .sort((a, b) => String(a.k.id).localeCompare(String(b.k.id), "es"));
+      const b = BDS_BUCKETS[stKey] || { label: "", color: "var(--navy)" };
+      const scopeStr = `${data().name} · ${state.cityFilter === "Todas" ? "Todas las ciudades" : state.cityFilter}`;
+      const rowsHtml = list.length
+        ? list.map(x => { const si = CO_STATE_INFO[x.st] || {}; return `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #eef2f6">
+            <span style="font-size:13px;color:#1e293b">${x.k.id}${x.k.city ? ` <span style="color:#94a3b8;font-size:11px">· ${x.k.city}</span>` : ""}</span>
+            ${stKey === "gap" ? `<span style="font-size:10px;font-weight:650;color:${si.color};background:${si.bg};padding:1px 7px;border-radius:999px;white-space:nowrap">${si.label}</span>` : ""}
+          </div>`; }).join("")
+        : `<div style="padding:12px 0;color:#64748b;font-size:13px">Ninguna cocina en este grupo.</div>`;
+      const existing = document.getElementById("ganttDetailModal"); if (existing) existing.remove();
+      const modal = document.createElement("div");
+      modal.id = "ganttDetailModal";
+      modal.style.cssText = "position:fixed;inset:0;background:rgba(15,23,42,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px";
+      modal.innerHTML = `
+        <div style="background:#fff;border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,0.22);width:min(560px,94vw);max-height:84vh;display:flex;flex-direction:column;overflow:hidden;font-family:inherit">
+          <div style="padding:14px 20px;border-bottom:1px solid #e8edf2;display:flex;align-items:flex-start;justify-content:space-between;gap:10px">
+            <div>
+              <div style="font-weight:700;font-size:14px;color:${b.color}">${b.label} · ${list.length} cocina${list.length === 1 ? "" : "s"}</div>
+              <div style="font-size:12px;color:#475569;margin-top:3px;line-height:1.4"><strong>B${meta.no}.</strong> ${meta.text}</div>
+              <div style="font-size:11px;color:#94a3b8;margin-top:3px">${scopeStr}</div>
+            </div>
+            <button data-close-gantt-modal type="button" style="border:0;background:#f1f5f9;border-radius:6px;font-size:14px;cursor:pointer;color:#64748b;padding:4px 8px;line-height:1;flex:0 0 auto">&#x2715;</button>
+          </div>
+          <div style="overflow-y:auto;padding:4px 20px 16px">${rowsHtml}</div>
+        </div>`;
+      modal.addEventListener("click", e => { if (e.target === modal || e.target.closest("[data-close-gantt-modal]")) modal.remove(); });
+      document.addEventListener("keydown", function esc(e) { if (e.key === "Escape") { modal.remove(); document.removeEventListener("keydown", esc); } });
+      document.body.appendChild(modal);
+    };
+    document.addEventListener("click", (event) => {
+      const cnt = event.target.closest(".bds-count");
+      if (cnt) { showBasicKitchensModal(cnt.dataset.bdsQ, cnt.dataset.bdsSt); }
+    });
 
     document.addEventListener("input", (event) => {
       if (event.target && event.target.id === "kitchenSearch") {
