@@ -1040,7 +1040,6 @@
       </div>
       <div class="header-actions" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         <button id="helpBtn" type="button" title="Ayuda y glosario" style="padding:5px 10px;font-size:12px;font-weight:650;background:var(--panel)">?</button>
-        <button id="printBtn" type="button" title="Imprimir o exportar a PDF" style="padding:5px 11px;font-size:11px;background:var(--panel);display:inline-flex;gap:5px;align-items:center">🖨️ Imprimir</button>
         <button class="sync" id="syncBtn" type="button"><span>&#x21bb;</span><span>Sincronizar Sheets</span></button>
       </div>
     </header>
@@ -1068,7 +1067,7 @@
           <label>Básicos</label>
           <div id="basicsVerSeg" style="display:flex;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden"></div>
         </span>
-        <button id="clearFiltersBtn" type="button" title="Restablecer filtros" style="padding:6px 11px;font-size:12px;background:var(--panel)">↺ Limpiar</button>
+        <button id="clearFiltersBtn" type="button" title="Restablecer filtros" style="padding:3px 8px;font-size:10px;background:var(--panel);color:var(--text-muted)">↺ Limpiar filtros</button>
       </div>
     </div>
     <section class="toolbar">
@@ -1223,7 +1222,7 @@
 
     const COUNTRIES = {
       MX: {
-        name: "México", flag: "MX", basic: null,
+        name: "México", flag: "🇲🇽", basic: null,
         cities: { CDMX: 65.8, Monterrey: 71.4, Guadalajara: 67.6, "Mérida": 55.6 },
         basics: [54,86,66,81,96,28,51,86,65,96,69,59,84,53,90,41,84,63,76,16,93,77,92,55,47,93],
         kitchens: [
@@ -1269,7 +1268,7 @@
         ]
       },
       CO: {
-        name: "Colombia", flag: "CO", basic: null,
+        name: "Colombia", flag: "🇨🇴", basic: null,
         cities: { "Bogotá":72.2, "Medellín":63.1, Cali:74.4, Pereira:64.7, Barranquilla:54.4, Cartagena:76.5, Bucaramanga:78.6 },
         basics: [80,88,84,56,95,50,12,73,55,95,42,70,96,96,89,82,87,73,85,38,96,94,97,89,65,86],
         kitchens: [
@@ -1299,7 +1298,7 @@
         ]
       },
       PE: {
-        name: "Perú", flag: "PE", basic: null,
+        name: "Perú", flag: "🇵🇪", basic: null,
         cities: { Lima: 60.0 },
         basics: [30,80,60,60,100,30,100,60,90,50,50,30,100,20,80,20,50,70,60,40,60,50,90,10,40,60],
         kitchens: [
@@ -6431,8 +6430,6 @@
       state.detailKitchenId = null;
       render();
     });
-
-    byId("printBtn").addEventListener("click", () => window.print());
 
     byId("clearFiltersBtn").addEventListener("click", () => {
       state.cityFilter = "Todas";
