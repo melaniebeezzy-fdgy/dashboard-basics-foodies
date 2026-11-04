@@ -7849,9 +7849,25 @@
     const buildBasics = (country) => {
       const cfg = BASICS_FORM_CFG[country]; if (!cfg || !window.buildBasicsAggregates) return;
       const S = basicsStore()[country] = basicsStore()[country] || {};
-      const _states = S.states || (country === "CO" ? window.CO_BASICS_STATES : null);
-      const _kmeta = S.kmeta || (country === "CO" ? window.CO_BASICS_KMETA : null);
+      let _states = S.states || (country === "CO" ? window.CO_BASICS_STATES : null);
+      let _kmeta = S.kmeta || (country === "CO" ? window.CO_BASICS_KMETA : null);
       if (!_states || !Object.keys(_states).length) return;
+      // Reconciliar nombres del formulario con el roster por NÚMERO de cocina
+      // (el form a veces trunca el nombre, p. ej. "40 JARDINES DEL VALL" vs "...VALLE").
+      // Evita duplicados y que la cocina del roster quede sin datos.
+      (() => {
+        const kNum = s => { const m = String(s || "").match(/^\s*(\d+)/); return m ? m[1] : ""; };
+        const rosterByNum = {};
+        (COUNTRIES[country] && COUNTRIES[country].kitchens || []).forEach(k => { const n = kNum(k.id); if (n && !rosterByNum[n]) rosterByNum[n] = k; });
+        const rs = {}, rk = {};
+        Object.keys(_states).forEach(nm => {
+          const m = (_kmeta && _kmeta[nm]) || { name: nm };
+          const rk0 = rosterByNum[kNum(m.name)];
+          if (rk0) { const rn = normalizeText(rk0.id); rs[rn] = _states[nm]; rk[rn] = { name: rk0.id, city: rk0.city || "" }; }
+          else { rs[nm] = _states[nm]; rk[nm] = m; }
+        });
+        _states = rs; _kmeta = rk;
+      })();
       window.FORM_SCORES = window.FORM_SCORES || {};
       const fsPrev = window.FORM_SCORES[country];
       // Histórico del Q anterior (una sola vez) para el comparativo — no se sobrescribe.
