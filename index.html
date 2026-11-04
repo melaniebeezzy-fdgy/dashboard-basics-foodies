@@ -64,6 +64,17 @@
       gap: 16px;
     }
     .brandbar img { height: 24px; width: auto; display: block; }
+    .brand-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .brand-logo {
+      font-family: 'Poppins', sans-serif;
+      font-weight: 800;
+      font-size: 19px;
+      color: #ffffff;
+      letter-spacing: -0.5px;
+      line-height: 1;
+      white-space: nowrap;
+    }
+    .brand-logo .dot { color: var(--cyan); }
     .brand-title {
       color: #ffffff;
       font-family: 'Poppins', sans-serif;
@@ -71,6 +82,36 @@
       font-size: 14px;
       letter-spacing: 0.2px;
     }
+    .brand-title::before {
+      content: "·";
+      margin-right: 10px;
+      color: rgba(255, 255, 255, 0.45);
+    }
+    .brandbar .tabs {
+      margin-bottom: 0;
+      gap: 6px;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .brandbar .tabs::-webkit-scrollbar { display: none; }
+    .brandbar .country-tab {
+      padding: 4px 11px;
+      font-size: 12px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      background: rgba(255, 255, 255, 0.06);
+      color: rgba(255, 255, 255, 0.82);
+      display: inline-flex;
+      align-items: center;
+      white-space: nowrap;
+      transition: 0.15s ease;
+    }
+    .brandbar .country-tab:hover {
+      border-color: rgba(255, 255, 255, 0.5);
+      color: #ffffff;
+    }
+    .brandbar .country-tab.active { font-weight: 650; }
     button, select {
       font: inherit;
       color: inherit;
@@ -144,7 +185,7 @@
       margin-bottom: 10px;
     }
     .country-row .tabs { margin-bottom: 0; }
-    .country-row .city-control { margin-left: auto; }
+    .country-row .city-control { margin-left: 0; }
     .country-tab {
       padding: 6px 12px;
       font-size: 12px;
@@ -1059,8 +1100,11 @@
 <body>
   <div class="brandbar">
     <div class="brandbar-inner">
-      <div class="brand-title" id="reportTitle">Basics · Q4 2026</div>
-      <img src="logo-foodology.png" alt="Foodology" />
+      <div class="brand-left">
+        <span class="brand-logo">fdgy<span class="dot">.</span></span>
+        <div class="brand-title" id="reportTitle">Basics · Q4 2026</div>
+      </div>
+      <nav class="tabs" id="countryTabs" aria-label="País"></nav>
     </div>
   </div>
   <main class="wrap">
@@ -1078,7 +1122,6 @@
 
     <div class="api-msg" id="apiMsg"></div>
     <div class="country-row">
-      <nav class="tabs" id="countryTabs" aria-label="País"></nav>
       <div class="city-control">
         <label for="typeSelect">Tipo</label>
         <select id="typeSelect">
@@ -1623,7 +1666,8 @@
         const s = getStatus(score);
         const active = key === state.country ? "active" : "";
         const style = key === state.country ? `border-color:${s.color};background:${s.bg};color:${s.color}` : "";
-        return `<button class="country-tab ${active}" style="${style}" data-country="${key}" type="button">${value.flag} ${value.name}<span style="margin-left:8px;color:${s.color};font-size:12px">${fmt(score)}</span></button>`;
+        const scoreColor = key === state.country ? s.color : "rgba(255,255,255,0.65)";
+        return `<button class="country-tab ${active}" style="${style}" data-country="${key}" type="button">${value.flag} ${value.name}<span style="margin-left:7px;color:${scoreColor};font-size:11px">${fmt(score)}</span></button>`;
       }).join("");
     };
 
