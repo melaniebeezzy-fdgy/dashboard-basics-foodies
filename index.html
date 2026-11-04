@@ -2768,7 +2768,7 @@
         const blocksHtml = states ? blocks.map(b => {
           const qs = (window.CO_BASICS_META || []).filter(q => q.bloque === b);
           const qrows = qs.map(q => `<tr style="border-top:1px solid var(--light-gray)">
-              <td style="padding:7px 8px;font-size:12px;color:var(--navy);line-height:1.35">${q.no}. ${q.text}${q.inverted ? ` <span style="font-size:9px;color:var(--text-muted)">(invertida)</span>` : ""}</td>
+              <td style="padding:7px 8px;font-size:12px;color:var(--navy);line-height:1.35">${q.no}. ${q.text}${q.nuevo ? ` <span style="font-size:9px;font-weight:650;color:#0b769f;background:#e7f6fc;padding:1px 6px;border-radius:999px">Nuevo</span>` : ""}${q.inverted ? ` <span style="font-size:9px;color:var(--text-muted)">(invertida)</span>` : ""}</td>
               <td style="padding:7px 8px;text-align:right;white-space:nowrap">${coStateBadge(states[q.no], q.no)}</td>
             </tr>`).join("");
           return `<div style="font-weight:700;color:var(--dark-blue);font-size:13px;margin:14px 0 2px">${b}</div>
@@ -3014,7 +3014,7 @@
                   ${rowsCO.map(r => `<tr>
                     <td>${r.q.area || "Sin área"}</td>
                     <td>${r.q.tema || r.q.bloque}</td>
-                    <td><strong>B${r.q.no}.</strong> ${r.q.text}</td>
+                    <td><strong>B${r.q.no}.</strong> ${r.q.text}${r.q.nuevo ? ` <span style="font-size:9px;font-weight:650;color:#0b769f;background:#e7f6fc;padding:1px 6px;border-radius:999px">Nuevo</span>` : ""}</td>
                     ${cell(r.c.no, "#9b2c2c")}${cell(r.c.p, "#8a6a35")}${cell(r.c.p1, "#0b769f")}${cell(r.c.yes, "#276749")}
                     <td style="text-align:center;padding:7px 8px"><strong style="color:${r.notYet2 > nK / 2 ? "#9b2c2c" : "var(--navy)"}">${r.notYet2}</strong></td>
                   </tr>`).join("")}
