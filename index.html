@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Básicos para Foodies contentos</title>
+  <title>Basics</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
   <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png" />
   <link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png" />
@@ -1018,7 +1018,7 @@
 <body>
   <div class="brandbar">
     <div class="brandbar-inner">
-      <div class="brand-title" id="reportTitle">Básicos para Foodies contentos · Q3 2026</div>
+      <div class="brand-title" id="reportTitle">Basics · Q4 2026</div>
       <img src="logo-foodology.png" alt="Foodology" />
     </div>
   </div>
@@ -1086,6 +1086,7 @@
   <script src="q3-mapping.js"></script>
   <script src="q3-data.js"></script>
   <script src="q3-mx.js"></script>
+  <script src="basics-co.js"></script>
   <script>
     const PALETTE = {
       lightGray: "#E8E8E8",
@@ -1146,6 +1147,7 @@
     // el resto de países usa el dataset global.
     const q3DetailByCountry = () => state.country === "MX" ? window.SHEET_DETAIL_DATA_MX_Q3
                                    : state.country === "PE" ? window.SHEET_DETAIL_DATA_PE_Q3
+                                   : state.country === "CO" ? window.SHEET_DETAIL_DATA_CO
                                    : null;
     const sheetData = () => q3DetailByCountry() || (window.SHEET_DETAIL_DATA || { questions: [], kitchens: [] });
     const cpData = () => window.CP_DETAIL_DATA || { questions: [], kitchens: [] };
@@ -1357,6 +1359,7 @@
       impactResponsible: "Todos",
       impactStatus: ["Todos"],
       dashStatus: ["Todos"],   // filtro de status de planes en el Dashboard (Pendiente/En proceso/Ejecutado/Despriorizado)
+      basicVersion: "2.0",     // Basics 1.0 / 2.0 (solo CO por ahora)
       ganttStatuses: new Set(),
       ganttArea: "all",
       ganttPriority: "all",
@@ -1368,7 +1371,7 @@
     const DEFAULT_DATA_READ_AT = "2026-06-02T00:00:00-05:00";
     const REPORT_YEAR = 2026;
     // Trimestre por país: Colombia trabaja Q3 2026; México (y CPs) y Perú siguen en Q2 2026.
-    const REPORT_QUARTER_BY_COUNTRY = { MX: 3, CO: 3, PE: 3 };
+    const REPORT_QUARTER_BY_COUNTRY = { MX: 3, CO: 4, PE: 3 };
     const reportQuarter = () => REPORT_QUARTER_BY_COUNTRY[state.country] ?? 2;
     const reportReferenceDate = () => {
       const quarter = reportQuarter();
@@ -1446,6 +1449,9 @@
       if (saved.q3PreguntasPe) window.Q3_PREGUNTAS_PE = saved.q3PreguntasPe;  // diagnóstico Q3 PE por pregunta (autoritativo)
       if (saved.q2FormMx) window.Q2_FORM_MX = saved.q2FormMx;            // Q2 MX para el comparativo
       if (saved.q2FormPe) window.Q2_FORM_PE = saved.q2FormPe;            // Q2 PE para el comparativo
+      if (saved.coBasicsStates) window.CO_BASICS_STATES = saved.coBasicsStates;  // CO Basics 1.0/2.0 por pregunta
+      if (saved.coBasicsKMeta) window.CO_BASICS_KMETA = saved.coBasicsKMeta;
+      if (saved.coHist) { window.CO_HIST = saved.coHist; window.Q2_FORM_CO = saved.coHist; }  // histórico Q3 CO
       if (saved.lastSyncAt) window.LAST_SYNC_AT = saved.lastSyncAt;
       if (saved.fixStatus) window.LAST_FIX_SYNC_STATUS = saved.fixStatus;
       // Purgar puntos físicos que pudieran haberse colado en localStorage
@@ -1464,6 +1470,9 @@
         q3PreguntasPe: window.Q3_PREGUNTAS_PE || null,
         q2FormMx: window.Q2_FORM_MX || null,
         q2FormPe: window.Q2_FORM_PE || null,
+        coBasicsStates: window.CO_BASICS_STATES || null,
+        coBasicsKMeta: window.CO_BASICS_KMETA || null,
+        coHist: window.CO_HIST || null,
         cpDetail: window.CP_DETAIL_DATA || null,
         cpPrev: window.CP_PREV || null,
         lastSyncAt: payload.lastSyncAt,
@@ -2025,14 +2034,29 @@
       }).join("");
       const rankingModeLabel = `${state.typeFilter === "cp" ? "CP" : "Cocinas"} · ${state.cityFilter === "Todas" ? "Todas las ciudades" : state.cityFilter}`;
       // Datos por cocina para la tabla ordenable.
+      // CO sobre Basics: mostramos 1.0 y 2.0 en paralelo (desde los niveles por pregunta).
+      const coLevels = (state.country === "CO" && window.FORM_SCORES?.CO?._isBasics) ? window.FORM_SCORES.CO._levels : null;
+      const coDualFor = (k) => {
+        if (!coLevels) return { b1: null, b2: null };
+        const st = coLevels[normalizeText(k.id)];
+        if (!st) return { b1: null, b2: null };
+        const v1 = [], v2 = [];
+        (window.CO_BASICS_META || []).forEach(q => { const s = st[q.no]; if (s == null) return; v1.push(window.basicsValue(s, "1.0")); v2.push(window.basicsValue(s, "2.0")); });
+        const mean = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : null;
+        return { b1: mean(v1), b2: mean(v2) };
+      };
       const rankData = rows.map(k => {
         const fx = kFixesOf(k);
         const basic = kitchenScore(k);
         const prev = prevKitchenBasic(k);
+        const { b1, b2 } = coDualFor(k);
+        // En CO comparamos SIEMPRE 1.0 vs histórico (metodológicamente comparable).
+        const deltaBase = coLevels ? b1 : basic;
         return {
           id: k.id,
-          basic,
-          delta: (basic != null && prev != null) ? basic - prev : null,
+          basic, b1, b2,
+          dual: (b1 != null && b2 != null) ? b1 - b2 : null,
+          delta: (deltaBase != null && prev != null) ? deltaBase - prev : null,
           proj: projectedScore(k, "all", dashResolve),
           planes: fx.length,
           budget: fx.reduce((s, fix) => s + fixBudgetForKitchen(fix, k), 0),
@@ -2062,8 +2086,8 @@
         <table style="width:100%;border-collapse:collapse;font-size:12px">
           <thead><tr style="border-bottom:2px solid var(--border)">
             ${th("cocina", "Cocina", "left")}
-            ${th("delta", "Δ vs Q2")}
-            ${th("basic", "Basic")}
+            ${th("delta", coLevels ? "Δ 1.0 vs Q3" : "Δ vs Q2")}
+            ${coLevels ? `${th("b1", "Basics 1.0")}${th("b2", "Basics 2.0")}` : th("basic", "Basic")}
             ${th("proj", "Basic proy.")}
             ${th("planes", "Planes")}
             ${th("budget", "Budget")}
@@ -2073,7 +2097,7 @@
               <tr style="border-bottom:1px solid var(--border)">
                 <td style="padding:7px 8px;font-weight:600;white-space:nowrap">${r.id}</td>
                 <td style="text-align:center;padding:7px 8px">${deltaCell(r.delta)}</td>
-                <td style="text-align:center;padding:7px 8px">${pctCell(r.basic)}</td>
+                ${coLevels ? `<td style="text-align:center;padding:7px 8px">${pctCell(r.b1)}</td><td style="text-align:center;padding:7px 8px">${pctCell(r.b2)}</td>` : `<td style="text-align:center;padding:7px 8px">${pctCell(r.basic)}</td>`}
                 <td style="text-align:center;padding:7px 8px">${pctCell(r.proj)}</td>
                 <td style="text-align:center;padding:7px 8px">${r.planes || 0}</td>
                 <td style="text-align:right;padding:7px 8px;white-space:nowrap">${r.budget > 0 ? formatMoney(r.budget) : "—"}</td>
@@ -2083,6 +2107,14 @@
 
       byId("dashboard").innerHTML = `
         <div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-bottom:10px">
+          ${(state.country === "CO" && window.FORM_SCORES?.CO?._isBasics) ? `
+          <div style="display:flex;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-right:4px">
+            ${["1.0", "2.0"].map(v => `<button type="button" data-basics-ver="${v}"
+                style="padding:6px 13px;font-size:12px;border:0;${v === "1.0" ? "border-right:1px solid var(--border);" : ""}border-radius:0;cursor:pointer;
+                       background:${state.basicVersion === v ? "var(--soft)" : "transparent"};
+                       font-weight:${state.basicVersion === v ? "650" : "400"};
+                       color:${state.basicVersion === v ? "var(--dark-blue)" : "var(--text-muted)"}">Basics ${v}</button>`).join("")}
+          </div>` : ""}
           <label style="font-size:11px;color:var(--text-muted);font-weight:500">Status planes</label>
           <details class="check-dropdown" id="dashStatusDropdown">
             <summary>${dashStatusLabel}</summary>
@@ -2353,7 +2385,7 @@
       }
       // MX en Q3: una cocina que no está en el diagnóstico Q3 es "pendiente" (sin dato),
       // no mostramos el valor semilla antiguo.
-      if (((state.country === "MX" && window.SHEET_DETAIL_DATA_MX_Q3) || (state.country === "PE" && window.SHEET_DETAIL_DATA_PE_Q3)) && !isCPKitchen(kitchen)) return null;
+      if (((state.country === "MX" && window.SHEET_DETAIL_DATA_MX_Q3) || (state.country === "PE" && window.SHEET_DETAIL_DATA_PE_Q3) || (state.country === "CO" && window.SHEET_DETAIL_DATA_CO)) && !isCPKitchen(kitchen)) return null;
       // 2. Fall back to SHEET_DETAIL_DATA values lookup
       const sheetKitchen = sheetKitchenFor(kitchen);
       if (sheetKitchen?.values?.some(v => v != null)) return scoreFromValues(sheetKitchen.values);
@@ -5724,7 +5756,7 @@
     const _VIEWS = ["dashboard","kitchens","basics","kitchen-detail-sheet","basic-detail-sheet","fixes","fix-impact","gantt","comparativo-q3"];
     const _dirty = Object.fromEntries(_VIEWS.map(v => [v, true]));
     const _updateChrome = () => {
-      const titleText = `Básicos para Foodies contentos · ${reportQuarterLabel()}`;
+      const titleText = `Basics · ${reportQuarterLabel()}`;
       byId("reportTitle").textContent = titleText;
       document.title = titleText;
       updateSyncMeta();
@@ -5844,6 +5876,14 @@
         state.impactPeriodKey = null;
         state.impactAreaDetail = null;
         state.impactAreaPeriodKey = null;
+        render();
+        return;
+      }
+
+      const basicsVerBtn = event.target.closest("[data-basics-ver]");
+      if (basicsVerBtn) {
+        state.basicVersion = basicsVerBtn.dataset.basicsVer;
+        if (typeof buildBasicsCO === "function") buildBasicsCO();
         render();
         return;
       }
@@ -7272,6 +7312,68 @@
       });
     };
 
+    // ── Colombia · Basics 1.0 / 2.0 (formulario nuevo, Q4) ───────────────────
+    const CO_BASICS_SHEET_ID = "1vFGQ1r0n98qOStdFlZ8TscOjHbpfnEg3mdThvuXEzCs";
+    const CO_BASICS_GID = "1431669690";
+    const CO_NEW_CITY = { "71 CEDRITOS": "Bogotá", "72 WE WORK": "Bogotá", "73 SABANETA": "Medellín", "74 RIOMAR": "Barranquilla" };
+    const syncBasicsFormCO = async () => {
+      const table = await fetchPublicSheetTable({ gid: CO_BASICS_GID, customSheetId: CO_BASICS_SHEET_ID, timeoutMs: 60000, retries: 1 });
+      const cols = table.cols || [], rows = table.rows || [];
+      const hasLabels = cols.some(c => (c.label || "").trim().length > 2);
+      const labels = hasLabels ? cols.map(c => (c.label || "").trim()) : ((rows[0] || {}).c || []).map(c => displaySheetCell(c).trim());
+      const dataRows = hasLabels ? rows : rows.slice(1);
+      const kCol = labels.findIndex(l => /selecciona la cocina/i.test(l));
+      const qcols = [];
+      labels.forEach((l, i) => { const m = (l || "").match(/^\s*(\d+)\.\s/); if (m) qcols.push({ i, no: parseInt(m[1], 10) }); });
+      if (kCol < 0 || !qcols.length) return null;
+      const metaByNo = {}; (window.CO_BASICS_META || []).forEach(q => metaByNo[q.no] = q);
+      const stateByKitchen = {}, metaByKitchen = {};
+      dataRows.forEach(row => {
+        const c = row.c || [];
+        const kraw = displaySheetCell(c[kCol]); if (!kraw) return;
+        const nm = normalizeText(kraw);
+        const st = {};
+        qcols.forEach(({ i, no }) => { const q = metaByNo[no]; const s = window.basicsAnswerState(displaySheetCell(c[i]), q && q.inverted); if (s) st[no] = s; });
+        if (!Object.keys(st).length) return;
+        stateByKitchen[nm] = st;   // última fila gana (respuestas en orden cronológico)
+        metaByKitchen[nm] = { name: kraw.trim(), city: "" };
+      });
+      if (!Object.keys(stateByKitchen).length) return null;
+      window.CO_BASICS_STATES = stateByKitchen;
+      window.CO_BASICS_KMETA = metaByKitchen;
+      return stateByKitchen;
+    };
+    const buildBasicsCO = () => {
+      if (!window.CO_BASICS_STATES || !window.buildBasicsAggregates) return;
+      window.FORM_SCORES = window.FORM_SCORES || {};
+      const fsCO = window.FORM_SCORES.CO;
+      // Histórico Q3 (una sola vez) para el comparativo — no se sobrescribe.
+      if (fsCO && !fsCO._isBasics && !window.CO_HIST) { window.CO_HIST = fsCO; window.Q2_FORM_CO = fsCO; }
+      const agg = window.buildBasicsAggregates(window.CO_BASICS_STATES, window.CO_BASICS_KMETA, state.basicVersion);
+      window.FORM_SCORES.CO = Object.assign({}, agg, {
+        _levels: window.CO_BASICS_STATES, _isBasics: true, _isQ3: true,
+        _meta: { quarter: "Q4 2026" }, __realNorms: Object.keys(agg.byName),
+      });
+      const metaK = window.CO_BASICS_KMETA || {};
+      const rosterCity = {}; (COUNTRIES.CO.kitchens || []).forEach(k => rosterCity[normalizeText(k.id)] = k.city);
+      const kitchens = Object.keys(agg.byName).map(nm => {
+        const m = metaK[nm] || { name: nm };
+        const city = rosterCity[nm] || CO_NEW_CITY[(m.name || "").trim().toUpperCase()] || "";
+        const bq = agg.byKitchenQuestion[nm] || {};
+        return { country: "Colombia", name: m.name, city, values: agg._questions.map(q => bq[q.no] != null ? bq[q.no] : null) };
+      });
+      window.SHEET_DETAIL_DATA_CO = { questions: agg._questions, kitchens };
+      // Agregar cocinas nuevas (sin tocar las existentes).
+      const have = {}; (COUNTRIES.CO.kitchens || []).forEach(k => have[normalizeText(k.id)] = true);
+      Object.keys(agg.byName).forEach(nm => {
+        if (have[nm]) return;
+        const m = metaK[nm] || { name: nm };
+        const city = CO_NEW_CITY[(m.name || "").trim().toUpperCase()] || "";
+        COUNTRIES.CO.kitchens.push({ id: m.name, city, basic: null, seg: null, hig: null, limp: null, infra: null, ppl: null });
+        have[nm] = true;
+      });
+    };
+
     byId("syncBtn").addEventListener("click", async () => {
       const button = byId("syncBtn");
       const msg = byId("apiMsg");
@@ -7295,11 +7397,13 @@
         try { await syncQ3ResultsMX(); } catch (e) { /* si falla, se usa lo congelado/guardado */ }
         try { await syncQ3PreguntasMX(); } catch (e) { /* fuente autoritativa por pregunta; si falla, se usa Resultados/crudo */ }
         try { await syncQ3PreguntasPE(); } catch (e) { /* Perú autoritativo desde "Preguntas"; si falla, usa el parse general */ }
+        try { await syncBasicsFormCO(); } catch (e) { /* Colombia Basics 1.0/2.0 desde el form nuevo */ }
         let cpStr = "";
         try { const cp = await syncCpFromSheet(); if (cp) cpStr = `CP: ${cp.kitchens} centros · ${cp.questions} preguntas`; } catch (e) { /* se usa CP estático/guardado */ }
         try { await syncCpPrevFromSheet(); } catch (e) { /* sin baseline de CP → sin variación */ }
         buildQ3MX();             // MX opera sobre el Q3 (preserva el Q2 recién sincronizado para el comparativo)
         finalizeQ3PE();          // PE opera sobre el Q3 (desde la pestaña Preguntas) + Q2 baseline
+        buildBasicsCO();         // CO opera sobre Basics 1.0/2.0 (form nuevo), guarda Q3 como histórico
         reconcileMXKitchens();   // alinea nombres al Q3 y elimina duplicados por número
         const syncAt = new Date().toISOString();
         saveSyncData({ lastSyncAt: syncAt });
@@ -7331,6 +7435,7 @@
     applyPrevQTransition();  // aplica transición Q anterior → Q actual con datos restaurados
     buildQ3MX();             // MX sobre el Q3 (usa el Q2 guardado localmente como comparativo)
     finalizeQ3PE();          // PE sobre el Q3 (+ Q2 baseline congelado)
+    buildBasicsCO();         // CO sobre Basics 1.0/2.0 (desde lo guardado localmente)
     reconcileMXKitchens();
     render();
 
