@@ -1051,6 +1051,10 @@
             <option value="projected">Proyectadas</option>
           </select>
         </span>
+        <span id="basicsVerControl" style="display:none;align-items:center;gap:6px">
+          <label>Básicos</label>
+          <div id="basicsVerSeg" style="display:flex;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden"></div>
+        </span>
       </div>
     </div>
     <section class="toolbar">
@@ -1150,6 +1154,19 @@
                                    : state.country === "CO" ? window.SHEET_DETAIL_DATA_CO
                                    : null;
     const sheetData = () => q3DetailByCountry() || (window.SHEET_DETAIL_DATA || { questions: [], kitchens: [] });
+
+    // ── Helpers Basics 1.0 / 2.0 (Colombia) ──────────────────────────────────
+    const coBasicsOn = () => state.country === "CO" && !!(window.FORM_SCORES && window.FORM_SCORES.CO && window.FORM_SCORES.CO._isBasics);
+    const coLevels = () => (window.FORM_SCORES && window.FORM_SCORES.CO && window.FORM_SCORES.CO._levels) || null;
+    const coKitchenStates = (kId) => { const L = coLevels(); return L ? (L[normalizeText(kId)] || null) : null; };
+    const CO_STATE_INFO = {
+      yes: { label: "Cumple 2.0", short: "2.0",  color: "#276749", bg: "#e8f3ec" },
+      p1:  { label: "Cumple 1.0", short: "1.0",  color: "#0b769f", bg: "#e7f6fc" },
+      p:   { label: "Parcial",    short: "Parc", color: "#8a6a35", bg: "#f8f0e2" },
+      no:  { label: "No cumple",  short: "No",   color: "#9b2c2c", bg: "#f4eaf0" },
+    };
+    const coStateBadge = (st) => { const i = CO_STATE_INFO[st]; return i ? `<span style="font-size:10px;font-weight:650;color:${i.color};background:${i.bg};padding:1px 7px;border-radius:999px;white-space:nowrap">${i.label}</span>` : `<span style="font-size:10px;color:var(--text-muted)">—</span>`; };
+    const coScoreOf = (kId, version) => { const fs = version === "1.0" ? window.CO_FS_1 : window.CO_FS_2; return (fs && fs.byName && fs.byName[normalizeText(kId)] != null) ? fs.byName[normalizeText(kId)] : null; };
     const cpData = () => window.CP_DETAIL_DATA || { questions: [], kitchens: [] };
     const fixesData = () => window.FIXES_DATA || { MX: [], CO: [], PE: [], CP: [] };
     // DOT% per MX kitchen — used for "People" area compliance instead of question values
@@ -1536,6 +1553,17 @@
         const style = key === state.country ? `border-color:${s.color};background:${s.bg};color:${s.color}` : "";
         return `<button class="country-tab ${active}" style="${style}" data-country="${key}" type="button">${value.flag} ${value.name}<span style="margin-left:8px;color:${s.color};font-size:12px">${fmt(score)}</span></button>`;
       }).join("");
+    };
+
+    const renderBasicsToggle = () => {
+      const c = byId("basicsVerControl"); if (!c) return;
+      if (!coBasicsOn()) { c.style.display = "none"; return; }
+      c.style.display = "inline-flex";
+      byId("basicsVerSeg").innerHTML = ["1.0", "2.0"].map(v => `<button type="button" data-basics-ver="${v}"
+          style="padding:6px 13px;font-size:12px;border:0;${v === "1.0" ? "border-right:1px solid var(--border);" : ""}border-radius:0;cursor:pointer;
+                 background:${state.basicVersion === v ? "var(--soft)" : "transparent"};
+                 font-weight:${state.basicVersion === v ? "650" : "400"};
+                 color:${state.basicVersion === v ? "var(--dark-blue)" : "var(--text-muted)"}">Basics ${v}</button>`).join("");
     };
 
     const renderCitySelect = () => {
@@ -2105,16 +2133,30 @@
           </tbody>
         </table>`;
 
+      // CO · Basics: dos juegos de cards de seguimiento (1.0 y 2.0).
+      const kpiCardHtml = (k) => { const s = k.color ? { color: k.color, bg: k.bg } : getStatus(k.status); return `<article class="kpi" style="background:${s.bg};border-color:${s.color}40"><div class="kpi-label">${k.label}</div><div class="kpi-value" style="color:${s.color}">${k.value}</div>${k.sub ? `<div class="kpi-sub">${k.sub}</div>` : ""}</article>`; };
+      const coKpiCards = (version) => {
+        const sc = rows.map(k => coScoreOf(k.id, version)).filter(v => v != null);
+        const avgV = sc.length ? sc.reduce((a, b) => a + b, 0) / sc.length : 0;
+        const g = sc.filter(s => s >= scoreTarget).length, y = sc.filter(s => s >= midMin && s < scoreTarget).length, r = sc.filter(s => s < midMin).length;
+        const tot = rows.length || 1;
+        const q3avg = (version === "1.0" && q2avg != null) ? ` · ${cq3DeltaBadge(avgV, q2avg)} vs Q3` : "";
+        return [
+          { label: "% Básicos", value: fmt(avgV), status: avgV, sub: q3avg ? q3avg.replace(/^ · /, "") : "" },
+          { label: `Cocinas ≥${scoreTarget}%`, value: g, sub: `${Math.round(g / tot * 100)}% del total`, status: 100 },
+          { label: `Cocinas ${midMin}-${scoreTarget}%`, value: y, sub: `${Math.round(y / tot * 100)}% del total`, status: midMin },
+          { label: `Cocinas <${midMin}%`, value: r, sub: `${Math.round(r / tot * 100)}% del total`, status: 30 },
+        ].map(kpiCardHtml).join("");
+      };
+      const coDualKpis = `
+        <div style="font-size:12px;font-weight:700;color:#0b769f;margin:2px 0 6px">Basics 1.0 <span style="font-weight:400;color:var(--text-muted)">· estándar mínimo</span></div>
+        <div class="kpis">${coKpiCards("1.0")}</div>
+        <div style="font-size:12px;font-weight:700;color:#276749;margin:14px 0 6px">Basics 2.0 <span style="font-weight:400;color:var(--text-muted)">· nuevo estándar</span></div>
+        <div class="kpis">${coKpiCards("2.0")}</div>
+        <div class="kpis" style="margin-top:14px">${kpis.filter(k => k.label === "Planes" || k.label === "Budget").map(kpiCardHtml).join("")}</div>`;
+
       byId("dashboard").innerHTML = `
         <div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-bottom:10px">
-          ${(state.country === "CO" && window.FORM_SCORES?.CO?._isBasics) ? `
-          <div style="display:flex;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-right:4px">
-            ${["1.0", "2.0"].map(v => `<button type="button" data-basics-ver="${v}"
-                style="padding:6px 13px;font-size:12px;border:0;${v === "1.0" ? "border-right:1px solid var(--border);" : ""}border-radius:0;cursor:pointer;
-                       background:${state.basicVersion === v ? "var(--soft)" : "transparent"};
-                       font-weight:${state.basicVersion === v ? "650" : "400"};
-                       color:${state.basicVersion === v ? "var(--dark-blue)" : "var(--text-muted)"}">Basics ${v}</button>`).join("")}
-          </div>` : ""}
           <label style="font-size:11px;color:var(--text-muted);font-weight:500">Status planes</label>
           <details class="check-dropdown" id="dashStatusDropdown">
             <summary>${dashStatusLabel}</summary>
@@ -2132,12 +2174,7 @@
             </div>
           </details>
         </div>
-        <div class="kpis">
-          ${kpis.map(k => {
-            const s = k.color ? { color: k.color, bg: k.bg } : getStatus(k.status);
-            return `<article class="kpi" style="background:${s.bg};border-color:${s.color}40"><div class="kpi-label">${k.label}</div><div class="kpi-value" style="color:${s.color}">${k.value}</div>${k.sub ? `<div class="kpi-sub">${k.sub}</div>` : ""}</article>`;
-          }).join("")}
-        </div>
+        ${coBasicsOn() ? coDualKpis : `<div class="kpis">${kpis.map(kpiCardHtml).join("")}</div>`}
         <div class="grid-2 dashboard-grid">
           <article class="panel">
             <div class="panel-title">&#x2316; Por ciudad</div>
@@ -2648,6 +2685,43 @@
     const renderKitchenDetailSheet = () => {
       const kitchen = selectedDetailKitchen();
       const detailOptions = filtered();
+
+      // CO · Basics: detalle por estado (No / Parcial / Cumple 1.0 / Cumple 2.0) con ambos totales.
+      if (coBasicsOn()) {
+        const kId = kitchen?.id;
+        const states = coKitchenStates(kId);
+        const b1 = coScoreOf(kId, "1.0"), b2 = coScoreOf(kId, "2.0");
+        const counts = { yes: 0, p1: 0, p: 0, no: 0 };
+        (window.CO_BASICS_META || []).forEach(q => { const s = states ? states[q.no] : null; if (s && counts[s] != null) counts[s]++; });
+        const bigStat = (label, v, color) => `<div class="detail-stat"><div class="detail-stat-label">${label}</div><div class="detail-stat-value" style="color:${color}">${v != null ? fmt(v) : "Pendiente"}</div></div>`;
+        const cntStat = (st) => { const i = CO_STATE_INFO[st]; return `<div class="detail-stat"><div class="detail-stat-label">${i.label}</div><div class="detail-stat-value" style="color:${i.color}">${counts[st]}</div><div class="detail-stat-sub">preguntas</div></div>`; };
+        const blocks = [...new Set((window.CO_BASICS_META || []).map(q => q.bloque))];
+        const blocksHtml = states ? blocks.map(b => {
+          const qs = (window.CO_BASICS_META || []).filter(q => q.bloque === b);
+          const qrows = qs.map(q => `<tr style="border-top:1px solid var(--light-gray)">
+              <td style="padding:7px 8px;font-size:12px;color:var(--navy);line-height:1.35">${q.no}. ${q.text}${q.inverted ? ` <span style="font-size:9px;color:var(--text-muted)">(invertida)</span>` : ""}</td>
+              <td style="padding:7px 8px;text-align:right;white-space:nowrap">${coStateBadge(states[q.no])}</td>
+            </tr>`).join("");
+          return `<div style="font-weight:700;color:var(--dark-blue);font-size:13px;margin:14px 0 2px">${b}</div>
+            <table style="width:100%;border-collapse:collapse"><tbody>${qrows}</tbody></table>`;
+        }).join("") : `<div class="empty" style="padding:24px 0">Esta cocina aún no tiene respuesta en el formulario Q4.</div>`;
+        byId("kitchen-detail-sheet").innerHTML = `
+          <article class="panel">
+            <div class="detail-picker">
+              <div><label for="detailKitchenSelect">Selecciona cocina</label><div class="detail-sub">${data().name} · ${kitchen?.city ?? "Sin ciudad"} · Q4 2026</div></div>
+              <select id="detailKitchenSelect">${detailOptions.map(k => `<option value="${k.id}" ${k.id === kId ? "selected" : ""}>${k.id} · ${k.city}</option>`).join("")}</select>
+            </div>
+            <div class="detail-summary">
+              ${bigStat("Basics 1.0", b1, "#0b769f")}
+              ${bigStat("Basics 2.0", b2, "#276749")}
+              ${cntStat("no")}${cntStat("p")}${cntStat("p1")}${cntStat("yes")}
+            </div>
+            ${blocksHtml}
+            <div class="info">Cada pregunta muestra su estado: <strong>No cumple</strong> · <strong>Parcial</strong> (50%) · <strong>Cumple 1.0</strong> (vale 100 en 1.0 / 80 en 2.0) · <strong>Cumple 2.0</strong> (100 en ambas).</div>
+          </article>`;
+        return;
+      }
+
       const rows = detailRowsForKitchen(kitchen);
       const grouped = detailColumns.reduce((acc, col) => ({ ...acc, [col.key]: [] }), {});
       rows.forEach(row => grouped[row.category].push(row));
@@ -2821,6 +2895,53 @@
     };
 
     const renderBasicDetailSheet = () => {
+      // CO · Basics: conteo por estado por básico + brecha hacia 2.0.
+      if (coBasicsOn()) {
+        const L = coLevels() || {};
+        const kitchens = filtered();
+        const areasCO = ["Todas", ...new Set((window.CO_BASICS_META || []).map(q => q.area || "Sin área"))];
+        if (!areasCO.includes(state.basicDetailArea)) state.basicDetailArea = "Todas";
+        const nK = kitchens.length;
+        const rowsCO = (window.CO_BASICS_META || [])
+          .filter(q => state.basicDetailArea === "Todas" || (q.area || "Sin área") === state.basicDetailArea)
+          .map(q => {
+            const c = { yes: 0, p1: 0, p: 0, no: 0 };
+            kitchens.forEach(k => { const st = (L[normalizeText(k.id)] || {})[q.no]; if (st && c[st] != null) c[st]++; });
+            return { q, c, notYet2: c.no + c.p + c.p1 };
+          })
+          .sort((a, b) => b.notYet2 - a.notYet2 || a.q.no - b.q.no);
+        const cell = (n, color) => `<td style="text-align:center;padding:7px 8px;${n ? `color:${color};font-weight:650` : "color:var(--text-muted)"}">${n || 0}</td>`;
+        byId("basic-detail-sheet").innerHTML = `
+          <article class="panel">
+            <div class="detail-picker">
+              <div><label>Detalle por básico · Basics 1.0 / 2.0</label><div class="detail-sub">${data().name} · ${state.cityFilter === "Todas" ? "Todas las ciudades" : state.cityFilter} · Q4 2026</div></div>
+              <select id="basicDetailArea">${areasCO.map(a => `<option value="${a}" ${a === state.basicDetailArea ? "selected" : ""}>${a}</option>`).join("")}</select>
+            </div>
+            <div class="detail-summary">
+              <div class="detail-stat"><div class="detail-stat-label">Básicos</div><div class="detail-stat-value">${rowsCO.length}</div></div>
+              <div class="detail-stat"><div class="detail-stat-label">Cocinas en filtro</div><div class="detail-stat-value">${nK}</div></div>
+            </div>
+            <div class="detail-table-wrap">
+              <table class="basic-detail-table">
+                <thead><tr>
+                  <th style="width:70px">Área</th><th style="width:150px">Tema</th><th style="width:auto">Básico</th>
+                  <th style="width:66px">No cumple</th><th style="width:60px">Parcial</th><th style="width:76px">Cumple 1.0</th><th style="width:76px">Cumple 2.0</th><th style="width:86px">Brecha→2.0</th>
+                </tr></thead>
+                <tbody>
+                  ${rowsCO.map(r => `<tr>
+                    <td>${r.q.area || "Sin área"}</td>
+                    <td>${r.q.tema || r.q.bloque}</td>
+                    <td><strong>B${r.q.no}.</strong> ${r.q.text}</td>
+                    ${cell(r.c.no, "#9b2c2c")}${cell(r.c.p, "#8a6a35")}${cell(r.c.p1, "#0b769f")}${cell(r.c.yes, "#276749")}
+                    <td style="text-align:center;padding:7px 8px"><strong style="color:${r.notYet2 > nK / 2 ? "#9b2c2c" : "var(--navy)"}">${r.notYet2}</strong></td>
+                  </tr>`).join("")}
+                </tbody>
+              </table>
+            </div>
+            <div class="info">Ordenado por <strong>brecha hacia 2.0</strong> (cocinas que aún no cumplen el nuevo estándar = No + Parcial + Cumple 1.0). Así ves qué básicos frenan el salto a Basics 2.0.</div>
+          </article>`;
+        return;
+      }
       const targetValue = Number(state.basicDetailValue);
       const matches = detailMatchesForCurrentType();
       const sourceKitchen = state.typeFilter === "cp" ? { id: "42 CP CDMX" } : null;
@@ -5407,7 +5528,13 @@
     // El comparativo respeta el filtro de Tipo: "cp" → Centros de Producción.
     const cq3IsCP = () => state.typeFilter === "cp";
     // Accesores por país (MX y PE operan sobre el Q3).
-    const cq3FS = () => (window.FORM_SCORES || {})[state.country];
+    // En CO el comparativo usa SIEMPRE Basics 1.0 (metodológicamente comparable con el Q3), sin importar el toggle.
+    const cq3FS = () => {
+      if (state.country === "CO" && window.CO_FS_1 && window.CO_FS_1.byName && Object.keys(window.CO_FS_1.byName).length) {
+        return Object.assign({}, window.CO_FS_1, { _isQ3: true, _levels: coLevels() });
+      }
+      return (window.FORM_SCORES || {})[state.country];
+    };
     const cq3Q2 = () => window["Q2_FORM_" + state.country] || (window.FORM_SCORES || {})[state.country];
     const cq3DetailQ3 = () => state.country === "PE" ? window.SHEET_DETAIL_DATA_PE_Q3 : window.SHEET_DETAIL_DATA_MX_Q3;
     const cq3Ready = () => {
@@ -5613,7 +5740,8 @@
       const unit = isCP ? "CP" : "Cocinas";
       const rows = cq3Rows();
       const pending = cq3Pending();
-      const qLabel = window.Q3_DATA?.quarterLabel || "Q3 2026";
+      const qLabel = state.country === "CO" ? "Q4 2026 · Basics 1.0" : (window.Q3_DATA?.quarterLabel || "Q3 2026");
+      const cmpPrevLabel = state.country === "CO" ? "Q3 2026" : "Q2 2026";
       const avgBasic = cq3Mean(rows.map(r => r.basic));
       const deltas = rows.map(r => cq3Delta(r.basic, cq3Q2Basic(normalizeText(r.name)))).filter(x => x != null);
       const avgDelta = cq3Mean(deltas);
@@ -5656,13 +5784,13 @@
 
       host.innerHTML = `
         <div class="panel" style="margin-bottom:14px">
-          <div class="detail-title">Comparativo ${qLabel} vs Q2 2026 · ${data().name}${isCP ? " · Centros de Producción" : ""}</div>
+          <div class="detail-title">Comparativo ${qLabel} vs ${cmpPrevLabel} · ${data().name}${isCP ? " · Centros de Producción" : ""}</div>
           <div class="detail-sub">Recalculado desde el diagnóstico del ${qLabel}. Clic en ${isCP ? "un CP" : "una cocina"} para desglosar por ${isCP ? "tema" : "sub-área"}; clic en el detalle para ver cada pregunta y su respuesta.</div>
           <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
             ${kpi(`${unit} con ${qLabel}`, rows.length)}
             ${isCP ? "" : kpi("Pendientes de diagnóstico", pending.length, PALETTE.neutralText)}
             ${kpi(`Basic promedio ${qLabel}`, avgBasic == null ? "—" : avgBasic.toFixed(1) + "%", PALETTE.cyanDark)}
-            ${kpi("Variación promedio vs Q2", !hasQ2 || avgDelta == null ? "—" : (avgDelta > 0 ? "+" : "") + avgDelta.toFixed(1) + " pp", avgDelta > 0 ? "#276749" : "#9b2c2c")}
+            ${kpi(`Variación promedio vs ${cmpPrevLabel}`, !hasQ2 || avgDelta == null ? "—" : (avgDelta > 0 ? "+" : "") + avgDelta.toFixed(1) + " pp", avgDelta > 0 ? "#276749" : "#9b2c2c")}
           </div>
           ${!hasQ2 ? `<div class="hint" style="margin-top:8px">Sincroniza el dashboard (botón Actualizar) para traer los datos del Q2 y ver la comparación mejora/desmejora.</div>` : ""}
         </div>
@@ -5763,6 +5891,7 @@
       renderCountryTabs();
       renderCitySelect();
       renderDiagBar();
+      renderBasicsToggle();
       document.querySelectorAll(".screen").forEach(el => el.classList.toggle("active", el.id === state.view));
       document.querySelectorAll(".view-tab").forEach(btn => btn.classList.toggle("active", btn.dataset.view === state.view));
     };
@@ -7349,7 +7478,10 @@
       const fsCO = window.FORM_SCORES.CO;
       // Histórico Q3 (una sola vez) para el comparativo — no se sobrescribe.
       if (fsCO && !fsCO._isBasics && !window.CO_HIST) { window.CO_HIST = fsCO; window.Q2_FORM_CO = fsCO; }
-      const agg = window.buildBasicsAggregates(window.CO_BASICS_STATES, window.CO_BASICS_KMETA, state.basicVersion);
+      const _states = window.CO_BASICS_STATES, _kmeta = window.CO_BASICS_KMETA;
+      window.CO_FS_1 = window.buildBasicsAggregates(_states, _kmeta, "1.0");
+      window.CO_FS_2 = window.buildBasicsAggregates(_states, _kmeta, "2.0");
+      const agg = state.basicVersion === "1.0" ? window.CO_FS_1 : window.CO_FS_2;
       window.FORM_SCORES.CO = Object.assign({}, agg, {
         _levels: window.CO_BASICS_STATES, _isBasics: true, _isQ3: true,
         _meta: { quarter: "Q4 2026" }, __realNorms: Object.keys(agg.byName),
