@@ -1195,7 +1195,7 @@
     };
 
     // Borde entre Intermedio (crema) y Crítico (rosado): MX = 75%, CO y PE = 50%.
-    const midThreshold = () => state.country === "MX" ? 75 : 50;
+    const midThreshold = () => state.country === "PE" ? 50 : 75;
     const getStatus = (v, threshold) => {
       const t = threshold ?? (state.country === "CO" ? 95 : state.country === "MX" ? 90 : 80);
       const mid = midThreshold();
