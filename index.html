@@ -7189,10 +7189,15 @@
     // alinea por NÚMERO de cocina (renombra variantes como "39 MTY CENTRO" →
     // "39 MONTERREY CENTRO"), agrega las que falten y elimina duplicados. Así una
     // misma cocina no aparece dos veces por diferencias de nombre. No toca los CP.
+    // Nombres canónicos forzados (corrige nombres del Q3/sheet que no son los correctos).
+    const MX_NAME_OVERRIDE = { "40 JARDINES DEL VALLE": "40 JARDINES DEL VALL" };
+    const fixMxName = (nm) => MX_NAME_OVERRIDE[String(nm || "").trim().toUpperCase()] || nm;
     const reconcileMXKitchens = () => {
       if (!COUNTRIES.MX) return;
       const numMap = {};
-      const addName = (name, city) => { const n = kitchenNumber(name); if (n && !numMap[n]) numMap[n] = { name: name, city: city || "" }; };
+      const addName = (name, city) => { name = fixMxName(name); const n = kitchenNumber(name); if (n && !numMap[n]) numMap[n] = { name: name, city: city || "" }; };
+      // Corregir también cualquier nombre ya presente en el roster.
+      COUNTRIES.MX.kitchens.forEach(k => { if (!isCPKitchen(k)) k.id = fixMxName(k.id); });
       const R = window.Q3_RESULTS_MX || {};
       Object.keys(R).forEach(k => addName(R[k].name, R[k].city));
       if (window.Q3_DATA) {
