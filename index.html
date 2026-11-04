@@ -1026,8 +1026,8 @@
     <header class="header">
       <div class="meta">
         Fuente:
-        <a href="https://docs.google.com/spreadsheets/d/1krQxz6jWQxgCGSJaL4VziAnRQAFBmT29WKC4vThFx_M/edit" target="_blank" rel="noreferrer">Google Sheets</a>
-        · Datos leídos: 2 jun 2026
+        <a href="https://docs.google.com/spreadsheets/d/186o3CErXrysBMijH40Pnoq0K2C4OzxWFgA9G_WeWStE/edit" target="_blank" rel="noreferrer">Google Sheets</a>
+        · Datos leídos: —
       </div>
       <button class="sync" id="syncBtn" type="button"><span>&#x21bb;</span><span>Sincronizar Sheets</span></button>
     </header>
@@ -1422,15 +1422,35 @@
       if (!isoDate) isoDate = DEFAULT_DATA_READ_AT;
       return new Date(isoDate).toLocaleString("es-CO", { dateStyle: "medium", timeStyle: "short" });
     };
+    const SOURCE_SHEET_URL = "https://docs.google.com/spreadsheets/d/186o3CErXrysBMijH40Pnoq0K2C4OzxWFgA9G_WeWStE/edit";
+    const relTimeSince = (iso) => {
+      if (!iso) return "";
+      const m = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+      if (m < 1) return "hace instantes";
+      if (m < 60) return `hace ${m} min`;
+      const h = Math.round(m / 60); if (h < 24) return `hace ${h} h`;
+      return `hace ${Math.round(h / 24)} d`;
+    };
     const updateSyncMeta = () => {
       const meta = document.querySelector(".meta");
       if (!meta) return;
       const dateText = formatSyncMetaDate(window.LAST_SYNC_AT);
+      const rel = window.LAST_SYNC_AT ? ` <span style="color:var(--text-muted)">(${relTimeSince(window.LAST_SYNC_AT)})</span>` : "";
       meta.innerHTML = `
         Fuente:
-        <a href="https://docs.google.com/spreadsheets/d/1krQxz6jWQxgCGSJaL4VziAnRQAFBmT29WKC4vThFx_M/edit" target="_blank" rel="noreferrer">Google Sheets</a>
-        · Datos leídos: <span id="syncMeta">${dateText}</span>
+        <a href="${SOURCE_SHEET_URL}" target="_blank" rel="noreferrer">Google Sheets</a>
+        · Datos leídos: <span id="syncMeta">${dateText}</span>${rel}
       `;
+    };
+    // Recordar último país / vista / versión de Basics (preferencias de UI).
+    const UI_PREFS_KEY = "basicsUiPrefs";
+    const saveUiPrefs = () => { try { localStorage.setItem(UI_PREFS_KEY, JSON.stringify({ country: state.country, view: state.view, basicVersion: state.basicVersion })); } catch (e) {} };
+    const applyUiPrefs = () => {
+      let p; try { p = JSON.parse(localStorage.getItem(UI_PREFS_KEY) || "null"); } catch (e) { p = null; }
+      if (!p) return;
+      if (p.country && COUNTRIES[p.country]) state.country = p.country;
+      if (p.view && Array.isArray(_VIEWS) && _VIEWS.includes(p.view)) state.view = p.view;
+      if (p.basicVersion === "1.0" || p.basicVersion === "2.0") state.basicVersion = p.basicVersion;
     };
     const loadSavedSync = () => {
       const saved = syncStorage.read();
@@ -2101,7 +2121,7 @@
         return sortDir * (av - bv);
       });
       const sortArrow = (key) => sortKey === key ? (state.rankSortDir === "asc" ? " &#9650;" : " &#9660;") : "";
-      const th = (key, label, align) => `<th data-rank-sort="${key}" style="text-align:${align || "center"};padding:7px 8px;cursor:pointer;font-size:11px;color:${sortKey === key ? "var(--dark-blue)" : "var(--text-muted)"};white-space:nowrap;user-select:none">${label}${sortArrow(key)}</th>`;
+      const th = (key, label, align) => `<th data-rank-sort="${key}" title="Clic para ordenar" style="text-align:${align || "center"};padding:7px 8px;cursor:pointer;font-size:11px;color:${sortKey === key ? "var(--dark-blue)" : "var(--text-muted)"};white-space:nowrap;user-select:none">${label}${sortArrow(key)}</th>`;
       const deltaCell = (d) => {
         if (d == null) return `<span style="color:var(--text-muted)">—</span>`;
         const up = d > 1, down = d < -1;
@@ -2114,11 +2134,11 @@
         <table style="width:100%;border-collapse:collapse;font-size:12px">
           <thead><tr style="border-bottom:2px solid var(--border)">
             ${th("cocina", "Cocina", "left")}
-            ${th("delta", coLevels ? "Δ 1.0 vs Q3" : "Δ vs Q2")}
-            ${coLevels ? `${th("b1", "Basics 1.0")}${th("b2", "Basics 2.0")}` : th("basic", "Basic")}
-            ${th("proj", "Basic proy.")}
-            ${th("planes", "Planes")}
-            ${th("budget", "Budget")}
+            ${th("delta", `<span title="Diferencia en puntos porcentuales (pp) vs el diagnóstico del Q anterior">${coLevels ? "Δ 1.0 vs Q3" : "Δ vs Q2"}</span>`)}
+            ${coLevels ? `${th("b1", `<span title="Basics 1.0 · estándar mínimo">Basics 1.0</span>`)}${th("b2", `<span title="Basics 2.0 · nuevo estándar">Basics 2.0</span>`)}` : th("basic", "Basic")}
+            ${th("proj", `<span title="Proyección si se completan los planes no despriorizados">Basic proy.</span>`)}
+            ${th("planes", `<span title="Planes de acción activos (sin despriorizados)">Planes</span>`)}
+            ${th("budget", `<span title="Presupuesto de los planes activos">Budget</span>`)}
           </tr></thead>
           <tbody>
             ${rankData.map(r => `
@@ -2155,6 +2175,16 @@
         <div class="kpis">${coKpiCards("2.0")}</div>
         <div class="kpis" style="margin-top:14px">${kpis.filter(k => k.label === "Planes" || k.label === "Budget").map(kpiCardHtml).join("")}</div>`;
 
+      const _dot = (c) => `<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${c};margin-right:4px;vertical-align:middle"></span>`;
+      const bandLegend = `
+        <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;font-size:11px;color:var(--text-muted);margin:-2px 0 12px">
+          <span style="font-weight:600">Cumplimiento (meta ${data().name} ≥${scoreTarget}%):</span>
+          <span>${_dot(getStatus(scoreTarget).color)}Cumple ≥${scoreTarget}%</span>
+          <span>${_dot(getStatus(midMin).color)}Intermedio ${midMin}–${scoreTarget}%</span>
+          <span>${_dot(getStatus(0).color)}Crítico &lt;${midMin}%</span>
+          ${coBasicsOn() ? `<span style="margin-left:4px;display:inline-flex;gap:6px;align-items:center">· Por pregunta: ${coStateBadge("no")} ${coStateBadge("p")} ${coStateBadge("p1")} ${coStateBadge("yes")}</span>` : ""}
+        </div>`;
+
       byId("dashboard").innerHTML = `
         <div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-bottom:10px">
           <label style="font-size:11px;color:var(--text-muted);font-weight:500">Status planes</label>
@@ -2175,6 +2205,7 @@
           </details>
         </div>
         ${coBasicsOn() ? coDualKpis : `<div class="kpis">${kpis.map(kpiCardHtml).join("")}</div>`}
+        ${bandLegend}
         <div class="grid-2 dashboard-grid">
           <article class="panel">
             <div class="panel-title">&#x2316; Por ciudad</div>
@@ -5914,6 +5945,7 @@
       _updateChrome();
       _renderView(state.view);
       _VIEWS.forEach(id => { if (id !== state.view) _dirty[id] = true; });
+      saveUiPrefs();
     };
 
     document.addEventListener("click", (event) => {
@@ -7556,7 +7588,9 @@
         msg.textContent = `${statusIcon} ${[detailStatus, formStr, fixStr, dotStr, cpStr].filter(Boolean).join(" · ")} · ${now}.${hint}`;
 
       } catch (error) {
-        msg.textContent = `Error al conectar con Google Sheets: ${error.message}`;
+        msg.innerHTML = `⚠️ No se pudo actualizar desde Google Sheets. Revisa tu conexión y que el Sheet esté compartido como <strong>"Cualquiera con el enlace: Lector"</strong>. <button type="button" id="retrySyncBtn" style="margin-left:8px;padding:3px 10px;font-size:11px;border:1px solid var(--border);border-radius:var(--radius);background:var(--panel);cursor:pointer">Reintentar</button> <span style="color:var(--text-muted)">(${error.message})</span>`;
+        const rb = document.getElementById("retrySyncBtn");
+        if (rb) rb.addEventListener("click", () => byId("syncBtn").click());
       } finally {
         button.disabled = false;
         button.innerHTML = "<span>&#x21bb;</span><span>Sincronizar Sheets</span>";
@@ -7564,6 +7598,7 @@
     });
 
     loadSavedSync();
+    applyUiPrefs();          // restaura último país / vista / versión Basics
     applyPrevQTransition();  // aplica transición Q anterior → Q actual con datos restaurados
     buildQ3MX();             // MX sobre el Q3 (usa el Q2 guardado localmente como comparativo)
     finalizeQ3PE();          // PE sobre el Q3 (+ Q2 baseline congelado)
