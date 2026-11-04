@@ -2183,26 +2183,59 @@
           </tbody>
         </table>`;
 
-      // CO · Basics: dos juegos de cards de seguimiento (1.0 y 2.0).
       const kpiCardHtml = (k) => { const s = k.color ? { color: k.color, bg: k.bg } : getStatus(k.status); return `<article class="kpi" style="background:${s.bg};border-color:${s.color}40"><div class="kpi-label">${k.label}</div><div class="kpi-value" style="color:${s.color}">${k.value}</div>${k.sub ? `<div class="kpi-sub">${k.sub}</div>` : ""}</article>`; };
-      const coKpiCards = (version) => {
+      // CO · Basics: sección ejecutiva (1.0 vs 2.0 + brecha + tabla comparativa + avance).
+      const coDistrib = (version) => {
         const sc = rows.map(k => coScoreOf(k.id, version)).filter(v => v != null);
-        const avgV = sc.length ? sc.reduce((a, b) => a + b, 0) / sc.length : 0;
-        const g = sc.filter(s => s >= scoreTarget).length, y = sc.filter(s => s >= midMin && s < scoreTarget).length, r = sc.filter(s => s < midMin).length;
-        const tot = rows.length || 1;
-        const q3avg = (version === "1.0" && q2avg != null) ? ` · ${cq3DeltaBadge(avgV, q2avg)} vs Q3` : "";
-        return [
-          { label: "% Básicos", value: fmt(avgV), status: avgV, sub: q3avg ? q3avg.replace(/^ · /, "") : "" },
-          { label: `Cocinas ≥${scoreTarget}%`, value: g, sub: `${Math.round(g / tot * 100)}% del total`, status: 100 },
-          { label: `Cocinas ${midMin}-${scoreTarget}%`, value: y, sub: `${Math.round(y / tot * 100)}% del total`, status: midMin },
-          { label: `Cocinas <${midMin}%`, value: r, sub: `${Math.round(r / tot * 100)}% del total`, status: 30 },
-        ].map(kpiCardHtml).join("");
+        const avg = sc.length ? sc.reduce((a, b) => a + b, 0) / sc.length : 0;
+        return { avg, g: sc.filter(s => s >= scoreTarget).length, y: sc.filter(s => s >= midMin && s < scoreTarget).length, r: sc.filter(s => s < midMin).length };
       };
+      const _d1 = coDistrib("1.0"), _d2 = coDistrib("2.0");
+      const _brecha = _d1.avg - _d2.avg;
+      let _both = 0, _only1 = 0, _no1 = 0;
+      rows.forEach(k => { const s1 = coScoreOf(k.id, "1.0"), s2 = coScoreOf(k.id, "2.0"); if (s1 == null) return; if (s1 >= scoreTarget && s2 >= scoreTarget) _both++; else if (s1 >= scoreTarget) _only1++; else _no1++; });
+      const bigCard = (ver, val, accent, bg, subtitle, tag, tagBg, tagColor) => `
+        <article class="kpi" style="background:${bg};border-color:${accent}55;min-height:0;padding:14px 16px">
+          <div style="font-size:13px;font-weight:700;color:${accent};letter-spacing:.02em">BASICS ${ver}</div>
+          <div style="font-size:34px;font-weight:750;color:${accent};line-height:1.05;margin:1px 0 2px">${fmt(val)}</div>
+          <div style="font-size:11px;color:var(--text-muted)">${subtitle}</div>
+          <div style="margin-top:6px"><span style="font-size:10px;font-weight:650;color:${tagColor};background:${tagBg};padding:2px 9px;border-radius:999px">${tag}</span></div>
+        </article>`;
+      const distCell = (n) => `<td style="text-align:right;padding:6px 10px;font-weight:650;color:var(--navy)">${n}</td>`;
+      const distRow = (label, color, a, b) => `<tr style="border-top:1px solid var(--light-gray)"><td style="padding:6px 10px;color:${color};font-weight:650">${label}</td>${distCell(a)}${distCell(b)}</tr>`;
+      const advRow = (label, color, n) => `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;border-top:1px solid var(--light-gray)"><span style="color:${color};font-weight:650;font-size:12px">${label}</span><span style="font-weight:700;color:var(--navy)">${n}</span></div>`;
       const coDualKpis = `
-        <div style="font-size:12px;font-weight:700;color:#0b769f;margin:2px 0 6px">Basics 1.0 <span style="font-weight:400;color:var(--text-muted)">· estándar mínimo</span></div>
-        <div class="kpis">${coKpiCards("1.0")}</div>
-        <div style="font-size:12px;font-weight:700;color:#276749;margin:14px 0 6px">Basics 2.0 <span style="font-weight:400;color:var(--text-muted)">· nuevo estándar</span></div>
-        <div class="kpis">${coKpiCards("2.0")}</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:10px;flex-wrap:wrap">
+          <div style="font-size:12px;font-weight:700;color:var(--dark-blue);text-transform:uppercase;letter-spacing:.04em">Cumplimiento general</div>
+          <span style="font-size:10px;font-weight:650;color:#276749;background:#e8f3ec;padding:2px 9px;border-radius:999px">Nuevo diagnóstico</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px">
+          ${bigCard("1.0", _d1.avg, "#0b769f", "#eef2fa", "Estándar mínimo", "Nivel anterior", "#efe7f4", "#7c5fa8")}
+          ${bigCard("2.0", _d2.avg, "#276749", "#e8f3ec", "Nuevo estándar", "Nivel actual", "#d8efe0", "#276749")}
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 2px;border-bottom:1px solid var(--border);margin:12px 0 10px">
+          <div><div style="font-size:13px;font-weight:700;color:var(--dark-blue)">Brecha entre estándares</div><div style="font-size:11px;color:var(--text-muted)">Diferencia entre el cumplimiento de Basics 1.0 y Basics 2.0.</div></div>
+          <div style="font-size:22px;font-weight:750;color:${_brecha > 1 ? "#9b2c2c" : "var(--navy)"};white-space:nowrap">${_brecha.toFixed(1)} pp</div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;align-items:start">
+          <div>
+            <div style="font-size:12px;font-weight:700;color:var(--dark-blue);margin-bottom:6px">Distribución de cocinas por nivel</div>
+            <table style="width:100%;border-collapse:collapse">
+              <thead><tr style="color:var(--text-muted);font-size:11px"><th style="text-align:left;padding:4px 10px;font-weight:600">Indicador</th><th style="text-align:right;padding:4px 10px;font-weight:600">Basics 1.0</th><th style="text-align:right;padding:4px 10px;font-weight:600">Basics 2.0</th></tr></thead>
+              <tbody>
+                ${distRow(`≥${scoreTarget}%`, getStatus(scoreTarget).color, _d1.g, _d2.g)}
+                ${distRow(`${midMin}–${scoreTarget}%`, getStatus(midMin).color, _d1.y, _d2.y)}
+                ${distRow(`&lt;${midMin}%`, getStatus(0).color, _d1.r, _d2.r)}
+              </tbody>
+            </table>
+          </div>
+          <div>
+            <div style="font-size:12px;font-weight:700;color:var(--dark-blue);margin-bottom:6px">Avance hacia Basics 2.0</div>
+            ${advRow("Cumplen ambos niveles", "#276749", _both)}
+            ${advRow("Cumplen 1.0, no 2.0", "#0b769f", _only1)}
+            ${advRow(`No cumplen 1.0 (&lt;${scoreTarget}%)`, "#9b2c2c", _no1)}
+          </div>
+        </div>
         <div class="kpis" style="margin-top:14px">${kpis.filter(k => k.label === "Planes" || k.label === "Budget").map(kpiCardHtml).join("")}</div>`;
 
       const _dot = (c) => `<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${c};margin-right:4px;vertical-align:middle"></span>`;
