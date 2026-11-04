@@ -2591,6 +2591,12 @@
 
     // Dynamic country-level average: uses FORM_SCORES exclusively when available
     const countryTabScore = (countryKey) => {
+      // Países en Basics: mismo promedio que la card de la versión activa (empareja solo por nombre).
+      if (coBasicsOn(countryKey)) {
+        const kitchens = (COUNTRIES[countryKey]?.kitchens || []).filter(matchesTypeFilter);
+        const scores = kitchens.map(k => coScoreOf(k.id, state.basicVersion, countryKey)).filter(s => s != null);
+        if (scores.length) return scores.reduce((a, b) => a + b, 0) / scores.length;
+      }
       const fs = (window.FORM_SCORES || {})[countryKey];
       if (fs && Object.keys(fs.byName).length > 0) {
         // Apply the same type filter as the dashboard so tab % = % Básicos
