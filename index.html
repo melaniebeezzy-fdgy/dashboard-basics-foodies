@@ -1013,6 +1013,15 @@
         font-size: 26px;
       }
     }
+    @media print {
+      .brandbar { position: static; box-shadow: none; }
+      .header-actions, .toolbar, .country-row, .api-msg, .check-dropdown, .detail-picker select, .city-control { display: none !important; }
+      .wrap { width: 100%; padding: 0; }
+      .panel, .kpi, .kitchen-card, tr { break-inside: avoid; }
+      .screen:not(.active) { display: none !important; }
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      a[href]:after { content: ""; }
+    }
   </style>
 </head>
 <body>
@@ -1029,7 +1038,11 @@
         <a href="https://docs.google.com/spreadsheets/d/186o3CErXrysBMijH40Pnoq0K2C4OzxWFgA9G_WeWStE/edit" target="_blank" rel="noreferrer">Google Sheets</a>
         · Datos leídos: —
       </div>
-      <button class="sync" id="syncBtn" type="button"><span>&#x21bb;</span><span>Sincronizar Sheets</span></button>
+      <div class="header-actions" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <button id="helpBtn" type="button" title="Ayuda y glosario" style="padding:5px 10px;font-size:12px;font-weight:650;background:var(--panel)">?</button>
+        <button id="printBtn" type="button" title="Imprimir o exportar a PDF" style="padding:5px 11px;font-size:11px;background:var(--panel);display:inline-flex;gap:5px;align-items:center">🖨️ Imprimir</button>
+        <button class="sync" id="syncBtn" type="button"><span>&#x21bb;</span><span>Sincronizar Sheets</span></button>
+      </div>
     </header>
 
     <div class="api-msg" id="apiMsg"></div>
@@ -1055,18 +1068,19 @@
           <label>Básicos</label>
           <div id="basicsVerSeg" style="display:flex;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden"></div>
         </span>
+        <button id="clearFiltersBtn" type="button" title="Restablecer filtros" style="padding:6px 11px;font-size:12px;background:var(--panel)">↺ Limpiar</button>
       </div>
     </div>
     <section class="toolbar">
-      <button class="view-tab active" data-view="dashboard" type="button">&#x25a6; Dashboard</button>
-      <button class="view-tab" data-view="kitchens" type="button">&#x25a4; Por cocina</button>
-      <button class="view-tab" data-view="basics" type="button">&#x2611; Por básico</button>
-      <button class="view-tab" data-view="kitchen-detail-sheet" type="button">&#x25a5; Detalle por cocina</button>
-      <button class="view-tab" data-view="basic-detail-sheet" type="button">&#x25a7; Detalle por básico</button>
-      <button class="view-tab" data-view="fixes" type="button">&#x25a8; Fix</button>
-      <button class="view-tab" data-view="fix-impact" type="button">&#x25a9; Impacto Fix</button>
-      <button class="view-tab" data-view="gantt" type="button">&#x25f6; Gantt</button>
-      <button class="view-tab" data-view="comparativo-q3" type="button">&#x21c6; Comparativo Q</button>
+      <button class="view-tab active" data-view="dashboard" type="button">📊 Dashboard</button>
+      <button class="view-tab" data-view="kitchens" type="button">🍳 Por cocina</button>
+      <button class="view-tab" data-view="basics" type="button">✅ Por básico</button>
+      <button class="view-tab" data-view="kitchen-detail-sheet" type="button">🔎 Detalle por cocina</button>
+      <button class="view-tab" data-view="basic-detail-sheet" type="button">🧾 Detalle por básico</button>
+      <button class="view-tab" data-view="fixes" type="button">🔧 Fix</button>
+      <button class="view-tab" data-view="fix-impact" type="button">📈 Impacto Fix</button>
+      <button class="view-tab" data-view="gantt" type="button">📅 Gantt</button>
+      <button class="view-tab" data-view="comparativo-q3" type="button">🔁 Comparativo Q</button>
     </section>
 
     <div id="diagBar" style="display:none"></div>
@@ -1377,6 +1391,7 @@
       impactStatus: ["Todos"],
       dashStatus: ["Todos"],   // filtro de status de planes en el Dashboard (Pendiente/En proceso/Ejecutado/Despriorizado)
       basicVersion: "2.0",     // Basics 1.0 / 2.0 (solo CO por ahora)
+      kitchenQuery: "",        // buscador en la vista Por cocina
       ganttStatuses: new Set(),
       ganttArea: "all",
       ganttPriority: "all",
@@ -2251,7 +2266,7 @@
           <div class="bar" style="height:4px;margin-bottom:0"><div class="bar-fill" style="width:${kScore}%;background:${s.bar || s.color}"></div></div>
         `;
         return `
-          <article class="kitchen-card" data-kitchen-index="${index}" style="--hover:${s.color}">
+          <article class="kitchen-card" data-kitchen-index="${index}" data-search="${normalizeText(k.id + " " + (k.city || ""))}" style="--hover:${s.color}">
             <div class="card-head">
               <div>
                 <div class="kitchen-id">${k.id}</div>
@@ -2266,9 +2281,17 @@
       }).join("");
 
       byId("kitchens").innerHTML = `
-        <div class="hint">${filtered().length} ${typeLabel().toLowerCase()} · ordenadas de menor a mayor cumplimiento · selecciona una para ver detalle</div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+          <input id="kitchenSearch" type="search" placeholder="🔎 Buscar cocina o ciudad..." value="${(state.kitchenQuery || "").replace(/"/g, "&quot;")}" style="padding:6px 11px;font-size:12px;border:1px solid var(--border);border-radius:var(--radius);min-width:220px">
+          <span class="hint" style="margin:0">${filtered().length} ${typeLabel().toLowerCase()} · de menor a mayor cumplimiento · clic para ver detalle</span>
+        </div>
         <div class="kitchen-grid">${cards}</div>
       `;
+      _applyKitchenSearch();
+    };
+    const _applyKitchenSearch = () => {
+      const q = normalizeText(state.kitchenQuery || "");
+      document.querySelectorAll("#kitchens .kitchen-card").forEach(c => { c.style.display = (!q || (c.dataset.search || "").includes(q)) ? "" : "none"; });
     };
 
     const renderKitchenDetail = () => {
@@ -6369,6 +6392,58 @@
       state.selectedKitchen = null;
       state.detailKitchenId = null;
       render();
+    });
+
+    byId("printBtn").addEventListener("click", () => window.print());
+
+    byId("clearFiltersBtn").addEventListener("click", () => {
+      state.cityFilter = "Todas";
+      state.typeFilter = "kitchen";
+      state.diagFilter = "all";
+      state.dashStatus = ["Todos"];
+      state.dashboardBlock = null; state.dashboardTheme = null;
+      state.kitchenBlock = null; state.kitchenTheme = null;
+      state.kitchenQuery = "";
+      state.basicDetailArea = "Todas";
+      state.impactArea = "Todas"; state.impactResponsible = "Todos"; state.impactStatus = ["Todos"];
+      state.ganttStatuses = new Set(); state.ganttArea = "all"; state.ganttPriority = "all";
+      render();
+    });
+
+    const showGlossaryModal = () => {
+      const existing = document.getElementById("ganttDetailModal"); if (existing) existing.remove();
+      const row = (t, d) => `<div style="padding:9px 0;border-bottom:1px solid #eef2f6"><div style="font-weight:650;color:#1e293b;font-size:13px">${t}</div><div style="font-size:12px;color:#475569;margin-top:2px;line-height:1.5">${d}</div></div>`;
+      const modal = document.createElement("div");
+      modal.id = "ganttDetailModal";
+      modal.style.cssText = "position:fixed;inset:0;background:rgba(15,23,42,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px";
+      modal.innerHTML = `
+        <div style="background:#fff;border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,0.22);width:min(620px,94vw);max-height:84vh;display:flex;flex-direction:column;overflow:hidden;font-family:inherit">
+          <div style="padding:16px 20px;border-bottom:1px solid #e8edf2;display:flex;align-items:center;justify-content:space-between">
+            <div style="font-weight:700;font-size:15px;color:#1e293b">Guía rápida · Basics</div>
+            <button data-close-gantt-modal type="button" style="border:0;background:#f1f5f9;border-radius:6px;font-size:14px;cursor:pointer;color:#64748b;padding:4px 8px;line-height:1">&#x2715;</button>
+          </div>
+          <div style="overflow-y:auto;padding:4px 20px 14px">
+            ${row("Basics 1.0", "Cumplimiento del estándar <strong>mínimo</strong> original. Una pregunta cuenta 100% si cumple 1.0 o 2.0, 50% si es parcial, 0% si no cumple.")}
+            ${row("Basics 2.0", "Cumplimiento del <strong>nuevo estándar</strong>, más exigente. La misma pregunta: 100% si cumple 2.0, <strong>80% si solo cumple 1.0</strong>, 50% parcial, 0% no cumple.")}
+            ${row("Cómo se calcula", "El % de la cocina es el <strong>promedio de sus preguntas</strong>. El 80% se aplica por pregunta (a las que cumplen 1.0 pero no 2.0), no al total.")}
+            ${row("Estados por pregunta", `${coStateBadge("no")} &nbsp; ${coStateBadge("p")} &nbsp; ${coStateBadge("p1")} &nbsp; ${coStateBadge("yes")}`)}
+            ${row("Bandas de cumplimiento", "Verde = Cumple (≥ meta del país) · Crema = Intermedio · Rosa = Crítico. Metas: México ≥90% · Colombia ≥95% · Perú ≥80%.")}
+            ${row("pp", "Puntos porcentuales: la diferencia entre dos porcentajes (ej. 86% → 83% = −3 pp).")}
+            ${row("Basic proy.", "Proyección del % si se completan los planes de acción activos (sin los despriorizados).")}
+            ${row("Comparativo", "En Colombia se compara <strong>Basics 1.0 (Q4) vs Q3</strong> (lo metodológicamente comparable); nunca 2.0 contra el histórico anterior.")}
+          </div>
+        </div>`;
+      modal.addEventListener("click", e => { if (e.target === modal) modal.remove(); });
+      document.addEventListener("keydown", function esc(e) { if (e.key === "Escape") { modal.remove(); document.removeEventListener("keydown", esc); } });
+      document.body.appendChild(modal);
+    };
+    byId("helpBtn").addEventListener("click", showGlossaryModal);
+
+    document.addEventListener("input", (event) => {
+      if (event.target && event.target.id === "kitchenSearch") {
+        state.kitchenQuery = event.target.value;
+        _applyKitchenSearch();
+      }
     });
 
     const fetchPublicSheetTableOnce = ({ gid, sheet, timeoutMs = 90000, customSheetId }) => new Promise((resolve, reject) => {
