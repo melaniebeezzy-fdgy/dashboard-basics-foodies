@@ -5867,7 +5867,10 @@
     // Score del Q ANTERIOR para una cocina, según su tipo:
     //  · CP  → baseline de "Cp preguntas" histórico (window.CP_PREV)
     //  · MX  → Q2 de cocinas (Q2_FORM_MX)
-    const prevHasQ2 = () => state.country === "MX" ? !!window.Q2_FORM_MX : state.country === "PE" ? !!window.Q2_FORM_PE : false;
+    const prevHasQ2 = () => {
+      const fs = window["Q2_FORM_" + state.country];
+      return !!(fs && fs.byName && Object.keys(fs.byName).length);
+    };
     const prevKitchenBasic = (k) => {
       const norm = normalizeText(k.id);
       if (isCPKitchen(k)) return window.CP_PREV?.[norm]?.basic ?? null;
