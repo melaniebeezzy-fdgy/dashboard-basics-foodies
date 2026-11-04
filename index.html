@@ -6116,7 +6116,7 @@
           <div style="padding:8px 10px;border-top:1px solid var(--border)">
             <div style="display:flex;gap:10px;align-items:flex-start">
               <div style="flex:1;font-size:12px">${q.text}${q.inverted ? ` <span style="font-size:9px;color:var(--text-muted)">(invertida)</span>` : ""}</div>
-              ${cq3AnswerBadge(q.no, raw)}
+              ${coBasicsOn() ? coStateBadge((coKitchenStates(r.name) || {})[q.no], q.no) : cq3AnswerBadge(q.no, raw)}
             </div>
             ${obs ? `<div style="margin-top:4px;font-size:11px;color:var(--text-muted);font-style:italic">&#128221; ${obs}</div>` : ""}
           </div>`;
