@@ -1824,12 +1824,22 @@
           `;
         }).join("") : "";
 
+      const crumbLink = (txt, attr) => `<span ${attr} style="cursor:pointer;color:var(--cyan-dark)">${txt}</span>`;
+      const crumbCur = (txt) => `<span style="font-weight:650;color:var(--dark-blue)">${txt}</span>`;
+      const sep = `<span style="color:var(--text-muted)">›</span>`;
+      const breadcrumb = state.dashboardBlock ? `
+        <div style="display:flex;gap:7px;align-items:center;font-size:12px;margin-bottom:8px;flex-wrap:wrap">
+          ${crumbLink("Todos los bloques", "data-clear-dashboard-drill")} ${sep}
+          ${state.dashboardTheme ? crumbLink(state.dashboardBlock, 'data-dashboard-crumb="block"') : crumbCur(state.dashboardBlock)}
+          ${state.dashboardTheme ? `${sep} ${crumbCur(state.dashboardTheme)}` : ""}
+        </div>` : "";
       return `
         <div class="drilldown">
           <div class="drill-head">
             <div class="hint" style="margin-bottom:0">Detalle calculado con el filtro superior: ${state.cityFilter === "Todas" ? "todas las ciudades" : state.cityFilter}.</div>
             <button type="button" class="view-tab" data-clear-dashboard-drill>Limpiar filtros</button>
           </div>
+          ${breadcrumb}
           <div class="small-title">Detalle por bloque</div>
           <div class="drill-grid">${blockCards}</div>
           ${state.dashboardBlock ? `
@@ -2936,14 +2946,28 @@
           `;
         }).join("");
 
+      const kcLink = (txt, attr) => `<span ${attr} style="cursor:pointer;color:var(--cyan-dark)">${txt}</span>`;
+      const kcCur = (txt) => `<span style="font-weight:650;color:var(--dark-blue)">${txt}</span>`;
+      const kcSep = `<span style="color:var(--text-muted)">›</span>`;
+      const kBreadcrumb = state.kitchenBlock ? `
+        <div style="display:flex;gap:7px;align-items:center;font-size:12px;margin-bottom:8px;flex-wrap:wrap">
+          ${kcLink("Todos los bloques", 'data-kitchen-crumb="all"')} ${kcSep}
+          ${state.kitchenTheme ? kcLink(state.kitchenBlock, 'data-kitchen-crumb="block"') : kcCur(state.kitchenBlock)}
+          ${state.kitchenTheme ? `${kcSep} ${kcCur(state.kitchenTheme)}` : ""}
+        </div>` : "";
       return `
         <div class="drilldown">
+          ${kBreadcrumb}
           <div class="small-title">Detalle por bloque</div>
           <div class="drill-grid">${blockCards}</div>
-          <div class="small-title">Temas de ${state.kitchenBlock}</div>
-          <div class="drill-grid">${themeCards}</div>
-          <div class="small-title">Preguntas de ${state.kitchenTheme}</div>
-          <div class="question-list">${questionRows}</div>
+          ${state.kitchenBlock ? `
+            <div class="small-title">Temas de ${state.kitchenBlock}</div>
+            <div class="drill-grid">${themeCards}</div>
+          ` : `<div class="hint">Selecciona un bloque para ver sus temas.</div>`}
+          ${state.kitchenTheme ? `
+            <div class="small-title">Preguntas de ${state.kitchenTheme}</div>
+            <div class="question-list">${questionRows}</div>
+          ` : state.kitchenBlock ? `<div class="hint">Selecciona un tema para ver sus preguntas.</div>` : ""}
         </div>
       `;
     };
@@ -6218,9 +6242,23 @@
         return;
       }
 
+      if (event.target.closest('[data-dashboard-crumb="block"]')) {
+        state.dashboardTheme = null;   // volver al nivel de bloque desde el breadcrumb
+        render();
+        return;
+      }
+
       const dashboardTheme = event.target.closest("[data-dashboard-theme]");
       if (dashboardTheme) {
         state.dashboardTheme = state.dashboardTheme === dashboardTheme.dataset.dashboardTheme ? null : dashboardTheme.dataset.dashboardTheme;
+        render();
+        return;
+      }
+
+      const kitchenCrumb = event.target.closest("[data-kitchen-crumb]");
+      if (kitchenCrumb) {
+        if (kitchenCrumb.dataset.kitchenCrumb === "all") { state.kitchenBlock = null; state.kitchenTheme = null; }
+        else { state.kitchenTheme = null; }
         render();
         return;
       }
