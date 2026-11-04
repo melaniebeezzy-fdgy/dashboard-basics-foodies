@@ -5770,8 +5770,9 @@
     // En CO el comparativo usa SIEMPRE Basics 1.0 (metodológicamente comparable con el Q3), sin importar el toggle.
     const cq3FS = () => {
       const S = basicsStore()[state.country];
-      if (coBasicsOn() && S && S.fs1 && S.fs1.byName && Object.keys(S.fs1.byName).length) {
-        return Object.assign({}, S.fs1, { _isQ3: true, _levels: coLevels() });
+      const fs = S && (state.basicVersion === "2.0" ? S.fs2 : S.fs1);
+      if (coBasicsOn() && fs && fs.byName && Object.keys(fs.byName).length) {
+        return Object.assign({}, fs, { _isQ3: true, _levels: coLevels() });
       }
       return (window.FORM_SCORES || {})[state.country];
     };
@@ -5990,7 +5991,7 @@
       const unit = isCP ? "CP" : "Cocinas";
       const rows = cq3Rows();
       const pending = cq3Pending();
-      const qLabel = coBasicsOn() ? "Q4 2026 · Basics 1.0" : (window.Q3_DATA?.quarterLabel || "Q3 2026");
+      const qLabel = coBasicsOn() ? `Q4 2026 · Basics ${state.basicVersion}` : (window.Q3_DATA?.quarterLabel || "Q3 2026");
       const cmpPrevLabel = coBasicsOn() ? "Q3 2026" : "Q2 2026";
       const avgBasic = cq3Mean(rows.map(r => r.basic));
       const deltas = rows.map(r => cq3Delta(r.basic, cq3Q2Basic(normalizeText(r.name)))).filter(x => x != null);
@@ -6638,7 +6639,7 @@
             ${row("Bandas de cumplimiento", "Verde = Cumple (≥ meta del país) · Crema = Intermedio · Rosa = Crítico. Metas: México ≥90% · Colombia ≥95% · Perú ≥80%.")}
             ${row("pp", "Puntos porcentuales: la diferencia entre dos porcentajes (ej. 86% → 83% = −3 pp).")}
             ${row("Basic proy.", "Proyección del % si se completan los planes de acción activos (sin los despriorizados).")}
-            ${row("Comparativo", "En Colombia se compara <strong>Basics 1.0 (Q4) vs Q3</strong> (lo metodológicamente comparable); nunca 2.0 contra el histórico anterior.")}
+            ${row("Comparativo", "Compara el diagnóstico Q4 (Basics) vs el Q3, y <strong>reacciona al switch</strong>: muestra Basics 1.0 o 2.0 según el nivel seleccionado. Para comparar con el estándar anterior, usa Basics 1.0.")}
           </div>
         </div>`;
       modal.addEventListener("click", e => { if (e.target === modal) modal.remove(); });
