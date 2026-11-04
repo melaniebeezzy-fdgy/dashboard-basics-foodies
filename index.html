@@ -6923,24 +6923,22 @@
       const next = { ...prev };
       const results = [];
       let anySuccess = false;
-      // MX Q3: los planes de acción salen del nuevo archivo (pestaña de planes MX),
-      // igual que Colombia usa su propia hoja. Los demás países se mantienen.
-      const MX_Q3_FIX_SHEET_ID = "186o3CErXrysBMijH40Pnoq0K2C4OzxWFgA9G_WeWStE";
-      const MX_Q3_FIX_GID = "1260122100";
+      // Q4 2026: los planes de acción salen del archivo maestro "Basics 2.0 | Q4 2026"
+      // (pestañas Fixes MX/CO/PE/CPs). Reinicia los planes al Q4: en cada sync exitoso
+      // se reemplaza por completo lo del país (aunque quede vacío), no se mezcla con el Q3.
+      const Q4_FIX_SHEET_ID = "1_Awt6wWlDZQ52Z9CPlMtxptlpat3PYyj68eXqBGEDAc";
       for (const config of [
-        { key: "MX", sheet: "Fixes MX", customSheetId: MX_Q3_FIX_SHEET_ID, gid: MX_Q3_FIX_GID },
-        { key: "CO", sheet: "Fixes CO", customSheetId: MX_Q3_FIX_SHEET_ID },
-        { key: "PE", sheet: "Fixes PE", customSheetId: MX_Q3_FIX_SHEET_ID },
-        { key: "CP", sheet: "Fixes CPs", customSheetId: MX_Q3_FIX_SHEET_ID },
+        { key: "MX", sheet: "Fixes MX", customSheetId: Q4_FIX_SHEET_ID },
+        { key: "CO", sheet: "Fixes CO", customSheetId: Q4_FIX_SHEET_ID },
+        { key: "PE", sheet: "Fixes PE", customSheetId: Q4_FIX_SHEET_ID },
+        { key: "CP", sheet: "Fixes CPs", customSheetId: Q4_FIX_SHEET_ID },
       ]) {
         try {
           const table = await fetchPublicSheetTable({ sheet: config.sheet, gid: config.gid, customSheetId: config.customSheetId, timeoutMs: 90000, retries: 1 });
           const parsed = parseFixTable(table, config.key);
-          // Only overwrite if we got data, to avoid wiping local data on empty response
-          if (parsed.length > 0 || (table.rows || []).length > 2) {
-            next[config.key] = parsed;
-            anySuccess = true;
-          }
+          // La descarga tuvo éxito → reemplaza por completo (reset Q4), aunque el país quede sin planes.
+          next[config.key] = parsed;
+          anySuccess = true;
           const prev_n = (prev[config.key] || []).length;
           const diff = parsed.length - prev_n;
           const diffStr = diff > 0 ? ` (+${diff})` : diff < 0 ? ` (${diff})` : "";
