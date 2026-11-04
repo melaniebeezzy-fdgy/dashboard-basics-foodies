@@ -1254,6 +1254,13 @@
     const coLevels = (c = state.country) => (window.FORM_SCORES && window.FORM_SCORES[c] && window.FORM_SCORES[c]._levels) || null;
     const coKitchenStates = (kId, c = state.country) => { const L = coLevels(c); return L ? (L[normalizeText(kId)] || null) : null; };
     const coL2Set = (c = state.country) => (basicsStore()[c] && basicsStore()[c].l2) || window.CO_L2 || new Set();
+    // Una pregunta distingue "Cumple 2.0" solo si es nueva o tiene nivel "Parcialmente 1.0" (L2).
+    const basicsL2q = (qNo, c = state.country) => {
+      const n = Number(qNo);
+      if (coL2Set(c).has(n)) return true;
+      const m = basicsMeta(c).find(q => Number(q.no) === n);
+      return !!(m && m.nuevo);
+    };
     const CO_STATE_INFO = {
       yes: { label: "Cumple 2.0", short: "2.0",  color: "#276749", bg: "#e8f3ec" },
       p1:  { label: "Cumple 1.0", short: "1.0",  color: "#0b769f", bg: "#e7f6fc" },
@@ -1264,7 +1271,7 @@
       const i = CO_STATE_INFO[st];
       if (!i) return `<span style="font-size:10px;color:var(--text-muted)">—</span>`;
       // "Cumple 2.0" solo en preguntas con 2º nivel; si no subió de nivel, es solo "Cumple".
-      const label = (st === "yes" && qNo != null && !coL2Set(c).has(Number(qNo))) ? "Cumple" : i.label;
+      const label = (st === "yes" && qNo != null && !basicsL2q(qNo, c)) ? "Cumple" : i.label;
       return `<span style="font-size:10px;font-weight:650;color:${i.color};background:${i.bg};padding:1px 7px;border-radius:999px;white-space:nowrap">${label}</span>`;
     };
     const coScoreOf = (kId, version, c = state.country) => { const S = basicsStore()[c] || {}; const fs = version === "1.0" ? S.fs1 : S.fs2; return (fs && fs.byName && fs.byName[normalizeText(kId)] != null) ? fs.byName[normalizeText(kId)] : null; };
@@ -2901,10 +2908,17 @@
         const states = coKitchenStates(kId);
         const b1 = coScoreOf(kId, "1.0"), b2 = coScoreOf(kId, "2.0");
         const _meta = basicsMeta();
-        const counts = { yes: 0, p1: 0, p: 0, no: 0 };
-        _meta.forEach(q => { const s = states ? states[q.no] : null; if (s && counts[s] != null) counts[s]++; });
+        // "Cumple 2.0" solo en preguntas nuevas o con nivel 2.0 (L2); el resto "yes" = "Cumple".
+        const counts = { no: 0, p: 0, p1: 0, cumple: 0, cumple2: 0 };
+        _meta.forEach(q => {
+          const s = states ? states[q.no] : null; if (!s) return;
+          if (s === "no") counts.no++;
+          else if (s === "p") counts.p++;
+          else if (s === "p1") counts.p1++;
+          else if (s === "yes") { if (basicsL2q(q.no)) counts.cumple2++; else counts.cumple++; }
+        });
         const bigStat = (label, v, color) => `<div class="detail-stat"><div class="detail-stat-label">${label}</div><div class="detail-stat-value" style="color:${color}">${v != null ? fmt(v) : "Pendiente"}</div></div>`;
-        const cntStat = (st) => { const i = CO_STATE_INFO[st]; return `<div class="detail-stat"><div class="detail-stat-label">${i.label}</div><div class="detail-stat-value" style="color:${i.color}">${counts[st]}</div><div class="detail-stat-sub">preguntas</div></div>`; };
+        const cntStat = (label, n, color) => `<div class="detail-stat"><div class="detail-stat-label">${label}</div><div class="detail-stat-value" style="color:${color}">${n}</div><div class="detail-stat-sub">preguntas</div></div>`;
         const blocks = [...new Set(_meta.map(q => q.bloque))];
         const blocksHtml = states ? blocks.map(b => {
           const qs = _meta.filter(q => q.bloque === b);
@@ -2924,10 +2938,10 @@
             <div class="detail-summary">
               ${bigStat("Basics 1.0", b1, "#0b769f")}
               ${bigStat("Basics 2.0", b2, "#276749")}
-              ${cntStat("no")}${cntStat("p")}${cntStat("p1")}${cntStat("yes")}
+              ${cntStat("No cumple", counts.no, "#9b2c2c")}${cntStat("Parcial", counts.p, "#8a6a35")}${cntStat("Cumple 1.0", counts.p1, "#0b769f")}${cntStat("Cumple", counts.cumple, "#2b8a5a")}${cntStat("Cumple 2.0", counts.cumple2, "#276749")}
             </div>
             ${blocksHtml}
-            <div class="info">Cada pregunta muestra su estado: <strong>No cumple</strong> · <strong>Parcial</strong> (50%) · <strong>Cumple 1.0</strong> (vale 100 en 1.0 / 80 en 2.0) · <strong>Cumple 2.0</strong> (100 en ambas).</div>
+            <div class="info"><strong>Cumple 2.0</strong> solo aplica a preguntas nuevas o con nivel 2.0; en las demás, cumplir el estándar es <strong>Cumple</strong>. Estados: No cumple · Parcial (50%) · Cumple 1.0 (vale 100 en 1.0 / 80 en 2.0) · Cumple / Cumple 2.0 (100 en ambas).</div>
           </article>`;
         return;
       }
@@ -3132,7 +3146,7 @@
           .map(q => {
             const c = { yes: 0, p1: 0, p: 0, no: 0 };
             kitchens.forEach(k => { const st = (L[normalizeText(k.id)] || {})[q.no]; if (st && c[st] != null) c[st]++; });
-            return { q, c, notYet2: c.no + c.p + c.p1 };
+            return { q, c, l2: basicsL2q(q.no), notYet2: c.no + c.p + c.p1 };
           })
           .sort((a, b) => b.notYet2 - a.notYet2 || a.q.no - b.q.no);
         const cell = (n, color, qNo, stKey) => `<td style="text-align:center;padding:7px 8px">${n ? `<span class="bds-count" data-bds-q="${qNo}" data-bds-st="${stKey}" title="Ver cocinas" style="color:${color};font-weight:650;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px">${n}</span>` : `<span style="color:var(--text-muted)">0</span>`}</td>`;
@@ -3150,14 +3164,14 @@
               <table class="basic-detail-table">
                 <thead><tr>
                   <th style="width:70px">Área</th><th style="width:150px">Tema</th><th style="width:auto">Básico</th>
-                  <th style="width:66px">No cumple</th><th style="width:60px">Parcial</th><th style="width:76px">Cumple 1.0</th><th style="width:76px">Cumple 2.0</th><th style="width:86px">Brecha→2.0</th>
+                  <th style="width:66px">No cumple</th><th style="width:60px">Parcial</th><th style="width:76px" title="Cumple el estándar base (Cumple 1.0 en preguntas con nivel 2.0)">Cumple</th><th style="width:76px" title="Solo en preguntas nuevas o con nivel 2.0">Cumple 2.0</th><th style="width:86px">Brecha→2.0</th>
                 </tr></thead>
                 <tbody>
                   ${rowsCO.map(r => `<tr>
                     <td>${r.q.area || "Sin área"}</td>
                     <td>${r.q.tema || r.q.bloque}</td>
                     <td><strong>B${r.q.no}.</strong> ${r.q.text}${r.q.nuevo ? ` <span style="font-size:9px;font-weight:650;color:#0b769f;background:#e7f6fc;padding:1px 6px;border-radius:999px">Nuevo</span>` : ""}</td>
-                    ${cell(r.c.no, "#9b2c2c", r.q.no, "no")}${cell(r.c.p, "#8a6a35", r.q.no, "p")}${cell(r.c.p1, "#0b769f", r.q.no, "p1")}${cell(r.c.yes, "#276749", r.q.no, "yes")}
+                    ${cell(r.c.no, "#9b2c2c", r.q.no, "no")}${cell(r.c.p, "#8a6a35", r.q.no, "p")}${cell(r.l2 ? r.c.p1 : r.c.yes, "#0b769f", r.q.no, "cumple")}${r.l2 ? cell(r.c.yes, "#276749", r.q.no, "cumple2") : `<td style="text-align:center;padding:7px 8px;color:var(--text-muted)" title="Esta pregunta no tiene nivel 2.0">—</td>`}
                     <td style="text-align:center;padding:7px 8px">${r.notYet2 ? `<span class="bds-count" data-bds-q="${r.q.no}" data-bds-st="gap" title="Ver cocinas" style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px;font-weight:700;color:${r.notYet2 > nK / 2 ? "#9b2c2c" : "var(--navy)"}">${r.notYet2}</span>` : `<strong style="color:var(--navy)">0</strong>`}</td>
                   </tr>`).join("")}
                 </tbody>
@@ -6624,23 +6638,25 @@
     byId("helpBtn").addEventListener("click", showGlossaryModal);
 
     // Detalle por básico: clic en un conteo → lista de cocinas exactas en ese estado.
-    const BDS_BUCKETS = {
-      no:  { label: "No cumple",         color: "#9b2c2c" },
-      p:   { label: "Parcial",           color: "#8a6a35" },
-      p1:  { label: "Cumple 1.0",        color: "#0b769f" },
-      yes: { label: "Cumple 2.0",        color: "#276749" },
-      gap: { label: "Brecha hacia 2.0",  color: "#9b2c2c" },
-    };
     const showBasicKitchensModal = (qNo, stKey) => {
       const L = coLevels() || {};
       const meta = basicsMeta().find(q => Number(q.no) === Number(qNo));
       if (!meta) return;
-      const wanted = stKey === "gap" ? ["no", "p", "p1"] : [stKey];
+      const isl2 = basicsL2q(qNo);
+      // "cumple" = estándar base (1.0 en preguntas con nivel 2.0, Cumple en el resto).
+      const BDS_BUCKETS = {
+        no:     { label: "No cumple",                        color: "#9b2c2c", states: ["no"] },
+        p:      { label: "Parcial",                          color: "#8a6a35", states: ["p"] },
+        cumple: { label: isl2 ? "Cumple 1.0" : "Cumple",     color: "#0b769f", states: isl2 ? ["p1"] : ["yes"] },
+        cumple2:{ label: "Cumple 2.0",                        color: "#276749", states: ["yes"] },
+        gap:    { label: "Brecha hacia 2.0",                 color: "#9b2c2c", states: ["no", "p", "p1"] },
+      };
+      const bucket = BDS_BUCKETS[stKey] || BDS_BUCKETS.no;
+      const wanted = bucket.states;
       const list = filtered()
         .map(k => ({ k, st: (L[normalizeText(k.id)] || {})[qNo] }))
         .filter(x => x.st && wanted.includes(x.st))
         .sort((a, b) => String(a.k.id).localeCompare(String(b.k.id), "es"));
-      const b = BDS_BUCKETS[stKey] || { label: "", color: "var(--navy)" };
       const scopeStr = `${data().name} · ${state.cityFilter === "Todas" ? "Todas las ciudades" : state.cityFilter}`;
       const rowsHtml = list.length
         ? list.map(x => { const si = CO_STATE_INFO[x.st] || {}; return `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #eef2f6">
@@ -6656,7 +6672,7 @@
         <div style="background:#fff;border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,0.22);width:min(560px,94vw);max-height:84vh;display:flex;flex-direction:column;overflow:hidden;font-family:inherit">
           <div style="padding:14px 20px;border-bottom:1px solid #e8edf2;display:flex;align-items:flex-start;justify-content:space-between;gap:10px">
             <div>
-              <div style="font-weight:700;font-size:14px;color:${b.color}">${b.label} · ${list.length} cocina${list.length === 1 ? "" : "s"}</div>
+              <div style="font-weight:700;font-size:14px;color:${bucket.color}">${bucket.label} · ${list.length} cocina${list.length === 1 ? "" : "s"}</div>
               <div style="font-size:12px;color:#475569;margin-top:3px;line-height:1.4"><strong>B${meta.no}.</strong> ${meta.text}</div>
               <div style="font-size:11px;color:#94a3b8;margin-top:3px">${scopeStr}</div>
             </div>
