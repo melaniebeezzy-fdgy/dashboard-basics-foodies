@@ -1237,30 +1237,38 @@
     const TOTAL_BASICS = 36;
     // MX opera sobre el diagnóstico del Q3 (preguntas + cocinas recalculadas);
     // el resto de países usa el dataset global.
-    const q3DetailByCountry = () => state.country === "MX" ? window.SHEET_DETAIL_DATA_MX_Q3
-                                   : state.country === "PE" ? window.SHEET_DETAIL_DATA_PE_Q3
-                                   : state.country === "CO" ? window.SHEET_DETAIL_DATA_CO
-                                   : null;
+    const q3DetailByCountry = () => {
+      const c = state.country;
+      if (coBasicsOn(c)) return window["SHEET_DETAIL_DATA_" + c] || null;   // detalle Basics (CO/MX/PE)
+      return c === "MX" ? window.SHEET_DETAIL_DATA_MX_Q3
+           : c === "PE" ? window.SHEET_DETAIL_DATA_PE_Q3
+           : null;
+    };
     const sheetData = () => q3DetailByCountry() || (window.SHEET_DETAIL_DATA || { questions: [], kitchens: [] });
 
-    // ── Helpers Basics 1.0 / 2.0 (Colombia) ──────────────────────────────────
-    const coBasicsOn = () => state.country === "CO" && !!(window.FORM_SCORES && window.FORM_SCORES.CO && window.FORM_SCORES.CO._isBasics);
-    const coLevels = () => (window.FORM_SCORES && window.FORM_SCORES.CO && window.FORM_SCORES.CO._levels) || null;
-    const coKitchenStates = (kId) => { const L = coLevels(); return L ? (L[normalizeText(kId)] || null) : null; };
+    // ── Helpers Basics 1.0 / 2.0 (Colombia · México · Perú) ──────────────────
+    // Países que operan sobre el formulario Basics 2.0 (1.0/2.0 por pregunta).
+    const BASICS_COUNTRIES = new Set(["CO", "MX", "PE"]);
+    const basicsStore = () => (window.BASICS = window.BASICS || { CO: {}, MX: {}, PE: {} });
+    const coBasicsOn = (c = state.country) => BASICS_COUNTRIES.has(c) && !!(window.FORM_SCORES && window.FORM_SCORES[c] && window.FORM_SCORES[c]._isBasics);
+    const coLevels = (c = state.country) => (window.FORM_SCORES && window.FORM_SCORES[c] && window.FORM_SCORES[c]._levels) || null;
+    const coKitchenStates = (kId, c = state.country) => { const L = coLevels(c); return L ? (L[normalizeText(kId)] || null) : null; };
+    const coL2Set = (c = state.country) => (basicsStore()[c] && basicsStore()[c].l2) || window.CO_L2 || new Set();
     const CO_STATE_INFO = {
       yes: { label: "Cumple 2.0", short: "2.0",  color: "#276749", bg: "#e8f3ec" },
       p1:  { label: "Cumple 1.0", short: "1.0",  color: "#0b769f", bg: "#e7f6fc" },
       p:   { label: "Parcial",    short: "Parc", color: "#8a6a35", bg: "#f8f0e2" },
       no:  { label: "No cumple",  short: "No",   color: "#9b2c2c", bg: "#f7e8e8" },
     };
-    const coStateBadge = (st, qNo) => {
+    const coStateBadge = (st, qNo, c = state.country) => {
       const i = CO_STATE_INFO[st];
       if (!i) return `<span style="font-size:10px;color:var(--text-muted)">—</span>`;
       // "Cumple 2.0" solo en preguntas con 2º nivel; si no subió de nivel, es solo "Cumple".
-      const label = (st === "yes" && qNo != null && !(window.CO_L2 && window.CO_L2.has(Number(qNo)))) ? "Cumple" : i.label;
+      const label = (st === "yes" && qNo != null && !coL2Set(c).has(Number(qNo))) ? "Cumple" : i.label;
       return `<span style="font-size:10px;font-weight:650;color:${i.color};background:${i.bg};padding:1px 7px;border-radius:999px;white-space:nowrap">${label}</span>`;
     };
-    const coScoreOf = (kId, version) => { const fs = version === "1.0" ? window.CO_FS_1 : window.CO_FS_2; return (fs && fs.byName && fs.byName[normalizeText(kId)] != null) ? fs.byName[normalizeText(kId)] : null; };
+    const coScoreOf = (kId, version, c = state.country) => { const S = basicsStore()[c] || {}; const fs = version === "1.0" ? S.fs1 : S.fs2; return (fs && fs.byName && fs.byName[normalizeText(kId)] != null) ? fs.byName[normalizeText(kId)] : null; };
+    const basicsMeta = (c = state.country) => (window.BASICS_META_BY_COUNTRY && window.BASICS_META_BY_COUNTRY[c]) || window.CO_BASICS_META || [];
     const cpData = () => window.CP_DETAIL_DATA || { questions: [], kitchens: [] };
     const fixesData = () => window.FIXES_DATA || { MX: [], CO: [], PE: [], CP: [] };
     // DOT% per MX kitchen — used for "People" area compliance instead of question values
@@ -1483,7 +1491,7 @@
     const DEFAULT_DATA_READ_AT = "2026-06-02T00:00:00-05:00";
     const REPORT_YEAR = 2026;
     // Trimestre por país: Colombia trabaja Q3 2026; México (y CPs) y Perú siguen en Q2 2026.
-    const REPORT_QUARTER_BY_COUNTRY = { MX: 3, CO: 4, PE: 3 };
+    const REPORT_QUARTER_BY_COUNTRY = { MX: 4, CO: 4, PE: 4 };
     const reportQuarter = () => REPORT_QUARTER_BY_COUNTRY[state.country] ?? 2;
     const reportReferenceDate = () => {
       const quarter = reportQuarter();
@@ -1584,6 +1592,15 @@
       if (saved.coBasicsStates) window.CO_BASICS_STATES = saved.coBasicsStates;  // CO Basics 1.0/2.0 por pregunta
       if (saved.coBasicsKMeta) window.CO_BASICS_KMETA = saved.coBasicsKMeta;
       if (saved.coHist) { window.CO_HIST = saved.coHist; window.Q2_FORM_CO = saved.coHist; }  // histórico Q3 CO
+      if (saved.basicsByCountry) {   // MX/PE/CO Basics 1.0/2.0 por pregunta (persistido)
+        window.BASICS = window.BASICS || { CO: {}, MX: {}, PE: {} };
+        ["CO", "MX", "PE"].forEach(c => {
+          const s = saved.basicsByCountry[c];
+          if (s && s.states) { window.BASICS[c] = window.BASICS[c] || {}; window.BASICS[c].states = s.states; window.BASICS[c].kmeta = s.kmeta || null; }
+          if (s && s.hist) window["HIST_FS_" + c] = window["Q2_FORM_" + c] = s.hist;
+        });
+        if (window.BASICS.CO && window.BASICS.CO.states) { window.CO_BASICS_STATES = window.BASICS.CO.states; window.CO_BASICS_KMETA = window.BASICS.CO.kmeta; }
+      }
       if (saved.lastSyncAt) window.LAST_SYNC_AT = saved.lastSyncAt;
       if (saved.fixStatus) window.LAST_FIX_SYNC_STATUS = saved.fixStatus;
       // Purgar puntos físicos que pudieran haberse colado en localStorage
@@ -1605,6 +1622,11 @@
         coBasicsStates: window.CO_BASICS_STATES || null,
         coBasicsKMeta: window.CO_BASICS_KMETA || null,
         coHist: window.CO_HIST || null,
+        basicsByCountry: (() => {
+          const B = window.BASICS || {}; const out = {};
+          ["CO", "MX", "PE"].forEach(c => { const s = B[c]; if (s && s.states) out[c] = { states: s.states, kmeta: s.kmeta || null, hist: window["HIST_FS_" + c] || null }; });
+          return Object.keys(out).length ? out : null;
+        })(),
         cpDetail: window.CP_DETAIL_DATA || null,
         cpPrev: window.CP_PREV || null,
         lastSyncAt: payload.lastSyncAt,
@@ -2188,14 +2210,15 @@
       }).join("");
       const rankingModeLabel = `${state.typeFilter === "cp" ? "CP" : "Cocinas"} · ${state.cityFilter === "Todas" ? "Todas las ciudades" : state.cityFilter}`;
       // Datos por cocina para la tabla ordenable.
-      // CO sobre Basics: mostramos 1.0 y 2.0 en paralelo (desde los niveles por pregunta).
-      const coLevels = (state.country === "CO" && window.FORM_SCORES?.CO?._isBasics) ? window.FORM_SCORES.CO._levels : null;
+      // Países sobre Basics: mostramos 1.0 y 2.0 en paralelo (desde los niveles por pregunta).
+      const coLevels = coBasicsOn() ? (window.FORM_SCORES[state.country]._levels || null) : null;
+      const coMeta = (window.BASICS_META_BY_COUNTRY && window.BASICS_META_BY_COUNTRY[state.country]) || window.CO_BASICS_META || [];
       const coDualFor = (k) => {
         if (!coLevels) return { b1: null, b2: null };
         const st = coLevels[normalizeText(k.id)];
         if (!st) return { b1: null, b2: null };
         const v1 = [], v2 = [];
-        (window.CO_BASICS_META || []).forEach(q => { const s = st[q.no]; if (s == null) return; v1.push(window.basicsValue(s, "1.0")); v2.push(window.basicsValue(s, "2.0")); });
+        coMeta.forEach(q => { const s = st[q.no]; if (s == null) return; v1.push(window.basicsValue(s, "1.0")); v2.push(window.basicsValue(s, "2.0")); });
         const mean = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : null;
         return { b1: mean(v1), b2: mean(v2) };
       };
@@ -2602,7 +2625,7 @@
       }
       // MX en Q3: una cocina que no está en el diagnóstico Q3 es "pendiente" (sin dato),
       // no mostramos el valor semilla antiguo.
-      if (((state.country === "MX" && window.SHEET_DETAIL_DATA_MX_Q3) || (state.country === "PE" && window.SHEET_DETAIL_DATA_PE_Q3) || (state.country === "CO" && window.SHEET_DETAIL_DATA_CO)) && !isCPKitchen(kitchen)) return null;
+      if (q3DetailByCountry() && !isCPKitchen(kitchen)) return null;
       // 2. Fall back to SHEET_DETAIL_DATA values lookup
       const sheetKitchen = sheetKitchenFor(kitchen);
       if (sheetKitchen?.values?.some(v => v != null)) return scoreFromValues(sheetKitchen.values);
@@ -2871,13 +2894,14 @@
         const kId = kitchen?.id;
         const states = coKitchenStates(kId);
         const b1 = coScoreOf(kId, "1.0"), b2 = coScoreOf(kId, "2.0");
+        const _meta = basicsMeta();
         const counts = { yes: 0, p1: 0, p: 0, no: 0 };
-        (window.CO_BASICS_META || []).forEach(q => { const s = states ? states[q.no] : null; if (s && counts[s] != null) counts[s]++; });
+        _meta.forEach(q => { const s = states ? states[q.no] : null; if (s && counts[s] != null) counts[s]++; });
         const bigStat = (label, v, color) => `<div class="detail-stat"><div class="detail-stat-label">${label}</div><div class="detail-stat-value" style="color:${color}">${v != null ? fmt(v) : "Pendiente"}</div></div>`;
         const cntStat = (st) => { const i = CO_STATE_INFO[st]; return `<div class="detail-stat"><div class="detail-stat-label">${i.label}</div><div class="detail-stat-value" style="color:${i.color}">${counts[st]}</div><div class="detail-stat-sub">preguntas</div></div>`; };
-        const blocks = [...new Set((window.CO_BASICS_META || []).map(q => q.bloque))];
+        const blocks = [...new Set(_meta.map(q => q.bloque))];
         const blocksHtml = states ? blocks.map(b => {
-          const qs = (window.CO_BASICS_META || []).filter(q => q.bloque === b);
+          const qs = _meta.filter(q => q.bloque === b);
           const qrows = qs.map(q => `<tr style="border-top:1px solid var(--light-gray)">
               <td style="padding:7px 8px;font-size:12px;color:var(--navy);line-height:1.35">${q.no}. ${q.text}${q.nuevo ? ` <span style="font-size:9px;font-weight:650;color:#0b769f;background:#e7f6fc;padding:1px 6px;border-radius:999px">Nuevo</span>` : ""}${q.inverted ? ` <span style="font-size:9px;color:var(--text-muted)">(invertida)</span>` : ""}</td>
               <td style="padding:7px 8px;text-align:right;white-space:nowrap">${coStateBadge(states[q.no], q.no)}</td>
@@ -3092,11 +3116,12 @@
       // CO · Basics: conteo por estado por básico + brecha hacia 2.0.
       if (coBasicsOn()) {
         const L = coLevels() || {};
+        const _meta = basicsMeta();
         const kitchens = filtered();
-        const areasCO = ["Todas", ...new Set((window.CO_BASICS_META || []).map(q => q.area || "Sin área"))];
+        const areasCO = ["Todas", ...new Set(_meta.map(q => q.area || "Sin área"))];
         if (!areasCO.includes(state.basicDetailArea)) state.basicDetailArea = "Todas";
         const nK = kitchens.length;
-        const rowsCO = (window.CO_BASICS_META || [])
+        const rowsCO = _meta
           .filter(q => state.basicDetailArea === "Todas" || (q.area || "Sin área") === state.basicDetailArea)
           .map(q => {
             const c = { yes: 0, p1: 0, p: 0, no: 0 };
@@ -5724,8 +5749,9 @@
     // Accesores por país (MX y PE operan sobre el Q3).
     // En CO el comparativo usa SIEMPRE Basics 1.0 (metodológicamente comparable con el Q3), sin importar el toggle.
     const cq3FS = () => {
-      if (state.country === "CO" && window.CO_FS_1 && window.CO_FS_1.byName && Object.keys(window.CO_FS_1.byName).length) {
-        return Object.assign({}, window.CO_FS_1, { _isQ3: true, _levels: coLevels() });
+      const S = basicsStore()[state.country];
+      if (coBasicsOn() && S && S.fs1 && S.fs1.byName && Object.keys(S.fs1.byName).length) {
+        return Object.assign({}, S.fs1, { _isQ3: true, _levels: coLevels() });
       }
       return (window.FORM_SCORES || {})[state.country];
     };
@@ -5934,8 +5960,8 @@
       const unit = isCP ? "CP" : "Cocinas";
       const rows = cq3Rows();
       const pending = cq3Pending();
-      const qLabel = state.country === "CO" ? "Q4 2026 · Basics 1.0" : (window.Q3_DATA?.quarterLabel || "Q3 2026");
-      const cmpPrevLabel = state.country === "CO" ? "Q3 2026" : "Q2 2026";
+      const qLabel = coBasicsOn() ? "Q4 2026 · Basics 1.0" : (window.Q3_DATA?.quarterLabel || "Q3 2026");
+      const cmpPrevLabel = coBasicsOn() ? "Q3 2026" : "Q2 2026";
       const avgBasic = cq3Mean(rows.map(r => r.basic));
       const deltas = rows.map(r => cq3Delta(r.basic, cq3Q2Basic(normalizeText(r.name)))).filter(x => x != null);
       const avgDelta = cq3Mean(deltas);
@@ -6207,7 +6233,7 @@
       const basicsVerBtn = event.target.closest("[data-basics-ver]");
       if (basicsVerBtn) {
         state.basicVersion = basicsVerBtn.dataset.basicsVer;
-        if (typeof buildBasicsCO === "function") buildBasicsCO();
+        if (typeof buildBasics === "function") { buildBasics("CO"); buildBasics("MX"); buildBasics("PE"); }
         render();
         return;
       }
@@ -7704,8 +7730,16 @@
     const CO_BASICS_SHEET_ID = "1vFGQ1r0n98qOStdFlZ8TscOjHbpfnEg3mdThvuXEzCs";
     const CO_BASICS_GID = "1431669690";
     const CO_NEW_CITY = { "71 CEDRITOS": "Bogotá", "72 WE WORK": "Bogotá", "73 SABANETA": "Medellín", "74 RIOMAR": "Barranquilla" };
-    const syncBasicsFormCO = async () => {
-      const table = await fetchPublicSheetTable({ gid: CO_BASICS_GID, customSheetId: CO_BASICS_SHEET_ID, timeoutMs: 60000, retries: 1 });
+    // Configuración del formulario Basics 2.0 por país (hojas públicas de respuestas crudas).
+    const BASICS_FORM_CFG = {
+      CO: { sheetId: CO_BASICS_SHEET_ID, gid: CO_BASICS_GID, newCity: CO_NEW_CITY, countryName: "Colombia", quarter: "Q4 2026" },
+      MX: { sheetId: "16d7A7cQ7mg9LsBPa6pYpscLGcUkUlOFlRTxZB_1UcPs", gid: "539984962", newCity: {}, countryName: "México", quarter: "Q4 2026" },
+      PE: { sheetId: "1PERdRoUGlCkZCioeFqB8B9lthOGmz3qxcFtP0Ky3Yo4", gid: "706164959", newCity: { "08 GONZALES PRADA": "Lima" }, countryName: "Perú", quarter: "Q4 2026" },
+    };
+    // Sincroniza las respuestas crudas del formulario Basics 2.0 de un país → estados por cocina.
+    const syncBasicsForm = async (country) => {
+      const cfg = BASICS_FORM_CFG[country]; if (!cfg) return null;
+      const table = await fetchPublicSheetTable({ gid: cfg.gid, customSheetId: cfg.sheetId, timeoutMs: 60000, retries: 1 });
       const cols = table.cols || [], rows = table.rows || [];
       const hasLabels = cols.some(c => (c.label || "").trim().length > 2);
       const labels = hasLabels ? cols.map(c => (c.label || "").trim()) : ((rows[0] || {}).c || []).map(c => displaySheetCell(c).trim());
@@ -7714,7 +7748,7 @@
       const qcols = [];
       labels.forEach((l, i) => { const m = (l || "").match(/^\s*(\d+)\.\s/); if (m) qcols.push({ i, no: parseInt(m[1], 10) }); });
       if (kCol < 0 || !qcols.length) return null;
-      const metaByNo = {}; (window.CO_BASICS_META || []).forEach(q => metaByNo[q.no] = q);
+      const metaByNo = {}; basicsMeta(country).forEach(q => metaByNo[q.no] = q);
       const stateByKitchen = {}, metaByKitchen = {};
       dataRows.forEach(row => {
         const c = row.c || [];
@@ -7727,48 +7761,64 @@
         metaByKitchen[nm] = { name: kraw.trim(), city: "" };
       });
       if (!Object.keys(stateByKitchen).length) return null;
-      window.CO_BASICS_STATES = stateByKitchen;
-      window.CO_BASICS_KMETA = metaByKitchen;
+      const S = basicsStore()[country] = basicsStore()[country] || {};
+      S.states = stateByKitchen; S.kmeta = metaByKitchen;
+      if (country === "CO") { window.CO_BASICS_STATES = stateByKitchen; window.CO_BASICS_KMETA = metaByKitchen; }
       return stateByKitchen;
     };
-    const buildBasicsCO = () => {
-      if (!window.CO_BASICS_STATES || !window.buildBasicsAggregates) return;
+    const syncBasicsFormCO = () => syncBasicsForm("CO");
+    const syncBasicsFormMX = () => syncBasicsForm("MX");
+    const syncBasicsFormPE = () => syncBasicsForm("PE");
+
+    // Construye las estructuras Basics 1.0/2.0 de un país y las instala en FORM_SCORES[country].
+    const buildBasics = (country) => {
+      const cfg = BASICS_FORM_CFG[country]; if (!cfg || !window.buildBasicsAggregates) return;
+      const S = basicsStore()[country] = basicsStore()[country] || {};
+      const _states = S.states || (country === "CO" ? window.CO_BASICS_STATES : null);
+      const _kmeta = S.kmeta || (country === "CO" ? window.CO_BASICS_KMETA : null);
+      if (!_states || !Object.keys(_states).length) return;
       window.FORM_SCORES = window.FORM_SCORES || {};
-      const fsCO = window.FORM_SCORES.CO;
-      // Histórico Q3 (una sola vez) para el comparativo — no se sobrescribe.
-      if (fsCO && !fsCO._isBasics && !window.CO_HIST) { window.CO_HIST = fsCO; window.Q2_FORM_CO = fsCO; }
-      const _states = window.CO_BASICS_STATES, _kmeta = window.CO_BASICS_KMETA;
-      // Preguntas con 2º nivel = aquellas donde alguna cocina respondió "Parcialmente (versión 1.0)".
-      // Solo en ellas tiene sentido distinguir "Cumple 2.0"; las demás "se mantuvieron" → "Cumple".
-      window.CO_L2 = new Set();
-      (window.CO_BASICS_META || []).forEach(q => { if (q.l2) window.CO_L2.add(Number(q.no)); });   // marcadas en metadata
-      Object.values(_states || {}).forEach(st => Object.keys(st).forEach(no => { if (st[no] === "p1") window.CO_L2.add(Number(no)); }));  // + detectadas por datos
-      window.CO_FS_1 = window.buildBasicsAggregates(_states, _kmeta, "1.0");
-      window.CO_FS_2 = window.buildBasicsAggregates(_states, _kmeta, "2.0");
-      const agg = state.basicVersion === "1.0" ? window.CO_FS_1 : window.CO_FS_2;
-      window.FORM_SCORES.CO = Object.assign({}, agg, {
-        _levels: window.CO_BASICS_STATES, _isBasics: true, _isQ3: true,
-        _meta: { quarter: "Q4 2026" }, __realNorms: Object.keys(agg.byName),
+      const fsPrev = window.FORM_SCORES[country];
+      // Histórico del Q anterior (una sola vez) para el comparativo — no se sobrescribe.
+      if (fsPrev && !fsPrev._isBasics && !window["HIST_FS_" + country]) {
+        window["HIST_FS_" + country] = fsPrev; window["Q2_FORM_" + country] = fsPrev;
+        if (country === "CO") window.CO_HIST = fsPrev;
+      }
+      const meta = basicsMeta(country);
+      // Preguntas con 2º nivel = marcadas en metadata + detectadas por datos ("versión 1.0").
+      const l2 = new Set(); meta.forEach(q => { if (q.l2) l2.add(Number(q.no)); });
+      Object.values(_states || {}).forEach(st => Object.keys(st).forEach(no => { if (st[no] === "p1") l2.add(Number(no)); }));
+      S.l2 = l2;
+      S.fs1 = window.buildBasicsAggregates(_states, _kmeta, "1.0", meta);
+      S.fs2 = window.buildBasicsAggregates(_states, _kmeta, "2.0", meta);
+      if (country === "CO") { window.CO_L2 = l2; window.CO_FS_1 = S.fs1; window.CO_FS_2 = S.fs2; }
+      const agg = state.basicVersion === "1.0" ? S.fs1 : S.fs2;
+      window.FORM_SCORES[country] = Object.assign({}, agg, {
+        _levels: _states, _isBasics: true, _isQ3: true,
+        _meta: { quarter: cfg.quarter }, __realNorms: Object.keys(agg.byName),
       });
-      const metaK = window.CO_BASICS_KMETA || {};
-      const rosterCity = {}; (COUNTRIES.CO.kitchens || []).forEach(k => rosterCity[normalizeText(k.id)] = k.city);
+      const metaK = _kmeta || {};
+      const rosterCity = {}; (COUNTRIES[country].kitchens || []).forEach(k => rosterCity[normalizeText(k.id)] = k.city);
       const kitchens = Object.keys(agg.byName).map(nm => {
         const m = metaK[nm] || { name: nm };
-        const city = rosterCity[nm] || CO_NEW_CITY[(m.name || "").trim().toUpperCase()] || "";
+        const city = rosterCity[nm] || cfg.newCity[(m.name || "").trim().toUpperCase()] || "";
         const bq = agg.byKitchenQuestion[nm] || {};
-        return { country: "Colombia", name: m.name, city, values: agg._questions.map(q => bq[q.no] != null ? bq[q.no] : null) };
+        return { country: cfg.countryName, name: m.name, city, values: agg._questions.map(q => bq[q.no] != null ? bq[q.no] : null) };
       });
-      window.SHEET_DETAIL_DATA_CO = { questions: agg._questions, kitchens };
+      window["SHEET_DETAIL_DATA_" + country] = { questions: agg._questions, kitchens };
       // Agregar cocinas nuevas (sin tocar las existentes).
-      const have = {}; (COUNTRIES.CO.kitchens || []).forEach(k => have[normalizeText(k.id)] = true);
+      const have = {}; (COUNTRIES[country].kitchens || []).forEach(k => have[normalizeText(k.id)] = true);
       Object.keys(agg.byName).forEach(nm => {
         if (have[nm]) return;
         const m = metaK[nm] || { name: nm };
-        const city = CO_NEW_CITY[(m.name || "").trim().toUpperCase()] || "";
-        COUNTRIES.CO.kitchens.push({ id: m.name, city, basic: null, seg: null, hig: null, limp: null, infra: null, ppl: null });
+        const city = cfg.newCity[(m.name || "").trim().toUpperCase()] || rosterCity[nm] || "";
+        COUNTRIES[country].kitchens.push({ id: m.name, city, basic: null, seg: null, hig: null, limp: null, infra: null, ppl: null });
         have[nm] = true;
       });
     };
+    const buildBasicsCO = () => buildBasics("CO");
+    const buildBasicsMX = () => buildBasics("MX");
+    const buildBasicsPE = () => buildBasics("PE");
 
     byId("syncBtn").addEventListener("click", async () => {
       const button = byId("syncBtn");
@@ -7794,13 +7844,17 @@
         try { await syncQ3PreguntasMX(); } catch (e) { /* fuente autoritativa por pregunta; si falla, se usa Resultados/crudo */ }
         try { await syncQ3PreguntasPE(); } catch (e) { /* Perú autoritativo desde "Preguntas"; si falla, usa el parse general */ }
         try { await syncBasicsFormCO(); } catch (e) { /* Colombia Basics 1.0/2.0 desde el form nuevo */ }
+        try { await syncBasicsFormMX(); } catch (e) { /* México Basics 1.0/2.0 desde el form nuevo */ }
+        try { await syncBasicsFormPE(); } catch (e) { /* Perú Basics 1.0/2.0 desde el form nuevo */ }
         let cpStr = "";
         try { const cp = await syncCpFromSheet(); if (cp) cpStr = `CP: ${cp.kitchens} centros · ${cp.questions} preguntas`; } catch (e) { /* se usa CP estático/guardado */ }
         try { await syncCpPrevFromSheet(); } catch (e) { /* sin baseline de CP → sin variación */ }
-        buildQ3MX();             // MX opera sobre el Q3 (preserva el Q2 recién sincronizado para el comparativo)
-        finalizeQ3PE();          // PE opera sobre el Q3 (desde la pestaña Preguntas) + Q2 baseline
-        buildBasicsCO();         // CO opera sobre Basics 1.0/2.0 (form nuevo), guarda Q3 como histórico
+        buildQ3MX();             // MX Q3 (queda como histórico para el comparativo)
+        finalizeQ3PE();          // PE Q3 (queda como histórico para el comparativo)
         reconcileMXKitchens();   // alinea nombres al Q3 y elimina duplicados por número
+        buildBasicsCO();         // CO opera sobre Basics 1.0/2.0 (form nuevo), guarda Q3 como histórico
+        buildBasicsMX();         // MX opera sobre Basics 1.0/2.0, guarda Q3 como histórico
+        buildBasicsPE();         // PE opera sobre Basics 1.0/2.0, guarda Q3 como histórico
         const syncAt = new Date().toISOString();
         saveSyncData({ lastSyncAt: syncAt });
         const now = formatSyncMetaDate(syncAt);
@@ -7832,10 +7886,12 @@
     loadSavedSync();
     applyUiPrefs();          // restaura último país / vista / versión Basics
     applyPrevQTransition();  // aplica transición Q anterior → Q actual con datos restaurados
-    buildQ3MX();             // MX sobre el Q3 (usa el Q2 guardado localmente como comparativo)
-    finalizeQ3PE();          // PE sobre el Q3 (+ Q2 baseline congelado)
-    buildBasicsCO();         // CO sobre Basics 1.0/2.0 (desde lo guardado localmente)
+    buildQ3MX();             // MX Q3 (histórico para comparativo)
+    finalizeQ3PE();          // PE Q3 (histórico para comparativo)
     reconcileMXKitchens();
+    buildBasicsCO();         // CO sobre Basics 1.0/2.0 (desde lo guardado localmente)
+    buildBasicsMX();         // MX sobre Basics 1.0/2.0 (desde lo guardado localmente)
+    buildBasicsPE();         // PE sobre Basics 1.0/2.0 (desde lo guardado localmente)
     render();
 
     // Auto-sync al cargar: si los datos tienen más de 1 hora o no hay sync guardado,
