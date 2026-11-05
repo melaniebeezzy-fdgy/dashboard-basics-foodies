@@ -6206,12 +6206,28 @@
         groups: rows.map(r => r.name), metas, vbW: 470,
         series: [{ label: "Q4 · Basics 2.0", color: "#276749", values: rows.map(r => r.q4_2) }],
       });
+      // Cards OKR: cuántas cocinas están sobre su meta (Basics 2.0, nivel actual).
+      const okrCard = (r) => {
+        const scores = (COUNTRIES[r.c] && COUNTRIES[r.c].kitchens || []).filter(k => !isCPKitchen(k)).map(k => coScoreOf(k.id, "2.0", r.c)).filter(x => x != null);
+        const total = scores.length, over = scores.filter(s => s >= r.meta).length;
+        const pct = total ? Math.round(over / total * 100) : 0;
+        const col = pct >= 100 ? "#1b7a44" : "#1f9d57";
+        return `<article class="kpi" style="flex:1 1 180px;min-width:0;padding:12px 15px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:13px;font-weight:700;color:var(--dark-blue)">${r.name}</span><span style="font-size:10px;font-weight:650;color:${r.metaColor}">Meta ${r.meta}%</span></div>
+          <div style="display:flex;align-items:baseline;gap:6px;margin-top:4px"><span style="font-size:28px;font-weight:750;color:${col};line-height:1">${over}</span><span style="font-size:15px;color:var(--text-muted)">/ ${total}</span></div>
+          <div style="font-size:10px;color:var(--text-muted)">cocinas ≥ meta · Basics 2.0</div>
+          <div style="margin-top:8px;height:9px;border-radius:999px;background:#e5e9ee;overflow:hidden"><div style="height:100%;width:${pct}%;background:${col};border-radius:999px"></div></div>
+          <div style="font-size:10px;color:var(--text-muted);margin-top:4px">${pct}% sobre la meta</div>
+        </article>`;
+      };
+      const okrCards = `<div style="display:flex;flex-wrap:wrap;gap:12px;margin:0 0 14px">${rows.map(okrCard).join("")}</div>`;
       host.innerHTML = `
-        <h2 style="margin:2px 0 12px;font-size:20px;font-weight:700;color:var(--dark-blue)">🌐 Básicos de Cocinas</h2>
+        <h2 style="margin:2px 0 4px;font-size:20px;font-weight:700;color:var(--dark-blue)">🌐 Básicos de Cocinas</h2>
+        <div class="info" style="margin:0 0 12px;font-size:11px">OKR: <strong>100% de las cocinas sobre su meta</strong> · COL &gt;95% · MEX &gt;90% · PER &gt;80%.</div>
+        ${okrCards}
         <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:stretch">
           <article class="panel" style="flex:1.8 1 520px;min-width:0">
-            <div class="panel-title">🌐 Tendencia por país · Basics 1.0</div>
-            <div class="info" style="margin:0 0 6px;font-size:11px">OKR: COL &gt; 95% · MEX &gt; 90% · PER &gt; 80%.</div>
+            <div class="panel-title">Tendencia por país · Basics 1.0</div>
             ${chart1}
           </article>
           <article class="panel" style="flex:1 1 300px;min-width:0">
