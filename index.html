@@ -2301,7 +2301,8 @@
       let _both = 0, _only1 = 0, _no1 = 0;
       rows.forEach(k => { const s1 = coScoreOf(k.id, "1.0"), s2 = coScoreOf(k.id, "2.0"); if (s1 == null) return; if (s1 >= scoreTarget && s2 >= scoreTarget) _both++; else if (s1 >= scoreTarget) _only1++; else _no1++; });
       // Diagnóstico del Q anterior (Q3) para la card de Cumplimiento General.
-      const _q3fs = window["Q2_FORM_" + state.country];
+      // En países Basics el Q anterior es el Q3 (HIST_FS); Q2_FORM es el Q2 (dos trimestres atrás).
+      const _q3fs = window["HIST_FS_" + state.country] || window["Q2_FORM_" + state.country];
       const _q3avg = (() => {
         if (!_q3fs || !_q3fs.byName) return null;
         const vs = rows.map(k => _q3fs.byName[normalizeText(k.id)]).filter(v => v != null);
@@ -5789,7 +5790,7 @@
       }
       return (window.FORM_SCORES || {})[state.country];
     };
-    const cq3Q2 = () => window["Q2_FORM_" + state.country] || (window.FORM_SCORES || {})[state.country];
+    const cq3Q2 = () => (coBasicsOn() && window["HIST_FS_" + state.country]) || window["Q2_FORM_" + state.country] || (window.FORM_SCORES || {})[state.country];
     const cq3DetailQ3 = () => state.country === "PE" ? window.SHEET_DETAIL_DATA_PE_Q3 : window.SHEET_DETAIL_DATA_MX_Q3;
     const cq3Ready = () => {
       if (cq3IsCP()) return !!(window.CP_DETAIL_DATA?.questions?.length);
@@ -5882,7 +5883,7 @@
     //  · CP  → baseline de "Cp preguntas" histórico (window.CP_PREV)
     //  · MX  → Q2 de cocinas (Q2_FORM_MX)
     const prevHasQ2 = () => {
-      const fs = window["Q2_FORM_" + state.country];
+      const fs = (coBasicsOn() && window["HIST_FS_" + state.country]) || window["Q2_FORM_" + state.country];
       return !!(fs && fs.byName && Object.keys(fs.byName).length);
     };
     const prevKitchenBasic = (k) => {
@@ -6119,7 +6120,7 @@
       if (!r.byQuestion) {
         return `<div style="margin:2px 0 10px 14px;background:#fbfdff;border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:11px;color:var(--text-muted)">
           Sin respuesta cruda cargada para esta cocina — se muestra el % por sub-área, pero no el detalle pregunta por pregunta.
-          ${q2sub != null ? `<br>Referencia Q2 de la sub-área: <strong>${Math.round(q2sub)}%</strong>` : ""}
+          ${q2sub != null ? `<br>Referencia ${coBasicsOn() ? "Q3" : "Q2"} de la sub-área: <strong>${Math.round(q2sub)}%</strong>` : ""}
         </div>`;
       }
       const qs = S.questions.filter(q => q.subarea === sa.name);
@@ -6138,7 +6139,7 @@
       return `
         <div style="margin:2px 0 10px 14px;background:#fbfdff;border:1px solid var(--border);border-radius:6px">
           <div style="padding:6px 10px;font-size:11px;color:var(--text-muted);background:#f2f7fb;border-radius:6px 6px 0 0">
-            Respuesta anterior (Q2) de esta sub-área: <strong>${q2sub == null ? "sin dato" : Math.round(q2sub) + "%"}</strong>
+            Respuesta anterior (${coBasicsOn() ? "Q3" : "Q2"}) de esta sub-área: <strong>${q2sub == null ? "sin dato" : Math.round(q2sub) + "%"}</strong>
             ${q2sub != null ? ` · ${cq3Q2AnswerLabel(q2sub)}` : ""}
           </div>
           ${rowsHtml}
