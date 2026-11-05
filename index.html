@@ -6189,7 +6189,7 @@
         if (m && m.v != null) { const my = y(m.v); metaLines += `<line x1="${(gx + 6).toFixed(1)}" y1="${my}" x2="${(gx + gW - 6).toFixed(1)}" y2="${my}" stroke="${m.color}" stroke-width="2" stroke-dasharray="4 3"/><text x="${(gx + gW - 6).toFixed(1)}" y="${my - 5}" text-anchor="end" font-size="10" font-weight="700" fill="${m.color}">Meta ${m.v}%</text>`; }
       });
       const legend = series.map(s => `<span style="display:inline-flex;align-items:center;gap:5px;margin-right:14px;font-size:11px;color:#475569"><span style="width:11px;height:11px;border-radius:2px;background:${s.color};display:inline-block"></span>${s.label}</span>`).join("");
-      return `<div style="overflow-x:auto"><svg viewBox="0 0 ${W} ${H}" style="width:100%;min-width:480px;height:auto;font-family:inherit"><rect x="0" y="0" width="${W}" height="${H}" fill="transparent"/>${grid}${bars}${metaLines}<line x1="${padL}" y1="${padT + plotH}" x2="${padL + plotW}" y2="${padT + plotH}" stroke="#cbd5e0"/></svg></div><div style="margin-top:6px">${legend}</div>`;
+      return `<div style="overflow-x:auto"><svg viewBox="0 0 ${W} ${H}" style="width:100%;min-width:340px;height:auto;font-family:inherit"><rect x="0" y="0" width="${W}" height="${H}" fill="transparent"/>${grid}${bars}${metaLines}<line x1="${padL}" y1="${padT + plotH}" x2="${padL + plotW}" y2="${padT + plotH}" stroke="#cbd5e0"/></svg></div><div style="margin-top:6px">${legend}</div>`;
     };
     const renderGlobal = () => {
       const host = byId("global");
@@ -6206,16 +6206,18 @@
         series: [{ label: "Q4 · Basics 2.0", color: "#276749", values: rows.map(r => r.q4_2) }],
       });
       host.innerHTML = `
-        <article class="panel">
-          <div class="panel-title">🌐 Tendencia por país · Basics 1.0</div>
-          <div class="info" style="margin:0 0 8px">OKR: COL &gt; 95% · MEX &gt; 90% · PER &gt; 80%. Evolución por trimestre (Q1–Q4); el Q4 corresponde a Basics 1.0, comparable con los trimestres anteriores.</div>
-          ${chart1}
-        </article>
-        <article class="panel" style="margin-top:14px">
-          <div class="panel-title">Cierre Q4 · Basics 2.0</div>
-          <div class="info" style="margin:0 0 8px">Cumplimiento del nuevo estándar (Basics 2.0) al cierre del Q4, por país, contra su meta.</div>
-          ${chart2}
-        </article>`;
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:14px;align-items:start">
+          <article class="panel">
+            <div class="panel-title">🌐 Tendencia por país · Basics 1.0</div>
+            <div class="info" style="margin:0 0 8px">OKR: COL &gt; 95% · MEX &gt; 90% · PER &gt; 80%. Evolución por trimestre (Q1–Q4); el Q4 corresponde a Basics 1.0, comparable con los trimestres anteriores.</div>
+            ${chart1}
+          </article>
+          <article class="panel">
+            <div class="panel-title">Cierre Q4 · Basics 2.0</div>
+            <div class="info" style="margin:0 0 8px">Cumplimiento del nuevo estándar (Basics 2.0) al cierre del Q4, por país, contra su meta.</div>
+            ${chart2}
+          </article>
+        </div>`;
     };
 
     const _updateChrome = () => {
