@@ -7300,6 +7300,9 @@
     // Nombres canónicos forzados (corrige nombres del Q3/sheet que no son los correctos).
     const MX_NAME_OVERRIDE = { "40 JARDINES DEL VALLE": "40 JARDINES DEL VALL" };
     const fixMxName = (nm) => MX_NAME_OVERRIDE[String(nm || "").trim().toUpperCase()] || nm;
+    // Ciudad canónica forzada (corrige ciudades mal asignadas en el Q3/sheet).
+    const MX_CITY_OVERRIDE = { "56 NARVARTE": "CDMX", "17 CUMBRES": "Monterrey" };
+    const fixMxCity = (name, city) => MX_CITY_OVERRIDE[String(name || "").trim().toUpperCase()] || city;
     const reconcileMXKitchens = () => {
       if (!COUNTRIES.MX) return;
       const numMap = {};
@@ -7339,6 +7342,8 @@
       });
       COUNTRIES.MX.kitchens.length = 0;
       COUNTRIES.MX.kitchens.push(...kept);
+      // Forzar ciudades corregidas.
+      COUNTRIES.MX.kitchens.forEach(k => { if (!isCPKitchen(k)) k.city = fixMxCity(k.id, k.city); });
     };
 
     // ── Form data parser ─────────────────────────────────────────────────
