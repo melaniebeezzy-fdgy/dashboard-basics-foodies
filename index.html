@@ -1168,6 +1168,7 @@
     <section id="fix-impact" class="screen"></section>
     <section id="gantt" class="screen"></section>
     <section id="comparativo-q3" class="screen"></section>
+    <section id="global" class="screen"></section>
   </main>
 
   <script src="sheet-detail-data.js"></script>
@@ -1698,6 +1699,11 @@
         const scoreColor = key === state.country ? s.color : "rgba(255,255,255,0.65)";
         return `<button class="country-tab ${active}" style="${style}" data-country="${key}" type="button">${value.flag} ${value.name}<span style="margin-left:7px;color:${scoreColor};font-size:11px">${fmt(score)}</span></button>`;
       }).join("");
+      // Pestaña Global (resumen multipaís).
+      const gActive = state.country === "GLOBAL";
+      const gStyle = gActive ? "border-color:#0f9ed5;background:rgba(15,158,213,.18);color:#fff" : "";
+      byId("countryTabs").insertAdjacentHTML("beforeend",
+        `<button class="country-tab ${gActive ? "active" : ""}" style="${gStyle}" data-country="GLOBAL" type="button">🌐 Global</button>`);
     };
 
     const renderBasicsToggle = () => {
@@ -6148,15 +6154,82 @@
 
     const _VIEWS = ["dashboard","kitchens","basics","kitchen-detail-sheet","basic-detail-sheet","fixes","fix-impact","gantt","comparativo-q3"];
     const _dirty = Object.fromEntries(_VIEWS.map(v => [v, true]));
+    // ── Vista Global (resumen multipaís) ─────────────────────────────────────
+    // Cierres históricos por trimestre (congelados) + meta por país. Q4 se calcula en vivo.
+    const GLOBAL_HISTORY = {
+      CO: { name: "Colombia", meta: 95, metaColor: "#2e7d32", Q1: 66.2, Q2: 86.0, Q3: 86.0 },
+      MX: { name: "México",   meta: 90, metaColor: "#8a95a3", Q1: 50.5, Q2: 67.0, Q3: 83.0 },
+      PE: { name: "Perú",     meta: 80, metaColor: "#e0529c", Q1: 51.5, Q2: 60.0, Q3: 79.2 },
+    };
+    const _gFsAvg = (c, ver) => {
+      const ks = (COUNTRIES[c] && COUNTRIES[c].kitchens || []).filter(k => !isCPKitchen(k));
+      const v = ks.map(k => coScoreOf(k.id, ver, c)).filter(x => x != null);
+      return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null;
+    };
+    const groupedBarSVG = ({ groups, series, metas }) => {
+      const W = 1000, H = 420, padL = 46, padR = 118, padT = 24, padB = 48;
+      const plotW = W - padL - padR, plotH = H - padT - padB;
+      const y = v => padT + plotH - (Math.max(0, Math.min(100, v)) / 100) * plotH;
+      const nG = groups.length, gW = plotW / nG, nS = series.length;
+      const innerPad = gW * 0.20, slot = (gW - innerPad) / nS, bW = slot * 0.80;
+      let grid = "";
+      [0, 25, 50, 75, 100].forEach(t => { const yy = y(t); grid += `<line x1="${padL}" y1="${yy}" x2="${padL + plotW}" y2="${yy}" stroke="#e8edf2"/><text x="${padL - 8}" y="${yy + 4}" text-anchor="end" font-size="11" fill="#94a3b8">${t}%</text>`; });
+      let bars = "", metaLines = "";
+      groups.forEach((g, gi) => {
+        const gx = padL + gi * gW;
+        series.forEach((s, si) => {
+          const v = s.values[gi]; if (v == null) return;
+          const bx = gx + innerPad / 2 + si * slot + (slot - bW) / 2;
+          const by = y(v), bh = padT + plotH - by;
+          bars += `<rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${bW.toFixed(1)}" height="${bh.toFixed(1)}" rx="2" fill="${s.color}"/>`;
+          bars += `<text x="${(bx + bW / 2).toFixed(1)}" y="${(by - 5).toFixed(1)}" text-anchor="middle" font-size="11" font-weight="700" fill="${s.color}">${v.toFixed(1)}%</text>`;
+        });
+        bars += `<text x="${(gx + gW / 2).toFixed(1)}" y="${H - padB + 24}" text-anchor="middle" font-size="13" font-weight="700" fill="#1e293b">${g}</text>`;
+        const m = metas[gi];
+        if (m && m.v != null) { const my = y(m.v); metaLines += `<line x1="${(gx + 6).toFixed(1)}" y1="${my}" x2="${(gx + gW - 6).toFixed(1)}" y2="${my}" stroke="${m.color}" stroke-width="2" stroke-dasharray="4 3"/><text x="${(gx + gW - 6).toFixed(1)}" y="${my - 5}" text-anchor="end" font-size="10" font-weight="700" fill="${m.color}">Meta ${m.v}%</text>`; }
+      });
+      const legend = series.map(s => `<span style="display:inline-flex;align-items:center;gap:5px;margin-right:14px;font-size:11px;color:#475569"><span style="width:11px;height:11px;border-radius:2px;background:${s.color};display:inline-block"></span>${s.label}</span>`).join("");
+      return `<div style="overflow-x:auto"><svg viewBox="0 0 ${W} ${H}" style="width:100%;min-width:480px;height:auto;font-family:inherit"><rect x="0" y="0" width="${W}" height="${H}" fill="transparent"/>${grid}${bars}${metaLines}<line x1="${padL}" y1="${padT + plotH}" x2="${padL + plotW}" y2="${padT + plotH}" stroke="#cbd5e0"/></svg></div><div style="margin-top:6px">${legend}</div>`;
+    };
+    const renderGlobal = () => {
+      const host = byId("global");
+      const order = ["CO", "MX", "PE"];
+      const rows = order.map(c => { const h = GLOBAL_HISTORY[c]; return { c, name: h.name, meta: h.meta, metaColor: h.metaColor, q: [h.Q1, h.Q2, h.Q3, _gFsAvg(c, "1.0")], q4_2: _gFsAvg(c, "2.0") }; });
+      const metas = rows.map(r => ({ v: r.meta, color: r.metaColor }));
+      const qColors = ["#bcd6ea", "#6ea8cf", "#2f6ea8", "#12233f"];
+      const chart1 = groupedBarSVG({
+        groups: rows.map(r => r.name), metas,
+        series: ["Q1", "Q2", "Q3", "Q4"].map((lab, i) => ({ label: lab, color: qColors[i], values: rows.map(r => r.q[i]) })),
+      });
+      const chart2 = groupedBarSVG({
+        groups: rows.map(r => r.name), metas,
+        series: [{ label: "Q4 · Basics 2.0", color: "#276749", values: rows.map(r => r.q4_2) }],
+      });
+      host.innerHTML = `
+        <article class="panel">
+          <div class="panel-title">🌐 Tendencia por país · Basics 1.0</div>
+          <div class="info" style="margin:0 0 8px">OKR: COL &gt; 95% · MEX &gt; 90% · PER &gt; 80%. Evolución por trimestre (Q1–Q4); el Q4 corresponde a Basics 1.0, comparable con los trimestres anteriores.</div>
+          ${chart1}
+        </article>
+        <article class="panel" style="margin-top:14px">
+          <div class="panel-title">Cierre Q4 · Basics 2.0</div>
+          <div class="info" style="margin:0 0 8px">Cumplimiento del nuevo estándar (Basics 2.0) al cierre del Q4, por país, contra su meta.</div>
+          ${chart2}
+        </article>`;
+    };
+
     const _updateChrome = () => {
       const titleText = `Basics · ${reportQuarterLabel()}`;
       byId("reportTitle").textContent = titleText;
       document.title = titleText;
       updateSyncMeta();
       renderCountryTabs();
-      renderCitySelect();
-      renderDiagBar();
-      renderBasicsToggle();
+      const isGlobal = state.country === "GLOBAL";
+      // En Global ocultamos barra de vistas y filtros (es un resumen multipaís).
+      const toolbarEl = document.querySelector("section.toolbar"); if (toolbarEl) toolbarEl.style.display = isGlobal ? "none" : "";
+      const cityCtl = document.querySelector(".country-row .city-control"); if (cityCtl) cityCtl.style.display = isGlobal ? "none" : "";
+      if (!isGlobal) { renderCitySelect(); renderDiagBar(); renderBasicsToggle(); }
+      else { const bv = byId("basicsVerControl"); if (bv) bv.style.display = "none"; }
       document.querySelectorAll(".screen").forEach(el => el.classList.toggle("active", el.id === state.view));
       document.querySelectorAll(".view-tab").forEach(btn => btn.classList.toggle("active", btn.dataset.view === state.view));
     };
@@ -6170,6 +6243,7 @@
       "fix-impact": renderFixImpact,
       "gantt": renderGantt,
       "comparativo-q3": renderComparativoQ3,
+      "global": renderGlobal,
     })[id];
     const _renderView = (id) => {
       const fn = _renderFnFor(id);
@@ -6206,7 +6280,7 @@
         state.ganttArea = "all";
         state.ganttPriority = "all";
         state.ganttGroupBy = "kitchen";
-        state.view = "dashboard";
+        state.view = countryButton.dataset.country === "GLOBAL" ? "global" : "dashboard";
         render();
         return;
       }
