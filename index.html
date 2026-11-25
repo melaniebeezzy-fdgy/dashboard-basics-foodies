@@ -1179,6 +1179,7 @@
   <script src="q3-data.js"></script>
   <script src="q3-mx.js"></script>
   <script src="basics-co.js"></script>
+  <script src="dotacion-mx.js"></script>
   <script>
     const PALETTE = {
       lightGray: "#E8E8E8",
@@ -7250,6 +7251,28 @@
       });
     };
 
+    // Planes de dotación (MX): 1 plan por cocina a partir del archivo de cumplimiento de dotación.
+    // 100% del personal con uniforme completo → Ejecutado; por debajo del 100% → En proceso.
+    const dotacionPlansMX = () => {
+      const D = window.DOTACION_MX; if (!D || !D.byNum) return [];
+      const out = [];
+      (COUNTRIES.MX?.kitchens || []).forEach(k => {
+        if (isCPKitchen(k)) return;
+        const num = (String(k.id).match(/^\s*(\d+)/) || [])[1]; const r = num && D.byNum[String(num).padStart(2, "0")];
+        if (!r) return;
+        const done = r.p >= 100;
+        out.push({
+          country: "México", _rowIdx: `MX:dot-${num}`, _dotacion: true,
+          subcategoria: "People", area: "People", cocina: k.id, ciudad: k.city || "",
+          iniciativa: done ? `Dotación completa: ${r.ok} de ${r.f} foodies con uniforme al 100%` : `Completar dotación: ${r.ok} de ${r.f} foodies con uniforme al 100% (${r.p.toFixed(0)}%)`,
+          basic: "", compromiso: "", cierre: done ? D.fecha : "", responsable: "People", prioridad: done ? "Media" : "Alta",
+          status: done ? "Ejecutado" : "En proceso", revisado: "", evidencia: `Cumplimiento de dotación al ${D.fecha}`, presupuesto: "", cotizacion: "",
+          semana: done ? D.semana : "",
+        });
+      });
+      return out;
+    };
+
     const syncFixesFromSheets = async () => {
       const prev = window.FIXES_DATA || { MX: [], CO: [], PE: [], CP: [] };
       const next = { ...prev };
@@ -7267,7 +7290,8 @@
       ]) {
         try {
           const table = await fetchPublicSheetTable({ sheet: config.sheet, gid: config.gid, customSheetId: config.customSheetId, timeoutMs: 90000, retries: 1 });
-          const parsed = parseFixTable(table, config.key);
+          let parsed = parseFixTable(table, config.key);
+          if (config.key === "MX") parsed = parsed.concat(dotacionPlansMX());
           // La descarga tuvo éxito → reemplaza por completo (reset Q4), aunque el país quede sin planes.
           next[config.key] = parsed;
           anySuccess = true;
