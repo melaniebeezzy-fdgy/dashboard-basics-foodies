@@ -2588,6 +2588,21 @@
 
     const kitchenNumber = (name) => String(name || "").match(/^\d+/)?.[0] || "";
 
+    // Cocinas cerradas: se excluyen de todas las fuentes (roster, diagnóstico, planes, Basics).
+    const CLOSED_KITCHEN_NORMS = new Set(['67 PLAZA CLARO COURT'].map(normalizeText));
+    const isClosedKitchen = (name) => CLOSED_KITCHEN_NORMS.has(normalizeText(name));
+    // Purga de los datos estáticos embebidos (fixes-data.js, sheet-detail-data.js) al cargar.
+    (() => {
+      try {
+        const FD = window.FIXES_DATA;
+        if (FD) Object.keys(FD).forEach(k => { if (Array.isArray(FD[k])) FD[k] = FD[k].filter(f => !isClosedKitchen(f && f.cocina)); });
+        const SD = window.SHEET_DETAIL_DATA;
+        if (SD && Array.isArray(SD.kitchens)) SD.kitchens = SD.kitchens.filter(k => !isClosedKitchen(k && k.name));
+        const CP = window.CP_DETAIL_DATA;
+        if (CP && Array.isArray(CP.kitchens)) CP.kitchens = CP.kitchens.filter(k => !isClosedKitchen(k && k.name));
+      } catch (_) {}
+    })();
+
     const sheetKitchenFor = (kitchen) => {
       if (!kitchen) return null;
       if (isCPKitchen(kitchen)) {
@@ -7028,6 +7043,7 @@
         );
         return item;
       }).filter(item => {
+        if (isClosedKitchen(item.cocina)) return false;
         const hasMain = ["subcategoria", "cocina", "iniciativa", "responsable", "prioridad", "status"]
           .some(key => item[key]);
         return hasMain && !isFixSummaryRow(item);
@@ -7369,7 +7385,7 @@
     // Adds kitchens from the sheet that are missing from static COUNTRIES data.
     // extraKitchens = { MX: [{id, city}], CO: [...], PE: [...] }
     const mergeExtraKitchens = (extraKitchens) => {
-      const PF_NORMS = new Set(['57 SANTAFE MED', '58 VIVA MED', '39 SALVIO', '04 ACOPIO BOG', '55 TITAN', '56 SANTAFE BOG', '61 CHICO CINNABON', '66 PLAZA CLARO CINNA'].map(normalizeText));
+      const PF_NORMS = new Set(['57 SANTAFE MED', '58 VIVA MED', '39 SALVIO', '04 ACOPIO BOG', '55 TITAN', '56 SANTAFE BOG', '61 CHICO CINNABON', '66 PLAZA CLARO CINNA', '67 PLAZA CLARO COURT'].map(normalizeText));
       let added = 0;
       for (const ck of ["MX", "CO", "PE"]) {
         const meta = (extraKitchens || {})[ck] || [];
@@ -7716,7 +7732,7 @@
         results.push(`Preguntas ✓ ${counts} cocinas`);
         window.FORM_SCORES = formScores;
         // Puntos Físicos (PF): excluir del conteo
-        const PF_NORMS = new Set(['57 SANTAFE MED', '58 VIVA MED', '39 SALVIO', '04 ACOPIO BOG', '55 TITAN', '56 SANTAFE BOG', '61 CHICO CINNABON', '66 PLAZA CLARO CINNA'].map(normalizeText));
+        const PF_NORMS = new Set(['57 SANTAFE MED', '58 VIVA MED', '39 SALVIO', '04 ACOPIO BOG', '55 TITAN', '56 SANTAFE BOG', '61 CHICO CINNABON', '66 PLAZA CLARO CINNA', '67 PLAZA CLARO COURT'].map(normalizeText));
         for (const ck of ["MX", "CO", "PE"]) {
           PF_NORMS.forEach(norm => {
             delete formScores[ck].byName[norm];
@@ -7952,6 +7968,7 @@
       dataRows.forEach(row => {
         const c = row.c || [];
         const kraw = displaySheetCell(c[kCol]); if (!kraw) return;
+        if (isClosedKitchen(kraw)) return;
         const nm = normalizeText(kraw);
         const st = {};
         qcols.forEach(({ i, no }) => { const q = metaByNo[no]; const s = window.basicsAnswerState(displaySheetCell(c[i]), q && q.inverted); if (s) st[no] = s; });
