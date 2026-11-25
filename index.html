@@ -1465,6 +1465,8 @@
       cq3Kitchen: null,    // cocina expandida en Comparativo Q3
       cq3Sub: null,        // "cocina||subárea" seleccionada para ver preguntas
       cq3ShowPending: false,
+      mxq3Group: null,     // tarjeta seleccionada en el análisis Q3→Q4 de México
+      mxq3Open: {},        // áreas/básicos expandidos en ese análisis
       selectedKitchen: null,
       detailKitchenId: null,
       basicDetailValue: 0,
@@ -6051,6 +6053,7 @@
         (plans[n + "|" + best.no] = plans[n + "|" + best.no] || []).push(p.iniciativa || "");
       });
       const G = { P_FAIL: [], P_OK: [], NP_FELL: [], NP_STILL: [], NP_IMPROVED: [] };
+      const ALL = [];   // todos los cruces comparables (para % Q3 vs % Q4 por básico/área)
       let kitchens = 0;
       Object.keys(H.byKitchenQuestion).forEach(k3 => {
         const n = kn(k3), k4 = q4k[n]; if (!k4) return; kitchens++;
@@ -6059,21 +6062,26 @@
           const v3 = H.byKitchenQuestion[k3][q.no]; const s4 = S[k4][q4no]; if (v3 == null || !s4) return;
           const f3 = v3 < 100, f4 = (s4 === "no" || s4 === "p");
           const pl = plans[n + "|" + q.no] || [];
-          const rec = { k: k4, n, city: cityOf(k4), q4: q4no, t: (q4by[q4no] || {}).text || "", tema: (q4by[q4no] || {}).tema || "", v3, s4, f3, plan: pl.filter(Boolean).join(" | ") };
+          const rec = { k: k4, n, city: cityOf(k4), q4: q4no, t: (q4by[q4no] || {}).text || "", tema: (q4by[q4no] || {}).tema || "", area: (q4by[q4no] || {}).area || "Sin área", v3, s4, v4: window.basicsValue(s4, "1.0"), f3, plan: pl.filter(Boolean).join(" | ") };
+          ALL.push(rec);
           if (pl.length) (f4 ? G.P_FAIL : G.P_OK).push(rec);
           else if (!f3 && f4) G.NP_FELL.push(rec);
           else if (f3 && f4) G.NP_STILL.push(rec);
           else if (f3 && !f4) G.NP_IMPROVED.push(rec);
         });
       });
-      return { G, kitchens };
+      return { G, ALL, kitchens };
     };
     const mxQ3Q4Panel = () => {
       loadQ3PlansMX();
       const A = mxQ3Q4Compute();
       const box = (inner) => `<div class="panel" style="margin-bottom:14px">${inner}</div>`;
       if (!A) return box(`<div class="detail-title">Análisis Q3 → Q4 · México</div><div class="detail-sub">${window.Q3_PLANS_MX_ERR ? "No se pudieron cargar los planes del Q3 (hoja Fixes MX del archivo anterior)." : "Cargando planes de acción del Q3…"}</div>`);
-      const { G, kitchens } = A;
+      // Filtro de ciudad del encabezado: recalcula tarjetas, tablas y desgloses.
+      const cityF = state.cityFilter && state.cityFilter !== "Todas" ? state.cityFilter : null;
+      const G = {}; Object.keys(A.G).forEach(g => { G[g] = cityF ? A.G[g].filter(r => r.city === cityF) : A.G[g]; });
+      const ALL = cityF ? A.ALL.filter(r => r.city === cityF) : A.ALL;
+      const kitchens = new Set(ALL.map(r => r.k)).size;
       const total = Object.values(G).reduce((s, a) => s + a.length, 0);
       const labels = {
         P_FAIL: ["Tenían plan en Q3 y siguen penalizando", "#c53030", "Plan ejecutado/en proceso, pero el básico vuelve a fallar en Q4."],
@@ -6082,10 +6090,55 @@
         NP_STILL: ["Sin plan: fallaban y siguen fallando", "#9b2c2c", "Falla persistente sin plan de acción."],
         NP_IMPROVED: ["Sin plan: fallaban y mejoraron", "#3182ce", "Mejoraron sin plan formal."],
       };
-      const kpiCard = (g) => `<div style="flex:1;min-width:170px;background:var(--panel);border:1px solid var(--border);border-top:3px solid ${labels[g][1]};border-radius:var(--radius);padding:10px 12px">
+      const sel = state.mxq3Group && G[state.mxq3Group] ? state.mxq3Group : null;
+      const kpiCard = (g) => `<div data-mxq3-group="${g}" title="Clic para ver el desglose por área" style="cursor:pointer;flex:1;min-width:170px;background:${sel === g ? "#f4f8fb" : "var(--panel)"};border:1px solid ${sel === g ? labels[g][1] : "var(--border)"};border-top:3px solid ${labels[g][1]};border-radius:var(--radius);padding:10px 12px;${sel === g ? "box-shadow:0 0 0 2px " + labels[g][1] + "33" : ""}">
           <div style="font-size:11px;color:var(--text-muted);min-height:28px">${labels[g][0]}</div>
           <div style="font-size:22px;font-weight:700;color:${labels[g][1]}">${G[g].length}</div>
-          <div style="font-size:11px;color:var(--text-muted)">${labels[g][2]}</div></div>`;
+          <div style="font-size:11px;color:var(--text-muted)">${labels[g][2]}</div>
+          <div style="font-size:10px;color:${labels[g][1]};margin-top:4px">${sel === g ? "&#9662; Ocultar desglose" : "&#9656; Ver por área"}</div></div>`;
+      // Desglose por área del grupo seleccionado: cuántos básicos y cuánto cambió el % de cada uno.
+      const avg = (a) => a.length ? a.reduce((s, x) => s + x, 0) / a.length : null;
+      const pp = (d) => d == null ? "—" : `${d > 0 ? "+" : ""}${d.toFixed(1)} pp`;
+      const pct = (v) => v == null ? "—" : `${v.toFixed(0)}%`;
+      const drill = (() => {
+        if (!sel) return "";
+        const rows = G[sel]; if (!rows.length) return `<div class="hint" style="margin-top:10px">Sin casos en este grupo${cityF ? " para " + cityF : ""}.</div>`;
+        const areas = [...new Set(rows.map(r => r.area))];
+        const areaData = areas.map(a => {
+          const inG = rows.filter(r => r.area === a), inAll = ALL.filter(r => r.area === a);
+          const basics = [...new Set(inG.map(r => r.q4))].map(no => {
+            const g = inG.filter(r => r.q4 === no), al = ALL.filter(r => r.q4 === no);
+            const q3 = avg(al.map(r => r.v3)), q4 = avg(al.map(r => r.v4));
+            return { no, t: g[0].t, kit: g, q3, q4, d: q3 == null || q4 == null ? null : q4 - q3 };
+          }).sort((x, y) => (x.d ?? 0) - (y.d ?? 0));
+          const q3 = avg(inAll.map(r => r.v3)), q4 = avg(inAll.map(r => r.v4));
+          return { a, nb: basics.length, nc: inG.length, q3, q4, d: q3 == null || q4 == null ? null : q4 - q3, basics };
+        }).sort((x, y) => y.nb - x.nb || y.nc - x.nc);
+        const open = state.mxq3Open || {};
+        const col = labels[sel][1];
+        return `<div style="margin-top:14px;border:1px solid ${col}55;border-radius:var(--radius);padding:12px 14px;background:#fcfdfe">
+          <div style="font-weight:700;color:${col}">${labels[sel][0]} · desglose por área${cityF ? " · " + cityF : ""}</div>
+          <div class="detail-sub" style="margin-bottom:8px">%Q3 → %Q4 = cumplimiento promedio del básico (Basics 1.0) en todas las cocinas comparables${cityF ? " de " + cityF : ""}, no solo las del grupo. Δ más negativo = mayor desmejora.</div>
+          ${areaData.map(ar => {
+            const ok = !!open["a:" + ar.a];
+            return `<div style="border-top:1px solid var(--border)">
+              <div data-mxq3-area="${ar.a}" style="cursor:pointer;display:flex;gap:12px;align-items:center;padding:8px 4px;flex-wrap:wrap">
+                <span style="min-width:92px;font-weight:700">${ok ? "&#9662;" : "&#9656;"} ${ar.a}</span>
+                <span style="font-weight:650;color:${col}">${ar.nb} básico${ar.nb === 1 ? "" : "s"}</span>
+                <span style="font-size:12px;color:var(--text-muted)">${ar.nc} casos cocina-básico</span>
+                <span style="margin-left:auto;font-size:12px">${pct(ar.q3)} → ${pct(ar.q4)} <strong style="color:${ar.d != null && ar.d < 0 ? "#c53030" : "#2f855a"}">${pp(ar.d)}</strong></span>
+              </div>
+              ${ok ? `<div style="padding:0 4px 10px 22px"><table style="width:100%;border-collapse:collapse;font-size:12px">
+                <thead><tr style="color:var(--text-muted);text-align:left"><th style="padding:4px 6px">Básico</th><th style="text-align:center">Cocinas</th><th style="text-align:center">% Q3</th><th style="text-align:center">% Q4</th><th style="text-align:center">Δ</th></tr></thead>
+                <tbody>${ar.basics.map(b => {
+                  const bo = !!open["b:" + ar.a + "|" + b.no];
+                  return `<tr data-mxq3-basic="${ar.a}|${b.no}" style="cursor:pointer;border-top:1px solid var(--border)"><td style="padding:5px 6px">${bo ? "&#9662;" : "&#9656;"} ${b.t}</td><td style="text-align:center">${b.kit.length}</td><td style="text-align:center">${pct(b.q3)}</td><td style="text-align:center">${pct(b.q4)}</td><td style="text-align:center;font-weight:700;color:${b.d != null && b.d < 0 ? "#c53030" : "#2f855a"}">${pp(b.d)}</td></tr>
+                  ${bo ? `<tr><td colspan="5" style="padding:2px 6px 8px 24px;background:#f7f9fb"><table style="width:100%;font-size:11px;border-collapse:collapse"><thead><tr style="color:var(--text-muted);text-align:left"><th>Cocina</th><th>Ciudad</th><th style="text-align:center">Q3</th><th style="text-align:center">Q4</th><th>Plan Q3</th></tr></thead><tbody>${b.kit.sort((x, y) => x.k.localeCompare(y.k)).map(r => `<tr style="border-top:1px solid var(--border)"><td style="padding:3px 0;white-space:nowrap">${r.k}</td><td>${r.city}</td><td style="text-align:center">${r.v3 >= 100 ? "Cumple" : r.v3 > 0 ? "Parcial" : "No cumple"}</td><td style="text-align:center">${r.s4 === "no" ? "No cumple" : r.s4 === "p" ? "Parcial" : "Cumple"}</td><td style="color:var(--text-muted)">${r.plan || "—"}</td></tr>`).join("")}</tbody></table></td></tr>` : ""}`;
+                }).join("")}</tbody></table></div>` : ""}
+            </div>`;
+          }).join("")}
+        </div>`;
+      })();
       const cities = [...new Set(Object.values(G).flat().map(r => r.city))].sort();
       const cityRows = cities.map(c => {
         const cnt = (g) => G[g].filter(r => r.city === c).length;
@@ -6118,6 +6171,7 @@
         <div class="detail-title">Análisis Q3 → Q4 · México · ¿Qué pasó con los planes de acción?</div>
         <div class="detail-sub">${kitchens} cocinas con dato en ambos Q · 37 básicos comparables (las 10 preguntas nuevas del Q4 quedan fuera) · ${total} cruces cocina-básico. Un básico "falla" si es No cumple o Parcial. Planes Q3 = hoja Fixes MX del ciclo anterior (sin despriorizados).</div>
         <div style="margin-top:12px;padding:12px 14px;background:#f4f8fb;border-left:3px solid #3182ce;border-radius:6px;font-size:13px;line-height:1.55">
+          ${cityF ? `<div style="font-size:11px;color:#9b2c2c;margin-bottom:6px">Este resumen es de <strong>todas las ciudades</strong>. Las tarjetas, tablas y desgloses de abajo sí están filtrados por <strong>${cityF}</strong>.</div>` : ""}
           <div style="font-weight:700;margin-bottom:4px">Resumen (redactado con IA · datos al 25-nov-2026)</div>
           <div><strong>Los planes sí sostuvieron en su mayoría:</strong> de 193 básicos con plan de acción en el Q3, 160 (83%) cumplen hoy y 33 (17%) siguen penalizando. De esos 33, 13 ya fallaban en Q3 (el plan no resolvió el problema) y 20 cumplían en Q3 y recayeron pese al plan (cables expuestos y dotación, 4 cada uno; plagas, equipos operativos, drenajes y utensilios, 3 cada uno).</div>
           <div style="margin-top:6px"><strong>El problema mayor está donde no había plan:</strong> 152 básicos que cumplían en Q3 hoy fallan, contra 168 que mejoraron sin plan y 106 que siguen fallando sin plan. Lo que más cayó: coladeras y drenajes (16), piso sin losetas sueltas (9), soclos (8), vajilla suficiente (8), equipos operativos (7) y almacenamiento del menaje (7). Por tema, Pisos/paredes/techos (27) y Sistemas de agua y drenaje (26) concentran más penalización.</div>
@@ -6126,6 +6180,7 @@
           <div style="margin-top:6px;font-size:11px;color:var(--text-muted)">Texto fijo: no se recalcula solo. Las tarjetas y tablas de abajo sí se actualizan con los datos en vivo.</div>
         </div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">${["P_FAIL", "P_OK", "NP_FELL", "NP_STILL", "NP_IMPROVED"].map(kpiCard).join("")}</div>
+        ${drill}
         <div style="margin-top:6px;font-size:11px;color:var(--text-muted)">Con plan en Q3: ${plansN} cruces · ${plansN ? Math.round(pokN / plansN * 100) : 0}% se sostuvieron.</div>
         <div style="font-weight:650;margin:14px 0 6px">Por ciudad (cruces cocina-básico)</div>
         <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="background:var(--dark-blue,#12324a);color:#fff">
@@ -6465,6 +6520,28 @@
         const name = cq3KEl.dataset.cq3Kitchen;
         if (state.cq3Kitchen === name) { state.cq3Kitchen = null; state.cq3Sub = null; }
         else { state.cq3Kitchen = name; state.cq3Sub = null; }
+        renderComparativoQ3();
+        return;
+      }
+      const mxGrpEl = event.target.closest("[data-mxq3-group]");
+      if (mxGrpEl) {
+        const g = mxGrpEl.dataset.mxq3Group;
+        state.mxq3Group = state.mxq3Group === g ? null : g;
+        state.mxq3Open = {};
+        renderComparativoQ3();
+        return;
+      }
+      const mxAreaEl = event.target.closest("[data-mxq3-area]");
+      if (mxAreaEl) {
+        const k = "a:" + mxAreaEl.dataset.mxq3Area;
+        state.mxq3Open = { ...state.mxq3Open, [k]: !state.mxq3Open[k] };
+        renderComparativoQ3();
+        return;
+      }
+      const mxBasEl = event.target.closest("[data-mxq3-basic]");
+      if (mxBasEl) {
+        const k = "b:" + mxBasEl.dataset.mxq3Basic;
+        state.mxq3Open = { ...state.mxq3Open, [k]: !state.mxq3Open[k] };
         renderComparativoQ3();
         return;
       }
