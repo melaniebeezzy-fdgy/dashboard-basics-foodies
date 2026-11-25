@@ -4506,7 +4506,9 @@
       if (!state.ganttExpandedMonths) state.ganttExpandedMonths = new Set([curM]);
       const expanded = state.ganttExpandedMonths;
       const periods = [];
-      for (let m = qStart; m < qStart + 3; m++) {
+      // En Q4 se agrega enero del año siguiente (m = 12 → Date lo resuelve a ene-2027).
+      const qEnd = qStart + (reportQuarter() === 4 ? 4 : 3);
+      for (let m = qStart; m < qEnd; m++) {
         if (expanded.has(m)) {
           // Desglosar el mes en semanas
           const last = new Date(year, m + 1, 0);
@@ -4517,9 +4519,9 @@
             const wEnd   = new Date(d); wEnd.setDate(wEnd.getDate() + 6);
             const cutoff = wEnd > last ? new Date(last) : new Date(wEnd);
             periods.push({
-              key: `m${m}-w${wk}`, label: `${MN[m]} S${wk}`, shortLabel: `S${wk}`,
+              key: `m${m}-w${wk}`, label: `${MN[m % 12]} S${wk}`, shortLabel: `S${wk}`,
               start: wStart, end: cutoff,
-              isWeek: true, month: m, monthName: MN[m],
+              isWeek: true, month: m, monthName: MN[m % 12],
               isCurrentWeek: wStart <= now && now <= cutoff,
             });
             wk++;
@@ -4527,9 +4529,9 @@
           }
         } else {
           periods.push({
-            key: `m${m}`, label: MN[m], shortLabel: MN[m],
+            key: `m${m}`, label: MN[m % 12], shortLabel: MN[m % 12],
             start: new Date(year, m, 1), end: new Date(year, m + 1, 0),
-            isWeek: false, month: m, monthName: MN[m], isCurrentWeek: false,
+            isWeek: false, month: m, monthName: MN[m % 12], isCurrentWeek: false,
           });
         }
       }
@@ -5406,7 +5408,7 @@
         if (projStatusIsDepri(f)) return;
         const dt = ganttEndDate(f) || ganttStartDate(f);
         if (!dt) return;
-        const mo = dt.getMonth();
+        const mo = dt.getMonth() + (dt.getFullYear() - REPORT_YEAR) * 12;   // enero del año siguiente = 12
         const a = monthAgg[mo] = monthAgg[mo] || { n: 0, budget: 0, done: 0 };
         a.n += 1;
         a.budget += fixBudgetAmount(f);
